@@ -130,7 +130,7 @@ namespace Trucardo.Core
                 if (client.Value.ClientId == playerId)
                 {
                     startPos = client.Value.PlayerObject.transform.position + client.Value.PlayerObject.transform.forward * 0.8f;
-                    startPos.y = 1.0f; 
+                    startPos.y = 0.80f; 
                     
                     Vector3 forwardOnTable = client.Value.PlayerObject.transform.forward;
                     forwardOnTable.y = 0;
@@ -153,7 +153,8 @@ namespace Trucardo.Core
             // Separación del centro de la mesa
             float zOffset = (playerId == player1Id) ? -0.18f : 0.18f;
             
-            Vector3 targetPos = new Vector3(xOffset, 0.952f, zOffset); // 0.952 es la superficie de la mesa
+            // Bajamos las cartas 20cm (antes 0.952f, ahora 0.752f) para coincidir con la mesa baja
+            Vector3 targetPos = new Vector3(xOffset, 0.752f, zOffset); 
             
             // Rotar para que queden derechas mirando hacia el jugador que las tiró
             float yRot = (playerId == player1Id) ? 0 : 180;

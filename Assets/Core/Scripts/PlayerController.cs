@@ -22,7 +22,10 @@ namespace Trucardo.Core
         private CharacterController characterController;
         private float verticalLookRotation = 0f;
         public NetworkVariable<float> headPitch = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<float> netSpeed = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<bool> netIsSeated = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         private Transform headTransform;
+        private Animator animator;
         private bool isSeated = false;
 
         [Header("Referencias a Prefabs")]
@@ -42,17 +45,37 @@ namespace Trucardo.Core
         private ulong localLastCallerId;
         private GameServer serverInstance;
 
+        private Camera firstPersonCamera;
+        private Camera thirdPersonCamera;
+
         public override void OnNetworkSpawn()
         {
             characterController = GetComponent<CharacterController>();
+            
+            Transform visuals = transform.Find("Visuals");
+            if (visuals != null)
+            {
+                animator = visuals.GetComponentInChildren<Animator>();
+            }
+            else
+            {
+                animator = GetComponentInChildren<Animator>();
+            }
+
             headTransform = transform.Find("Cabeza");
             
             if (cameraTransform != null)
                 cameraTransform.localEulerAngles = Vector3.zero;
 
-
             if (IsOwner)
             {
+                // Crear cámara de 3ra persona para debug
+                GameObject tpCamObj = new GameObject("ThirdPersonCamera");
+                tpCamObj.transform.SetParent(transform);
+                tpCamObj.transform.localPosition = new Vector3(2f, 2.5f, -2.5f); // Un poco a la derecha, arriba y atras
+                tpCamObj.transform.localRotation = Quaternion.Euler(20f, -35f, 0f); // Mirando hacia el jugador
+                thirdPersonCamera = tpCamObj.AddComponent<Camera>();
+                thirdPersonCamera.enabled = false;
                 // Mover al punto de aparición (Host a Spawn1, Cliente a Spawn2)
                 GameObject spawn = IsServer ? GameObject.Find("SpawnPoint1") : GameObject.Find("SpawnPoint2");
                 if (spawn != null)
@@ -68,7 +91,11 @@ namespace Trucardo.Core
                     if (mesh != null) mesh.GetComponent<MeshRenderer>().enabled = false;
                 }
                 
-                if (cameraTransform != null) cameraTransform.gameObject.SetActive(true);
+                if (cameraTransform != null)
+                {
+                    cameraTransform.gameObject.SetActive(true);
+                    firstPersonCamera = cameraTransform.GetComponent<Camera>();
+                }
 
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
@@ -78,114 +105,53 @@ namespace Trucardo.Core
                 if (cameraTransform != null) cameraTransform.gameObject.SetActive(false);
             }
 
-            BuildGauchoVisuals();
+            // Configuramos los renderers visuales para el jugador local
+            if (IsOwner)
+            {
+                SetupLocalPlayerVisuals();
+            }
         }
 
-        private void BuildGauchoVisuals()
+        private void SetupLocalPlayerVisuals()
         {
-            // Host es 0, Cliente es 1
-            bool isHost = OwnerClientId == 0;
-            Color teamColor = isHost ? Color.blue : Color.red;
-            Color skinColor = new Color(0.9f, 0.75f, 0.6f);
-            Color hatColor = new Color(0.4f, 0.2f, 0.05f); // Marron
-            Color mustacheColor = Color.black;
-
-            Transform cabeza = transform.Find("Cabeza");
-            Transform cuerpo = transform.Find("Cuerpo");
-            
-            Material baseMat = null;
-            if (cuerpo != null && cuerpo.GetComponent<MeshRenderer>() != null)
+            // Ocultar la cabeza del jugador local, pero mantener la sombra (Cast Shadows: Shadows Only)
+            // para que no obstruya el frustum de la camara en primera persona.
+            // Intento buscar la cabeza o sombrero recursivamente con nombres flexibles
+            Renderer[] renderers = GetComponentsInChildren<Renderer>();
+            bool headHidden = false;
+            foreach (var r in renderers)
             {
-                baseMat = cuerpo.GetComponent<MeshRenderer>().material;
-            }
-            if (baseMat == null) return;
-
-            Material skinMat = new Material(baseMat) { color = skinColor };
-            Material hatMat = new Material(baseMat) { color = hatColor };
-            Material mustacheMat = new Material(baseMat) { color = mustacheColor };
-            Material eyeMat = new Material(baseMat) { color = Color.black };
-            Material ponchoMat = new Material(baseMat) { color = teamColor }; // El poncho lleva el color del equipo
-
-            if (cuerpo != null)
-            {
-                // Achicar el cuerpo para que sea mas un cuadrado y no tan ancho/largo
-                cuerpo.localScale = new Vector3(0.35f, 0.6f, 0.25f); 
-                cuerpo.localPosition = new Vector3(0, 0.7f, 0); // Ajustar altura para que se conecte con la cabeza (y=1.25)
-                
-                MeshRenderer mr = cuerpo.GetComponent<MeshRenderer>();
-                if (mr != null) mr.material = ponchoMat;
-            }
-
-            if (cabeza != null)
-            {
-                MeshRenderer mr = cabeza.GetComponent<MeshRenderer>();
-                if (mr != null) mr.material = skinMat;
-
-                // Sombrero Base
-                GameObject hat = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                hat.name = "Sombrero";
-                hat.transform.SetParent(cabeza);
-                hat.transform.localPosition = new Vector3(0, 0.45f, 0); // En la parte superior de la esfera
-                hat.transform.localScale = new Vector3(1.3f, 0.05f, 1.3f);
-                hat.GetComponent<MeshRenderer>().material = hatMat;
-                Destroy(hat.GetComponent<Collider>());
-
-                // Sombrero Copa
-                GameObject hatTop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                hatTop.name = "CopaSombrero";
-                hatTop.transform.SetParent(cabeza);
-                hatTop.transform.localPosition = new Vector3(0, 0.6f, 0); // Arriba de la base
-                hatTop.transform.localScale = new Vector3(0.7f, 0.15f, 0.7f);
-                hatTop.GetComponent<MeshRenderer>().material = hatMat;
-                Destroy(hatTop.GetComponent<Collider>());
-
-                // Cinta Sombrero (Color del equipo)
-                GameObject hatBand = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                hatBand.name = "CintaSombrero";
-                hatBand.transform.SetParent(cabeza);
-                hatBand.transform.localPosition = new Vector3(0, 0.48f, 0);
-                hatBand.transform.localScale = new Vector3(0.72f, 0.04f, 0.72f);
-                hatBand.GetComponent<MeshRenderer>().material = ponchoMat;
-                Destroy(hatBand.GetComponent<Collider>());
-
-                // Bigote
-                GameObject mustache = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                mustache.name = "Bigote";
-                mustache.transform.SetParent(cabeza);
-                mustache.transform.localPosition = new Vector3(0, -0.15f, 0.45f);
-                mustache.transform.localScale = new Vector3(0.6f, 0.1f, 0.15f);
-                mustache.GetComponent<MeshRenderer>().material = mustacheMat;
-                Destroy(mustache.GetComponent<Collider>());
-
-                // Ojo Izquierdo
-                GameObject eyeL = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                eyeL.name = "OjoIzq";
-                eyeL.transform.SetParent(cabeza);
-                eyeL.transform.localPosition = new Vector3(-0.2f, 0.1f, 0.42f);
-                eyeL.transform.localScale = new Vector3(0.15f, 0.15f, 0.15f);
-                eyeL.GetComponent<MeshRenderer>().material = eyeMat;
-                Destroy(eyeL.GetComponent<Collider>());
-                
-                // Ojo Derecho
-                GameObject eyeR = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                eyeR.name = "OjoDer";
-                eyeR.transform.SetParent(cabeza);
-                eyeR.transform.localPosition = new Vector3(0.2f, 0.1f, 0.42f);
-                eyeR.transform.localScale = new Vector3(0.15f, 0.15f, 0.15f);
-                eyeR.GetComponent<MeshRenderer>().material = eyeMat;
-                Destroy(eyeR.GetComponent<Collider>());
-
-                // Ocultar mallas para el jugador local para que no obstruyan la vista de la camara
-                if (IsOwner)
+                string n = r.gameObject.name.ToLower();
+                if (n.Contains("head") || n.Contains("cabeza") || n.Contains("cebeza") || n.Contains("sombrero") || n.Contains("hat") || n.Contains("gorro"))
                 {
-                    hat.GetComponent<MeshRenderer>().enabled = false;
-                    hatTop.GetComponent<MeshRenderer>().enabled = false;
-                    hatBand.GetComponent<MeshRenderer>().enabled = false;
-                    mustache.GetComponent<MeshRenderer>().enabled = false;
-                    eyeL.GetComponent<MeshRenderer>().enabled = false;
-                    eyeR.GetComponent<MeshRenderer>().enabled = false;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                    headHidden = true;
                 }
             }
+
+            // Fallback si resulta que exportaron todo junto en una sola malla
+            if (!headHidden && renderers.Length == 1)
+            {
+                // Si hay 1 sola malla, no podemos ocultar la cabeza sin ocultar el cuerpo.
+                // Lo dejamos así, el problema de ver el sombrero se mitigará ajustando la cámara.
+            }
+
+            // Ocultar placeholders antiguos en caso de que existan en el array manual
+            foreach (var meshObj in localMeshesToHide)
+            {
+                if (meshObj != null) 
+                {
+                    Renderer mr = meshObj.GetComponent<Renderer>();
+                    if (mr != null) mr.enabled = false;
+                }
+            }
+
+            if (firstPersonCamera == null)
+            {
+                Transform fpCamTrans = transform.Find("Cabeza/FirstPersonCamera");
+                if (fpCamTrans != null) firstPersonCamera = fpCamTrans.GetComponent<Camera>();
+            }
+            if (firstPersonCamera == null) firstPersonCamera = GetComponentInChildren<Camera>();
         }
 
         public void ReceiveCards(int[] cards)
@@ -208,26 +174,25 @@ namespace Trucardo.Core
                 if (handVisualizer == null)
                 {
                     handVisualizer = gameObject.AddComponent<HandVisualizer>();
-                    
-                    // Configuración absoluta (Player 1 está en -Z, Player 2 en +Z)
-                    handVisualizer.absoluteZ = (NetworkManager.Singleton.IsServer) ? -0.55f : 0.55f;
-                    handVisualizer.sideSpacing = 0.2f; 
-                    handVisualizer.absoluteY = 1.03f; // Valores ajustados por el usuario
-                    handVisualizer.tiltAngle = -35f; 
                 }
+                
+                float mySideZ = transform.position.z > 0 ? 0.55f : -0.55f;
+                handVisualizer.absoluteZ = mySideZ;
+                handVisualizer.sideSpacing = 0.2f; 
+                handVisualizer.absoluteY = 0.83f; 
+                handVisualizer.tiltAngle = -35f; 
                 
                 handVisualizer.cardsInHand.Clear();
 
                 if (opponentHandVisualizer == null)
                 {
                     opponentHandVisualizer = gameObject.AddComponent<HandVisualizer>();
-                    
-                    // El oponente está en el lado contrario
-                    opponentHandVisualizer.absoluteZ = (NetworkManager.Singleton.IsServer) ? 0.55f : -0.55f;
-                    opponentHandVisualizer.sideSpacing = 0.2f;
-                    opponentHandVisualizer.absoluteY = 1.0f; // Valores ajustados por el usuario
-                    opponentHandVisualizer.tiltAngle = -35f;
                 }
+                
+                opponentHandVisualizer.absoluteZ = -mySideZ;
+                opponentHandVisualizer.sideSpacing = 0.2f;
+                opponentHandVisualizer.absoluteY = 0.80f; 
+                opponentHandVisualizer.tiltAngle = -35f;
                 
                 opponentHandVisualizer.cardsInHand.Clear();
 
@@ -269,17 +234,114 @@ namespace Trucardo.Core
         {
             if (IsOwner)
             {
+                if (UnityEngine.InputSystem.Keyboard.current.digit0Key.wasPressedThisFrame)
+                {
+                    if (firstPersonCamera == null && cameraTransform != null) firstPersonCamera = cameraTransform.GetComponent<Camera>();
+                    if (firstPersonCamera == null) firstPersonCamera = GetComponentInChildren<Camera>(); // Fallback agresivo
+                    
+                    if (firstPersonCamera != null && thirdPersonCamera != null)
+                    {
+                        bool isFP = firstPersonCamera.enabled;
+                        firstPersonCamera.enabled = !isFP;
+                        thirdPersonCamera.enabled = isFP;
+                        Debug.Log("Cambiando camara a: " + (isFP ? "Tercera Persona" : "Primera Persona"));
+                    }
+                    else
+                    {
+                        Debug.LogError("Error al cambiar camara: fpc=" + (firstPersonCamera!=null) + " tpc=" + (thirdPersonCamera!=null));
+                    }
+                }
+
+                netIsSeated.Value = isSeated;
+                if (!isSeated)
+                {
+                    // Usamos la entrada de teclado directo para asegurar que la animacion responda al instante
+                    Vector2 input = Vector2.zero;
+                    if (UnityEngine.InputSystem.Keyboard.current.wKey.isPressed) input.y += 1;
+                    if (UnityEngine.InputSystem.Keyboard.current.sKey.isPressed) input.y -= 1;
+                    if (UnityEngine.InputSystem.Keyboard.current.aKey.isPressed) input.x -= 1;
+                    if (UnityEngine.InputSystem.Keyboard.current.dKey.isPressed) input.x += 1;
+                    
+                    netSpeed.Value = input.magnitude > 0.1f ? 1.0f : 0f;
+                }
+                else
+                {
+                    netSpeed.Value = 0f;
+                }
+
                 HandleLook();
-                if (!isSeated) HandleMovement();
-                
-                HandleInputs();
+                if (!isSeated) 
+                {
+                    HandleMovement();
+                }
+                else
+                {
+                    HandleInputs();
+                }
             }
 
-            // Aplicar rotacion de la cabeza (Pitch) para todos (owner y remotos)
-            // Se sincroniza a traves de la NetworkVariable headPitch
+            // Aplicar variables de red al Animator local (para todos)
+            if (animator == null) animator = GetComponentInChildren<Animator>(); 
+            if (animator != null && animator.runtimeAnimatorController != null)
+            {
+                animator.SetBool("IsSeated", netIsSeated.Value);
+                animator.SetFloat("Speed", netSpeed.Value);
+            }
+
+            // Deslizar suavemente el modelo visual hacia arriba para acomodarlo en la silla
+            Transform visuals = transform.Find("Visuals");
+            if (visuals != null)
+            {
+                if (netIsSeated.Value)
+                {
+                    // Si el personaje es de escala 1.5, necesitamos que suba para que las nalgas toquen la silla.
+                    // Pero si sube demasiado, flota. Ajustaremos esto a 0.25f para que no flote tanto.
+                    visuals.localPosition = Vector3.MoveTowards(visuals.localPosition, new Vector3(0, 0.2f, 0), Time.deltaTime * 0.6f);
+                }
+                else
+                {
+                    visuals.localPosition = Vector3.MoveTowards(visuals.localPosition, Vector3.zero, Time.deltaTime * 2f);
+                }
+            }
+
+            // Aplicar rotacion de la cabeza (Pitch) para todos
             if (headTransform != null)
             {
+                // Como los pivotes de los huesos de Blender están en el pecho, usaremos una altura FIJA basada en si está sentado o no.
+                // Altura de ojos de pie = 1.55m. Altura de ojos sentado = 1.35m
+                float targetCamHeight = netIsSeated.Value ? 1.35f : 1.55f;
+                headTransform.localPosition = new Vector3(0, targetCamHeight, 0);
+                
                 headTransform.localEulerAngles = new Vector3(headPitch.Value, 0f, 0f);
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (!IsOwner) return;
+
+            // HACK DE PRIMERA PERSONA: Ocultar cabeza. 
+            // DEBE ir en LateUpdate, de lo contrario la animacion de Unity sobreescribe la escala en cada frame
+            if (animator != null && firstPersonCamera != null)
+            {
+                Transform headBone = null;
+                Transform[] allBones = animator.GetComponentsInChildren<Transform>();
+                foreach (var bone in allBones)
+                {
+                    if (bone.name.ToLower().Contains("head") && !bone.name.ToLower().Contains("top"))
+                    {
+                        headBone = bone;
+                        break;
+                    }
+                }
+                
+                if (headBone != null)
+                {
+                    if (firstPersonCamera.enabled)
+                        headBone.localScale = new Vector3(0.001f, 0.001f, 0.001f);
+                    else
+                        headBone.localScale = Vector3.one;
+                }
             }
         }
 
@@ -288,10 +350,9 @@ namespace Trucardo.Core
             if (Mouse.current == null) return;
             Vector2 mouseDelta = Mouse.current.delta.ReadValue();
 
-            // Rotar cuerpo de izquierda a derecha (esto se sincroniza por el NetworkTransform del root)
+            // Rotar cuerpo de izquierda a derecha
             transform.Rotate(Vector3.up * mouseDelta.x * lookSensitivity);
 
-            // Calcular rotacion de arriba a abajo y guardarla en la NetworkVariable (que el Owner puede escribir)
             verticalLookRotation -= mouseDelta.y * lookSensitivity;
             verticalLookRotation = Mathf.Clamp(verticalLookRotation, -90f, 90f);
             
@@ -307,7 +368,18 @@ namespace Trucardo.Core
             if (Keyboard.current.dKey.isPressed) moveInput.x += 1;
 
             Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
-            characterController.Move(move * walkSpeed * Time.deltaTime);
+            move *= walkSpeed;
+            
+            if (!characterController.isGrounded)
+            {
+                move.y += Physics.gravity.y;
+            }
+            else
+            {
+                move.y = -2f; 
+            }
+
+            characterController.Move(move * Time.deltaTime);
 
             if (Keyboard.current.eKey.wasPressedThisFrame)
             {
@@ -319,7 +391,6 @@ namespace Trucardo.Core
         {
             if (!isSeated) return;
 
-            // Click para jugar carta
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             {
                 Ray ray = new Ray(headTransform.position, headTransform.forward);
@@ -333,7 +404,6 @@ namespace Trucardo.Core
                     }
                     else if (visual == null) 
                     {
-                        // Si hace click y pega en un collider hijo (ej. el quad de la carta)
                         visual = hit.collider.GetComponentInParent<CardVisual>();
                         if (visual != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(visual))
                         {
@@ -342,7 +412,6 @@ namespace Trucardo.Core
                         }
                         else 
                         {
-                            // Si aun asi no lo encuentra, intentar buscar por la jerarquia
                             for (int i = 0; i < 3; i++)
                             {
                                 if (localCardInstances[i] != null && hit.collider.transform.IsChildOf(localCardInstances[i].transform))
@@ -366,7 +435,19 @@ namespace Trucardo.Core
                 if (Keyboard.current.qKey.wasPressedThisFrame) CallAction("Truco");
                 if (Keyboard.current.aKey.wasPressedThisFrame) CallAction("Accept");
                 if (Keyboard.current.nKey.wasPressedThisFrame) CallAction("Decline");
+                if (Keyboard.current.pKey.wasPressedThisFrame) StandUp();
             }
+        }
+
+        private void StandUp()
+        {
+            if (!isSeated) return;
+            isSeated = false;
+            
+            // Moverse apenas hacia atrás (0.5m) para salir de la colision de la silla
+            if (characterController != null) characterController.enabled = false;
+            transform.position = transform.position - transform.forward * 0.5f;
+            if (characterController != null) characterController.enabled = true;
         }
 
         private void CallAction(string actionType)
@@ -387,7 +468,6 @@ namespace Trucardo.Core
         {
             if (myCards[handSlot] == -1) return;
 
-            // Validar turno en el cliente para evitar que la carta desaparezca si clickeamos cuando no es nuestro turno
             if (localGameState != GameState.TurnoJugador || localTurnId != NetworkManager.Singleton.LocalClientId) 
             {
                 Debug.LogWarning("No es tu turno para jugar una carta.");
@@ -414,12 +494,11 @@ namespace Trucardo.Core
 
         private void TrySitDown()
         {
-            // Buscar sillas por nombre para evitar problemas de Tags no definidos
             GameObject chair1 = GameObject.Find("Silla1");
             GameObject chair2 = GameObject.Find("Silla2");
             
             GameObject closestChair = null;
-            float minDistance = 10f; // Distancia máxima para sentarse (aumentada para que no tengas que caminar hasta la silla)
+            float minDistance = 10f; 
 
             if (chair1 != null)
             {
@@ -434,14 +513,12 @@ namespace Trucardo.Core
 
             if (closestChair != null)
             {
-                // Para teletransportar un CharacterController, primero hay que apagarlo
                 if (characterController != null) characterController.enabled = false;
 
-                // Anclar jugador a la silla (Altura media para no tapar cartas pero no quedar arriba de la mesa)
-                Vector3 toCenter = (new Vector3(0, closestChair.transform.position.y, 0) - closestChair.transform.position).normalized;
-                transform.position = closestChair.transform.position + Vector3.up * 0.35f; 
-                // Mirar al centro de la mesa
-                transform.LookAt(new Vector3(0, transform.position.y, 0));
+                // Anclar jugador exactamente al piso (Y=0) en la posicion X/Z de la silla, 
+                // ya que el pivote de la silla podria estar en el centro y no en el piso!
+                transform.position = new Vector3(closestChair.transform.position.x, 0f, closestChair.transform.position.z); 
+                transform.LookAt(new Vector3(0, 0f, 0));
                 
                 isSeated = true;
                 
