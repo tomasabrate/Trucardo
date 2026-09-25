@@ -12,6 +12,7 @@ namespace Trucardo.Core
         public float tiltAngle = -35f; 
         
         [Header("Referencias")]
+        public Transform tableCenter; // <--- AGREGADO: Centro de la mesa principal
         public List<CardVisual> cardsInHand = new List<CardVisual>();
         
         public void AddCardToHand(CardVisual newCard)
@@ -28,43 +29,40 @@ namespace Trucardo.Core
             if (cardsInHand.Contains(cardPlayed))
             {
                 cardsInHand.Remove(cardPlayed);
-                ArrangeHand(); // Re-acomodar el abanico con las cartas restantes
+                ArrangeHand();
             }
         }
         
-        // Calcula y posiciona las cartas usando coordenadas absolutas de la mesa
         private void ArrangeHand()
         {
+            Vector3 centerPos = tableCenter != null ? tableCenter.position : Vector3.zero;
+
             for (int i = 0; i < cardsInHand.Count; i++)
             {
                 if (cardsInHand[i] == null) continue;
                 
-                // Separación horizontal (ej. Izquierda, Centro, Derecha)
                 float xOffset = (i - 1) * sideSpacing;
-                
-                // Si solo quedan 2 cartas, centramos el offset
                 if (cardsInHand.Count == 2) xOffset = (i == 0) ? -sideSpacing / 2f : sideSpacing / 2f;
                 else if (cardsInHand.Count == 1) xOffset = 0f;
 
-                // Si estamos en el lado positivo de Z (+0.6), invertimos el X para que se vea de izq a der desde ese lado
                 if (absoluteZ > 0) xOffset = -xOffset;
                 
-                Vector3 targetPos = new Vector3(xOffset, absoluteY, absoluteZ);
+                // Se le suma la posición del centro de la mesa
+                Vector3 targetPos = new Vector3(centerPos.x + xOffset, centerPos.y + absoluteY, centerPos.z + absoluteZ);
                 
-                // Rotar para que la carta mire hacia el centro de la mesa
                 float yRot = (absoluteZ < 0) ? 0f : 180f; 
                 Quaternion targetRot = Quaternion.Euler(tiltAngle, yRot, 0f);
                 
-                // Animar el re-acomodo en la mano
                 cardsInHand[i].AnimateTo(targetPos, targetRot, 0.4f, false);
             }
         }
 
-        // Se ejecuta automáticamente en Unity cuando cambias un valor en el Inspector
         private void OnValidate()
         {
             if (Application.isPlaying)
             {
+                Vector3 centerPos = tableCenter != null ? tableCenter.position : Vector3.zero;
+
                 for (int i = 0; i < cardsInHand.Count; i++)
                 {
                     if (cardsInHand[i] == null) continue;
@@ -74,11 +72,10 @@ namespace Trucardo.Core
                     else if (cardsInHand.Count == 1) xOffset = 0f;
                     if (absoluteZ > 0) xOffset = -xOffset;
                     
-                    Vector3 targetPos = new Vector3(xOffset, absoluteY, absoluteZ);
+                    Vector3 targetPos = new Vector3(centerPos.x + xOffset, centerPos.y + absoluteY, centerPos.z + absoluteZ);
                     float yRot = (absoluteZ < 0) ? 0f : 180f; 
                     Quaternion targetRot = Quaternion.Euler(tiltAngle, yRot, 0f);
                     
-                    // Cuando editas en el inspector forzamos el cambio instantáneo para que lo veas fluido
                     cardsInHand[i].transform.position = targetPos;
                     cardsInHand[i].transform.rotation = targetRot;
                 }

@@ -21,7 +21,9 @@ namespace Trucardo.Core
 
         private CharacterController characterController;
         private float verticalLookRotation = 0f;
+        private float horizontalHeadRotation = 0f;
         public NetworkVariable<float> headPitch = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<float> headYaw = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public NetworkVariable<float> netSpeed = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public NetworkVariable<bool> netIsSeated = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         private Transform headTransform;
@@ -292,55 +294,66 @@ namespace Trucardo.Core
             Transform visuals = transform.Find("Visuals");
             if (visuals != null)
             {
+                // Mantenemos su X y Z original por si el modelo no está centrado perfectamente
+                float currentX = visuals.localPosition.x;
+                float currentZ = visuals.localPosition.z;
+                
                 if (netIsSeated.Value)
                 {
-                    // Si el personaje es de escala 1.5, necesitamos que suba para que las nalgas toquen la silla.
-                    // Pero si sube demasiado, flota. Ajustaremos esto a 0.25f para que no flote tanto.
-                    visuals.localPosition = Vector3.MoveTowards(visuals.localPosition, new Vector3(0, 0.2f, 0), Time.deltaTime * 0.6f);
+                    // Subimos un poco en Y para que no se hunda en la silla
+                    visuals.localPosition = Vector3.MoveTowards(visuals.localPosition, new Vector3(currentX, 0.35f, currentZ), Time.deltaTime * 0.6f);
                 }
                 else
                 {
-                    visuals.localPosition = Vector3.MoveTowards(visuals.localPosition, Vector3.zero, Time.deltaTime * 2f);
+                    visuals.localPosition = Vector3.MoveTowards(visuals.localPosition, new Vector3(currentX, 0f, currentZ), Time.deltaTime * 2f);
                 }
             }
 
-            // Aplicar rotacion de la cabeza (Pitch) para todos
+            // Aplicar rotacion de la cabeza (Pitch y Yaw) para todos
             if (headTransform != null)
             {
-                // Como los pivotes de los huesos de Blender están en el pecho, usaremos una altura FIJA basada en si está sentado o no.
-                // Altura de ojos de pie = 1.55m. Altura de ojos sentado = 1.35m
+                // Adelantamos la cámara un poco (0.25 en Z) para que no vea su propio cuello/cuerpo al mirar hacia abajo
                 float targetCamHeight = netIsSeated.Value ? 1.35f : 1.55f;
-                headTransform.localPosition = new Vector3(0, targetCamHeight, 0);
+                headTransform.localPosition = new Vector3(0, targetCamHeight, 0.25f);
                 
-                headTransform.localEulerAngles = new Vector3(headPitch.Value, 0f, 0f);
+                headTransform.localEulerAngles = new Vector3(headPitch.Value, headYaw.Value, 0f);
             }
         }
 
+        private Transform cachedHeadBone;
+
         private void LateUpdate()
         {
-            if (!IsOwner) return;
-
-            // HACK DE PRIMERA PERSONA: Ocultar cabeza. 
-            // DEBE ir en LateUpdate, de lo contrario la animacion de Unity sobreescribe la escala en cada frame
-            if (animator != null && firstPersonCamera != null)
+            if (animator != null)
             {
-                Transform headBone = null;
-                Transform[] allBones = animator.GetComponentsInChildren<Transform>();
-                foreach (var bone in allBones)
+                if (cachedHeadBone == null)
                 {
-                    if (bone.name.ToLower().Contains("head") && !bone.name.ToLower().Contains("top"))
+                    Transform[] allBones = animator.GetComponentsInChildren<Transform>();
+                    foreach (var bone in allBones)
                     {
-                        headBone = bone;
-                        break;
+                        if (bone.name.ToLower().Contains("head") && !bone.name.ToLower().Contains("top"))
+                        {
+                            cachedHeadBone = bone;
+                            break;
+                        }
                     }
                 }
                 
-                if (headBone != null)
+                if (cachedHeadBone != null)
                 {
-                    if (firstPersonCamera.enabled)
-                        headBone.localScale = new Vector3(0.001f, 0.001f, 0.001f);
-                    else
-                        headBone.localScale = Vector3.one;
+                    // 1. Ocultar la cabeza solo para el jugador local en Primera Persona
+                    if (IsOwner && firstPersonCamera != null)
+                    {
+                        if (firstPersonCamera.gameObject.activeInHierarchy && firstPersonCamera.enabled)
+                            cachedHeadBone.localScale = new Vector3(0.001f, 0.001f, 0.001f);
+                        else
+                            cachedHeadBone.localScale = Vector3.one;
+                    }
+
+                    // 2. Rotar el hueso de la cabeza visualmente para TODOS los clientes
+                    // Usamos RotateAround con los ejes globales del jugador para evitar problemas con los ejes locales del hueso
+                    cachedHeadBone.RotateAround(cachedHeadBone.position, transform.right, headPitch.Value);
+                    cachedHeadBone.RotateAround(cachedHeadBone.position, transform.up, headYaw.Value);
                 }
             }
         }
@@ -350,8 +363,49 @@ namespace Trucardo.Core
             if (Mouse.current == null) return;
             Vector2 mouseDelta = Mouse.current.delta.ReadValue();
 
-            // Rotar cuerpo de izquierda a derecha
-            transform.Rotate(Vector3.up * mouseDelta.x * lookSensitivity);
+            if (!isSeated)
+            {
+                // Primero rotamos la cabeza
+                horizontalHeadRotation += mouseDelta.x * lookSensitivity;
+                
+                // Límite de grados que la cabeza puede girar antes de arrastrar el cuerpo
+                float maxHeadYaw = 55f; 
+                
+                if (horizontalHeadRotation > maxHeadYaw)
+                {
+                    float excess = horizontalHeadRotation - maxHeadYaw;
+                    transform.Rotate(Vector3.up * excess);
+                    horizontalHeadRotation = maxHeadYaw;
+                }
+                else if (horizontalHeadRotation < -maxHeadYaw)
+                {
+                    float excess = horizontalHeadRotation - (-maxHeadYaw);
+                    transform.Rotate(Vector3.up * excess);
+                    horizontalHeadRotation = -maxHeadYaw;
+                }
+
+                // Si el personaje está caminando, alineamos gradualmente el cuerpo hacia donde mira la cabeza
+                if (netSpeed.Value > 0.1f && Mathf.Abs(horizontalHeadRotation) > 0.1f)
+                {
+                    float alignSpeed = 6f; // Velocidad con la que el cuerpo se alinea a la mirada
+                    float correction = horizontalHeadRotation * Time.deltaTime * alignSpeed;
+                    
+                    // Rotamos el cuerpo en la dirección de la corrección
+                    transform.Rotate(Vector3.up * correction);
+                    
+                    // Restamos la corrección a la cabeza para que la cámara siga mirando al mismo punto fijo en el mundo
+                    horizontalHeadRotation -= correction;
+                }
+                
+                headYaw.Value = horizontalHeadRotation;
+            }
+            else
+            {
+                // Si está sentado, el cuerpo no gira, solo la cabeza (con un límite de 90 grados a cada lado)
+                horizontalHeadRotation += mouseDelta.x * lookSensitivity;
+                horizontalHeadRotation = Mathf.Clamp(horizontalHeadRotation, -90f, 90f);
+                headYaw.Value = horizontalHeadRotation;
+            }
 
             verticalLookRotation -= mouseDelta.y * lookSensitivity;
             verticalLookRotation = Mathf.Clamp(verticalLookRotation, -90f, 90f);
@@ -494,42 +548,45 @@ namespace Trucardo.Core
 
         private void TrySitDown()
         {
-            GameObject chair1 = GameObject.Find("Silla1");
-            GameObject chair2 = GameObject.Find("Silla2");
-            
+            GameObject[] allObjects = FindObjectsOfType<GameObject>();
             GameObject closestChair = null;
-            float minDistance = 10f; 
+            float minDistance = 2.5f; // Distancia máxima para poder sentarse
 
-            if (chair1 != null)
+            foreach (var obj in allObjects)
             {
-                float dist1 = Vector3.Distance(transform.position, chair1.transform.position);
-                if (dist1 < minDistance) { minDistance = dist1; closestChair = chair1; }
-            }
-            if (chair2 != null)
-            {
-                float dist2 = Vector3.Distance(transform.position, chair2.transform.position);
-                if (dist2 < minDistance) { minDistance = dist2; closestChair = chair2; }
+                // Buscar objetos que se llamen Silla (ej: "PrefabSilla", "Silla(Clone)", "Silla1")
+                if (obj.name.ToLower().Contains("silla"))
+                {
+                    float dist = Vector3.Distance(transform.position, obj.transform.position);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        closestChair = obj;
+                    }
+                }
             }
 
             if (closestChair != null)
             {
                 if (characterController != null) characterController.enabled = false;
 
-                // Anclar jugador exactamente al piso (Y=0) en la posicion X/Z de la silla, 
-                // ya que el pivote de la silla podria estar en el centro y no en el piso!
-                transform.position = new Vector3(closestChair.transform.position.x, 0f, closestChair.transform.position.z); 
-                transform.LookAt(new Vector3(0, 0f, 0));
+                // Rotar para mirar hacia la mesa (asumiendo que la silla mira hacia la mesa)
+                // Si la silla está rotada apuntando a la mesa, copiamos su rotación Y
+                transform.rotation = Quaternion.Euler(0, closestChair.transform.eulerAngles.y, 0);
+
+                // Sentar al jugador (y lo movemos hacia adelante para que quede más cerca de la mesa)
+                transform.position = new Vector3(closestChair.transform.position.x, 0f, closestChair.transform.position.z) + (transform.forward * 0.45f); 
                 
                 isSeated = true;
                 
                 if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
                 if (serverInstance != null) serverInstance.PlayerSitDownServerRpc();
                 
-                Debug.Log("Te has sentado en la mesa.");
+                Debug.Log("Te has sentado en una silla.");
             }
             else
             {
-                Debug.LogWarning("Estás muy lejos de una silla.");
+                Debug.LogWarning("Estás muy lejos de una silla. Acércate más a una para sentarte.");
             }
         }
 
