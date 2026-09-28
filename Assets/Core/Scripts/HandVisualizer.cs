@@ -1,25 +1,23 @@
+﻿using UnityEngine;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Trucardo.Core
 {
     public class HandVisualizer : MonoBehaviour
     {
-        [Header("Configuración Absoluta")]
-        public float absoluteZ = -0.6f; // Z en la mesa donde se colocan
-        public float sideSpacing = 0.35f;
-        public float absoluteY = 1.05f; // Altura absoluta sobre la mesa
-        public float tiltAngle = -35f; 
-        
-        [Header("Referencias")]
-        public Transform tableCenter; // <--- AGREGADO: Centro de la mesa principal
         public List<CardVisual> cardsInHand = new List<CardVisual>();
         
-        public void AddCardToHand(CardVisual newCard)
+        public float sideSpacing = 0.2f;
+        public float heightOffset = 0.99f;
+        public float tiltAngle = -35f;
+        public bool isOpponent = false;
+        public Transform tableCenter; // Keep for height reference if needed, but not required
+
+        public void AddCardToHand(CardVisual card)
         {
-            if (!cardsInHand.Contains(newCard))
+            if (!cardsInHand.Contains(card))
             {
-                cardsInHand.Add(newCard);
+                cardsInHand.Add(card);
                 ArrangeHand();
             }
         }
@@ -32,54 +30,61 @@ namespace Trucardo.Core
                 ArrangeHand();
             }
         }
-        
+
         private void ArrangeHand()
         {
-            Vector3 centerPos = tableCenter != null ? tableCenter.position : Vector3.zero;
+            if (cardsInHand == null || cardsInHand.Count == 0) return;
+
+            float totalWidth = (cardsInHand.Count - 1) * sideSpacing;
+            float startSpread = -totalWidth / 2;
 
             for (int i = 0; i < cardsInHand.Count; i++)
             {
                 if (cardsInHand[i] == null) continue;
-                
-                float xOffset = (i - 1) * sideSpacing;
-                if (cardsInHand.Count == 2) xOffset = (i == 0) ? -sideSpacing / 2f : sideSpacing / 2f;
-                else if (cardsInHand.Count == 1) xOffset = 0f;
 
-                if (absoluteZ > 0) xOffset = -xOffset;
+                float spread = startSpread + (i * sideSpacing);
                 
-                // Se le suma la posición del centro de la mesa
-                Vector3 targetPos = new Vector3(centerPos.x + xOffset, centerPos.y + absoluteY, centerPos.z + absoluteZ);
+                Vector3 playerForward = transform.forward;
+                Vector3 playerRight = transform.right;
+                Vector3 playerPos = transform.position;
                 
-                float yRot = (absoluteZ < 0) ? 0f : 180f; 
-                Quaternion targetRot = Quaternion.Euler(tiltAngle, yRot, 0f);
+                // Si es la mano local, a 0.7m de distancia. Si es del oponente, a 1.8m de distancia.
+                float forwardDistance = isOpponent ? 1.8f : 0.7f;
+                // Si es del oponente, invertimos el spread para que se vea bien desde su perspectiva
+                float finalSpread = isOpponent ? -spread : spread;
+
+                Vector3 targetPos = playerPos + playerForward * forwardDistance + playerRight * finalSpread;
                 
+                if (tableCenter != null)
+                {
+                    targetPos.y = tableCenter.position.y + heightOffset;
+                }
+                else
+                {
+                    targetPos.y = playerPos.y + heightOffset;
+                }
+
+                                                                                bool isLeftSide = playerPos.x < (tableCenter != null ? tableCenter.position.x : 0f);
+                float yRot = isLeftSide ? 90f : -90f;
+                if (isOpponent) yRot = isLeftSide ? -90f : 90f;
+
+                Quaternion targetRot = Quaternion.Euler(0, yRot, 0) * Quaternion.Euler(tiltAngle, 0, 0);
+                if (tableCenter != null)
+                {
+                    targetRot = tableCenter.rotation * targetRot;
+                }
+
                 cardsInHand[i].AnimateTo(targetPos, targetRot, 0.4f, false);
             }
         }
 
-        private void OnValidate()
-        {
-            if (Application.isPlaying)
-            {
-                Vector3 centerPos = tableCenter != null ? tableCenter.position : Vector3.zero;
-
-                for (int i = 0; i < cardsInHand.Count; i++)
-                {
-                    if (cardsInHand[i] == null) continue;
-                    
-                    float xOffset = (i - 1) * sideSpacing;
-                    if (cardsInHand.Count == 2) xOffset = (i == 0) ? -sideSpacing / 2f : sideSpacing / 2f;
-                    else if (cardsInHand.Count == 1) xOffset = 0f;
-                    if (absoluteZ > 0) xOffset = -xOffset;
-                    
-                    Vector3 targetPos = new Vector3(centerPos.x + xOffset, centerPos.y + absoluteY, centerPos.z + absoluteZ);
-                    float yRot = (absoluteZ < 0) ? 0f : 180f; 
-                    Quaternion targetRot = Quaternion.Euler(tiltAngle, yRot, 0f);
-                    
-                    cardsInHand[i].transform.position = targetPos;
-                    cardsInHand[i].transform.rotation = targetRot;
-                }
-            }
-        }
+        
     }
 }
+
+
+
+
+
+
+

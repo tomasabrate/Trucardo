@@ -1,33 +1,31 @@
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using System.Linq;
 
 namespace Trucardo.Core
 {
-    /// <summary>
-    /// Gestiona la red desde el lado del Servidor y delega la lógica al GameModel.
-    /// También actúa como el "Dealer" de la partida.
-    /// </summary>
+    public class TableSession
+    {
+        public Vector3 TablePosition;
+        public GameModel GameModel;
+        public ulong Player1Id = ulong.MaxValue;
+        public ulong Player2Id = ulong.MaxValue;
+        public bool Player1Seated = false;
+        public bool Player2Seated = false;
+        public List<GameObject> TableCards = new List<GameObject>();
+        public bool IsStartingRound = false;
+    }
+
     public class GameServer : NetworkBehaviour
     {
         [Header("Datos Generales")]
-        [Tooltip("Referencia al MainDeck generado con las 40 cartas.")]
         public DeckData masterDeck;
+        [Header("Cartas")]
+        public GameObject cardPrefab;
 
-        // Instancia del Modelo (Lógica pura separada de la red)
-        public GameModel gameModel;
-
-        // Control de los dos jugadores (Fase 1: MVP 1v1)
-        private ulong player1Id = ulong.MaxValue;
-        private ulong player2Id = ulong.MaxValue;
-        
-        private bool player1Seated = false;
-        private bool player2Seated = false;
-
-        private void Awake()
-        {
-            gameModel = new GameModel(masterDeck);
-        }
+        private List<TableSession> sessions = new List<TableSession>();
 
         public override void OnNetworkSpawn()
         {
@@ -36,85 +34,130 @@ namespace Trucardo.Core
                 enabled = false;
                 return;
             }
-
-            Debug.Log("Servidor de Trucardo Iniciado.");
-            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+            Debug.Log("Servidor de Trucardo Iniciado. Soportando múltiples mesas.");
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
         }
 
         public override void OnNetworkDespawn()
         {
             if (IsServer)
             {
-                NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+                NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnect;
             }
         }
 
-        private void OnClientConnected(ulong clientId)
+        private void OnClientDisconnect(ulong clientId)
         {
-            if (player1Id == ulong.MaxValue)
+            var session = GetSessionByPlayer(clientId);
+            if (session != null)
             {
-                player1Id = clientId;
-                gameModel.Player1Id = clientId;
-                Debug.Log($"Jugador 1 asignado al ClientID: {clientId}");
+                if (session.Player1Id == clientId) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; }
+                if (session.Player2Id == clientId) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; }
             }
-            else if (player2Id == ulong.MaxValue)
+        }
+
+        public bool IsPlayer1(ulong clientId)
+        {
+            var session = GetSessionByPlayer(clientId);
+            return session != null && session.Player1Id == clientId;
+        }
+
+        private TableSession GetSessionByPlayer(ulong clientId)
+        {
+            return sessions.FirstOrDefault(s => s.Player1Id == clientId || s.Player2Id == clientId);
+        }
+
+        private TableSession GetOrCreateSession(Vector3 tablePos)
+        {
+            var session = sessions.FirstOrDefault(s => Vector3.Distance(s.TablePosition, tablePos) < 0.1f);
+            if (session == null)
             {
-                player2Id = clientId;
-                gameModel.Player2Id = clientId;
-                Debug.Log($"Jugador 2 asignado al ClientID: {clientId}");
+                session = new TableSession 
+                { 
+                    TablePosition = tablePos,
+                    GameModel = new GameModel(masterDeck)
+                };
+                sessions.Add(session);
+            }
+            return session;
+        }
+
+                [ServerRpc(RequireOwnership = false)]
+        public void PlayerStandUpServerRpc(ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            var session = GetSessionByPlayer(sender);
+            if (session != null)
+            {
+                if (session.Player1Id == sender) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; }
+                if (session.Player2Id == sender) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; }
+                Debug.Log($"Jugador {sender} se levanto de la mesa.");
             }
         }
 
         [ServerRpc(RequireOwnership = false)]
-        public void PlayerSitDownServerRpc(ServerRpcParams rpcParams = default)
+        public void PlayerSitDownServerRpc(Vector3 tablePos, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             
-            if (sender == player1Id) player1Seated = true;
-            else if (sender == player2Id) player2Seated = true;
+            var oldSession = GetSessionByPlayer(sender);
+            if (oldSession != null)
+            {
+                if (oldSession.Player1Id == sender) { oldSession.Player1Id = ulong.MaxValue; oldSession.Player1Seated = false; }
+                if (oldSession.Player2Id == sender) { oldSession.Player2Id = ulong.MaxValue; oldSession.Player2Seated = false; }
+            }
 
-            Debug.Log($"El Jugador {sender} se ha sentado en la mesa.");
+            TableSession session = GetOrCreateSession(tablePos);
 
-            CheckStartGame();
+            if (session.Player1Id == ulong.MaxValue)
+            {
+                session.Player1Id = sender;
+                session.GameModel.Player1Id = sender;
+                session.Player1Seated = true;
+            }
+            else if (session.Player2Id == ulong.MaxValue)
+            {
+                session.Player2Id = sender;
+                session.GameModel.Player2Id = sender;
+                session.Player2Seated = true;
+            }
+
+            CheckStartGame(session);
         }
-
-        [Header("Cartas")]
-        public GameObject cardPrefab;
-        private List<GameObject> tableCards = new List<GameObject>();
 
         [ServerRpc(RequireOwnership = false)]
         public void PlayCardServerRpc(int cardIndex, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
+            var session = GetSessionByPlayer(sender);
+            if (session == null) return;
             
-            // Validar turno en el servidor ANTES de hacer nada visual
-            if (gameModel.CurrentState != GameState.TurnoJugador) return;
-            if (gameModel.CurrentTurnId != sender) return;
+            if (session.GameModel.CurrentState != GameState.TurnoJugador) return;
+            if (session.GameModel.CurrentTurnId != sender) return;
             
-            // Validar que la tenga en la mano
-            bool isP1 = (sender == player1Id);
-            var hand = isP1 ? gameModel.P1Hand : gameModel.P2Hand;
+            bool isP1 = (sender == session.Player1Id);
+            var hand = isP1 ? session.GameModel.P1Hand : session.GameModel.P2Hand;
             if (!hand.Contains(cardIndex)) return;
 
-            gameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.PlayCardCommand(gameModel, sender, cardIndex));
-            gameModel.actionQueue.ProcessNext();
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.PlayCardCommand(session.GameModel, sender, cardIndex));
+            session.GameModel.actionQueue.ProcessNext();
 
-            SpawnCardOnTable(sender, cardIndex);
+            SpawnCardOnTable(session, sender, cardIndex);
             
             NotifyOpponentPlayedCardClientRpc(sender);
 
-            if (gameModel.CurrentState == GameState.RondaTerminada)
+            if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
-                if (!IsInvoking(nameof(StartRound)))
+                if (!session.IsStartingRound)
                 {
-                    Invoke(nameof(StartRound), 3f);
+                    StartCoroutine(StartRoundDelayed(session, 3f));
                 }
             }
             
-            SyncClientState();
+            SyncClientState(session);
         }
 
-        private void SpawnCardOnTable(ulong playerId, int cardIndex)
+        private void SpawnCardOnTable(TableSession session, ulong playerId, int cardIndex)
         {
             if (cardPrefab == null) return;
 
@@ -122,7 +165,6 @@ namespace Trucardo.Core
             NetworkObject netObj = c.GetComponent<NetworkObject>();
             if (netObj != null) netObj.Spawn();
 
-            // Encontrar la posición de la mano del jugador
             Vector3 startPos = Vector3.zero;
             Quaternion startRot = Quaternion.identity;
             foreach (var client in NetworkManager.Singleton.ConnectedClients)
@@ -140,86 +182,154 @@ namespace Trucardo.Core
             }
 
             c.transform.position = startPos;
-            // Obtener el índice de la carta jugada de forma segura usando el estado del juego
             int playerPlayedCount = 0;
-            if (playerId == player1Id) playerPlayedCount = 2 - gameModel.P1Hand.Count;
-            else if (playerId == player2Id) playerPlayedCount = 2 - gameModel.P2Hand.Count;
+            if (playerId == session.Player1Id) playerPlayedCount = 2 - session.GameModel.P1Hand.Count;
+            else if (playerId == session.Player2Id) playerPlayedCount = 2 - session.GameModel.P2Hand.Count;
 
-            // Ubicación en base a la mesa:
-            // Para que las cartas de AMBOS jugadores se tiren de izquierda a derecha en el mismo sentido global:
-            float xSpacing = 0.22f;
-            float xOffset = -xSpacing + (playerPlayedCount * xSpacing);
+                        float zSpacing = 0.22f;
+            // Para que queden enfrentadas en la mesa, ambas se propagan en la misma direccion fisica (+Z a -Z)
+            // Jugador 1 (-X) lo vera de izquierda a derecha, Jugador 2 (+X) lo vera de derecha a izquierda
+            float zOffset = zSpacing - (playerPlayedCount * zSpacing);
             
-            // Separación del centro de la mesa
-            float zOffset = (playerId == player1Id) ? -0.18f : 0.18f;
+                        PlayerController pc = null;
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                if (client.ClientId == playerId)
+                {
+                    pc = client.PlayerObject.GetComponent<PlayerController>();
+                    break;
+                }
+            }
             
-            // Bajamos las cartas 20cm (antes 0.952f, ahora 0.752f) para coincidir con la mesa baja
-            Vector3 targetPos = new Vector3(xOffset, 0.752f, zOffset); 
+            float tableX = session.TablePosition.x;
+            bool isLeftSide = pc != null && pc.transform.position.x < tableX;
+                        float xOffset = isLeftSide ? -0.2f : 0.2f;
+            Vector3 targetPos = new Vector3(xOffset, 0.96f, zOffset);
             
-            // Rotar para que queden derechas mirando hacia el jugador que las tiró
-            float yRot = (playerId == player1Id) ? 0 : 180;
+            // Y de la misma forma determinamos la rotacion
+            float yRot = isLeftSide ? 90f : -90f;
             Quaternion targetRot = Quaternion.Euler(0, yRot, 0);
             
-            // Animar (el NetworkTransform sincronizará este movimiento a todos los clientes)
-            CardVisual visual = c.GetComponent<CardVisual>();
-            if (visual != null) 
+                        // Buscar la mesa a la que pertenece esta sesion
+            Transform mesa = null;
+            GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+            foreach(var obj in allObjects)
             {
-                visual.netCardIndex.Value = cardIndex;
-                visual.PlayToTable(targetPos, targetRot, 0.6f);
+                if(obj.name.Contains("Mesa") && Vector3.Distance(obj.transform.position, session.TablePosition) < 0.1f)
+                {
+                    mesa = obj.transform;
+                    break;
+                }
             }
 
-            tableCards.Add(c);
+            if (mesa == null) // fallback
+            {
+                GameObject mesaObj = GameObject.Find("Mesa_Principal");
+                if (mesaObj != null) mesa = mesaObj.transform;
+            }
+
+            if (mesa != null)
+            {
+                targetPos = mesa.TransformPoint(targetPos);
+                targetRot = mesa.rotation * targetRot;
+            }
+
+                                    CardVisual visual = c.GetComponent<CardVisual>();
+            if (visual != null) 
+            {
+                var nt = c.GetComponent<Unity.Netcode.Components.NetworkTransform>();
+                if (nt != null) Destroy(nt);
+                visual.netCardIndex.Value = cardIndex;
+            }
+
+                        session.TableCards.Add(c);
+            SpawnCardOnTableClientRpc(cardIndex, targetPos, targetRot, c.GetComponent<Unity.Netcode.NetworkObject>());
+        }
+
+        [ClientRpc]
+        private void SpawnCardOnTableClientRpc(int cardIndex, Vector3 targetPos, Quaternion targetRot, Unity.Netcode.NetworkObjectReference cardRef)
+        {
+            if (cardRef.TryGet(out Unity.Netcode.NetworkObject netObj))
+            {
+                GameObject c = netObj.gameObject;
+                CardVisual visual = c.GetComponent<CardVisual>();
+                if (visual != null) 
+                {
+                    var nt = c.GetComponent<Unity.Netcode.Components.NetworkTransform>();
+                    if (nt != null) Destroy(nt);
+                    
+                    visual.netCardIndex.Value = cardIndex;
+                    visual.PlayToTable(targetPos, targetRot, 0.6f);
+                }
+            }
         }
 
         [ServerRpc(RequireOwnership = false)]
         public void CallEnvidoServerRpc(ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            gameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallEnvidoCommand(gameModel, sender));
-            gameModel.actionQueue.ProcessNext();
-            SyncClientState();
+            var session = GetSessionByPlayer(sender);
+            if (session == null) return;
+
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallEnvidoCommand(session.GameModel, sender));
+            session.GameModel.actionQueue.ProcessNext();
+            SyncClientState(session);
         }
 
         [ServerRpc(RequireOwnership = false)]
         public void CallTrucoServerRpc(ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            gameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(gameModel, sender));
-            gameModel.actionQueue.ProcessNext();
-            SyncClientState();
+            var session = GetSessionByPlayer(sender);
+            if (session == null) return;
+
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(session.GameModel, sender));
+            session.GameModel.actionQueue.ProcessNext();
+            SyncClientState(session);
         }
 
         [ServerRpc(RequireOwnership = false)]
         public void RespondServerRpc(bool accepts, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            gameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.RespondCommand(gameModel, sender, accepts));
-            gameModel.actionQueue.ProcessNext();
+            var session = GetSessionByPlayer(sender);
+            if (session == null) return;
 
-            if (gameModel.CurrentState == GameState.RondaTerminada)
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.RespondCommand(session.GameModel, sender, accepts));
+            session.GameModel.actionQueue.ProcessNext();
+
+            if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
-                if (!IsInvoking(nameof(StartRound)))
+                if (!session.IsStartingRound)
                 {
-                    Invoke(nameof(StartRound), 3f);
+                    StartCoroutine(StartRoundDelayed(session, 3f));
                 }
             }
-            SyncClientState();
+            SyncClientState(session);
         }
 
-        private void CheckStartGame()
+        private void CheckStartGame(TableSession session)
         {
-            if (player1Seated && player2Seated)
+            if (session.Player1Seated && session.Player2Seated)
             {
-                Debug.Log("¡Ambos jugadores están sentados! El Dealer comenzará a repartir.");
-                StartRound();
+                Debug.Log($"¡Ambos jugadores en mesa {session.TablePosition}! Repartiendo.");
+                StartRound(session);
             }
         }
 
-        private void StartRound()
+        private IEnumerator StartRoundDelayed(TableSession session, float delay)
         {
-            gameModel.ResetHand();
+            session.IsStartingRound = true;
+            yield return new WaitForSeconds(delay);
+            session.IsStartingRound = false;
+            StartRound(session);
+        }
 
-            foreach (var c in tableCards)
+        private void StartRound(TableSession session)
+        {
+            session.GameModel.ResetHand();
+
+            foreach (var c in session.TableCards)
             {
                 if (c != null)
                 {
@@ -228,12 +338,11 @@ namespace Trucardo.Core
                     Destroy(c);
                 }
             }
-            tableCards.Clear();
+            session.TableCards.Clear();
 
             List<int> deckIndices = new List<int>();
             for (int i = 0; i < 40; i++) deckIndices.Add(i);
             
-            // Mezclar
             for (int i = 0; i < deckIndices.Count; i++)
             {
                 int temp = deckIndices[i];
@@ -245,34 +354,32 @@ namespace Trucardo.Core
             int[] p1Cards = new int[] { deckIndices[0], deckIndices[1], deckIndices[2] };
             int[] p2Cards = new int[] { deckIndices[3], deckIndices[4], deckIndices[5] };
 
-            gameModel.DealCardsToPlayer(1, new List<int>(p1Cards));
-            gameModel.DealCardsToPlayer(2, new List<int>(p2Cards));
+            session.GameModel.DealCardsToPlayer(1, new List<int>(p1Cards));
+            session.GameModel.DealCardsToPlayer(2, new List<int>(p2Cards));
 
             ClientRpcParams clientRpcParamsP1 = new ClientRpcParams
             {
-                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { player1Id } }
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player1Id } }
             };
-            ReceiveCardsClientRpc(p1Cards, clientRpcParamsP1);
+            ReceiveCardsClientRpc(session.Player1Id, p1Cards, clientRpcParamsP1);
 
             ClientRpcParams clientRpcParamsP2 = new ClientRpcParams
             {
-                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { player2Id } }
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player2Id } }
             };
-            ReceiveCardsClientRpc(p2Cards, clientRpcParamsP2);
+            ReceiveCardsClientRpc(session.Player2Id, p2Cards, clientRpcParamsP2);
 
-            // Turno del Jugador 1 por defecto al arrancar
-            gameModel.CurrentState = GameState.TurnoJugador;
-            gameModel.CurrentTurnId = player1Id;
-            Debug.Log($"Turno actual: Jugador 1 ({player1Id})");
+            session.GameModel.CurrentState = GameState.TurnoJugador;
+            session.GameModel.CurrentTurnId = session.Player1Id;
             
-            // Sincronizar UI de clientes
-            SyncClientState();
+            SyncClientState(session);
         }
 
-        [ClientRpc]
-        private void ReceiveCardsClientRpc(int[] cardIndices, ClientRpcParams clientRpcParams = default)
+                [ClientRpc]
+        private void ReceiveCardsClientRpc(ulong targetClientId, int[] cardIndices, ClientRpcParams clientRpcParams = default)
         {
-            Debug.Log($"[Client {NetworkManager.Singleton.LocalClientId}] ¡He recibido mis cartas!");
+            if (NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
             if (NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
             {
                 PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
@@ -294,7 +401,7 @@ namespace Trucardo.Core
         }
 
         [ClientRpc]
-        private void UpdateClientStateClientRpc(GameState state, ulong turnId, int p1Score, int p2Score, TipoCanto canto, ulong lastCaller, NivelTruco estadoTruco, ulong p1Id)
+        private void UpdateClientStateClientRpc(GameState state, ulong turnId, int p1Score, int p2Score, TipoCanto canto, ulong lastCaller, NivelTruco estadoTruco, ulong p1Id, ClientRpcParams clientRpcParams = default)
         {
             if (NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
             {
@@ -303,9 +410,29 @@ namespace Trucardo.Core
             }
         }
 
-        private void SyncClientState()
+        private void SyncClientState(TableSession session)
         {
-            UpdateClientStateClientRpc(gameModel.CurrentState, gameModel.CurrentTurnId, gameModel.ScoreTeam1, gameModel.ScoreTeam2, gameModel.CantoPendiente, gameModel.LastCallerId, gameModel.EstadoTruco, player1Id);
+            ClientRpcParams clientRpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player1Id, session.Player2Id } }
+            };
+            UpdateClientStateClientRpc(session.GameModel.CurrentState, session.GameModel.CurrentTurnId, session.GameModel.ScoreTeam1, session.GameModel.ScoreTeam2, session.GameModel.CantoPendiente, session.GameModel.LastCallerId, session.GameModel.EstadoTruco, session.Player1Id, clientRpcParams);
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
