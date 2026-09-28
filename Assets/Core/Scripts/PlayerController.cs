@@ -575,7 +575,7 @@ namespace Trucardo.Core
                 transform.rotation = Quaternion.Euler(0, closestChair.transform.eulerAngles.y, 0);
 
                 // Sentar al jugador (y lo movemos hacia adelante para que quede más cerca de la mesa)
-                transform.position = new Vector3(closestChair.transform.position.x, 0f, closestChair.transform.position.z) + (transform.forward * 0.45f); 
+                transform.position = new Vector3(closestChair.transform.position.x, 0f, closestChair.transform.position.z) ; 
                 
                 isSeated = true;
                 
@@ -736,3 +736,4 @@ namespace Trucardo.Core
         }
     }
 }
+
