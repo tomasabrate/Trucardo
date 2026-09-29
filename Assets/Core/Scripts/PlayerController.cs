@@ -285,7 +285,11 @@ namespace Trucardo.Core
 
         private void Update()
         {
-            if (IsOwner)
+            if (IsOwner && Time.timeScale <= 0f)
+            {
+                netSpeed.Value = 0f;
+            }
+            else if (IsOwner)
             {
                 if (UnityEngine.InputSystem.Keyboard.current.digit0Key.wasPressedThisFrame)
                 {
