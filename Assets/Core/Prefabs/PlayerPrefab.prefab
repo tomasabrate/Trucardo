@@ -45,6 +45,7 @@ GameObject:
   - component: {fileID: 3039973415589660470}
   - component: {fileID: 7451429091479346753}
   - component: {fileID: 2304619592341760542}
+  - component: {fileID: 1219646372323801380}
   m_Layer: 0
   m_Name: PlayerPrefab
   m_TagString: Untagged
@@ -81,14 +82,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3568135690
+  GlobalObjectIdHash: 4205644057
   InScenePlacedSourceGlobalObjectIdHash: 4205644057
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  m_InScenePlaced: 1
+  m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
@@ -191,6 +192,11 @@ MonoBehaviour:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
+  headYaw:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
   netSpeed:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -202,6 +208,15 @@ MonoBehaviour:
       MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
   cardPrefab: {fileID: 3859907829133868045, guid: 5f965c41b76ff8046b13df9bf16e8ed1, type: 3}
+  isFirstPersonView: 1
+--- !u!81 &1219646372323801380
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2738086458709411812}
+  m_Enabled: 1
 --- !u!1 &7413701881565000637
 GameObject:
   m_ObjectHideFlags: 0
