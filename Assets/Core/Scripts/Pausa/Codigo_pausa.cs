@@ -3,6 +3,7 @@ using UnityEngine.Events;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Unity.Netcode;
 using TMPro;
 
 public class Codigo_pausa : MonoBehaviour
@@ -154,6 +155,12 @@ public class Codigo_pausa : MonoBehaviour
     public void IrAlMenuPrincipal()
     {
         Time.timeScale = 1f;
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        Trucardo.Core.NetworkUI.selectedMode = Trucardo.Core.GameMode.None;
         SceneManager.LoadScene("MainMenu");
     }
 
@@ -161,5 +168,8 @@ public class Codigo_pausa : MonoBehaviour
     {
         Time.timeScale = 1f;
         Application.Quit();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
     }
 }

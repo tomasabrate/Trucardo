@@ -1,6 +1,7 @@
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP; // Necesario para configurar la IP
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Trucardo.Core
 {
@@ -24,17 +25,33 @@ namespace Trucardo.Core
 
         void Start()
         {
-            if (NetworkManager.Singleton == null) return;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            StartSelectedMode();
+        }
+
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name == "SampleScene") StartSelectedMode();
+        }
+
+        private void StartSelectedMode()
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening) return;
 
             if (selectedMode == GameMode.Singleplayer || selectedMode == GameMode.Host)
             {
                 NetworkManager.Singleton.StartHost();
             }
-            // Si es Client, no auto-iniciamos porque necesitamos pedir la IP primero en OnGUI
         }
 
         void OnGUI()
         {
+            if (SceneManager.GetActiveScene().name != "SampleScene") return;
             if (NetworkManager.Singleton == null) return;
 
             // Si ya estamos conectados, mostramos solo el estado y salimos
@@ -51,7 +68,7 @@ namespace Trucardo.Core
             {
                 // Centramos el cuadro en la pantalla
                 GUILayout.BeginArea(new Rect(Screen.width / 2f - 150, Screen.height / 2f - 100, 300, 200));
-                
+
                 // Fondo oscuro
                 GUI.Box(new Rect(0, 0, 300, 200), "Conectarse al Host");
                 
