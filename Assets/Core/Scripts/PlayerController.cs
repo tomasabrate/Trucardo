@@ -623,55 +623,58 @@ namespace Trucardo.Core
                 private void TrySitDown()
         {
             GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-            GameObject closestChair = null;
-            float minDistance = 2.5f; // Distancia maxima para poder sentarse
+            GameObject closestObject = null;
+            SeatInteractable closestInteractable = null;
+            bool closestUsesLegacyBehavior = false;
+            float closestDistance = float.PositiveInfinity;
 
             PlayerController[] allPlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
 
-            foreach (var obj in allObjects)
+            foreach (GameObject obj in allObjects)
             {
-                // Buscar objetos que se llamen Silla
-                if (obj.name.ToLower().Contains("silla"))
+                bool usesLegacyBehavior = obj.name.ToLower().Contains("silla");
+                SeatInteractable interactable = obj.GetComponent<SeatInteractable>();
+                if (!usesLegacyBehavior && interactable == null) continue;
+
+                bool isOccupied = false;
+                foreach (PlayerController player in allPlayers)
                 {
-                    // Verificar si la silla esta ocupada
-                    bool isOccupied = false;
-                    foreach (var p in allPlayers)
+                    if (player != this && Vector3.Distance(player.transform.position, obj.transform.position) < 0.5f)
                     {
-                        if (p != this && Vector3.Distance(p.transform.position, obj.transform.position) < 0.5f)
-                        {
-                            isOccupied = true;
-                            break;
-                        }
+                        isOccupied = true;
+                        break;
                     }
+                }
 
-                    if (isOccupied) continue;
+                if (isOccupied) continue;
 
-                    float dist = Vector3.Distance(transform.position, obj.transform.position);
-                    if (dist < minDistance)
-                    {
-                        minDistance = dist;
-                        closestChair = obj;
-                    }
+                float distance = Vector3.Distance(transform.position, obj.transform.position);
+                float interactionRange = usesLegacyBehavior ? 2.5f : 1.5f;
+                if (distance < interactionRange && distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestObject = obj;
+                    closestInteractable = interactable;
+                    closestUsesLegacyBehavior = usesLegacyBehavior;
                 }
             }
 
-            if (closestChair != null)
+            if (closestObject != null)
             {
+                Transform seatTransform = closestObject.transform;
+                currentTable = seatTransform.parent != null ? seatTransform.parent : seatTransform;
+
                 if (characterController != null) characterController.enabled = false;
 
-                // Rotar para mirar hacia la mesa (asumiendo que la silla mira hacia la mesa)
-                // Si la silla est� rotada apuntando a la mesa, copiamos su rotaci�n Y
-                transform.rotation = Quaternion.Euler(0, closestChair.transform.eulerAngles.y, 0);
+                transform.rotation = Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
+                float seatHeight = closestUsesLegacyBehavior ? 0f : closestInteractable.GetTopHeight();
+                transform.position = new Vector3(seatTransform.position.x, seatHeight, seatTransform.position.z);
 
-                // Sentar al jugador (y lo movemos hacia adelante para que quede m�s cerca de la mesa)
-                transform.position = new Vector3(closestChair.transform.position.x, 0f, closestChair.transform.position.z) ; 
-                
-                                isSeated = true;
-                currentTable = closestChair.transform.parent;
-                
+                isSeated = true;
+
                 if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
-                if (serverInstance != null) serverInstance.PlayerSitDownServerRpc(closestChair.transform.parent.position);
-                
+                if (serverInstance != null) serverInstance.PlayerSitDownServerRpc(currentTable.position);
+
                 Debug.Log("Te has sentado en una silla.");
             }
             else
