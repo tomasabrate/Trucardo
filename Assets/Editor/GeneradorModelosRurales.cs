@@ -33,6 +33,12 @@ public static class GeneradorModelosRurales
     private const string PersianasMaderaPulperiaPath = Carpeta + "/PersianasMaderaPulperia.prefab";
     private const string PuertaPulperiaPath = Carpeta + "/PuertaPulperia.prefab";
     private const string VentanaVidrioPath = Carpeta + "/Mat_VentanaVidrio.mat";
+    private const string EmbutidosCarpeta = Carpeta + "/Embutidos";
+    private const string EmbutidosMaterialesCarpeta = EmbutidosCarpeta + "/Materiales";
+    private const string EmbutidosMallasCarpeta = EmbutidosCarpeta + "/Mallas";
+    private const string BarrilesCarpeta = Carpeta + "/Barriles";
+    private const string BarrilesMaterialesCarpeta = BarrilesCarpeta + "/Materiales";
+    private const string BarrilesMallasCarpeta = BarrilesCarpeta + "/Mallas";
 
     static GeneradorModelosRurales()
     {
@@ -110,6 +116,8 @@ public static class GeneradorModelosRurales
             CrearVentanaPulperia();
         if (AssetDatabase.LoadAssetAtPath<GameObject>(PuertaPulperiaPath) == null)
             CrearPuertaPulperia();
+        CrearEmbutidosFaltantes(false);
+        CrearBarrilesFaltantes(false);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log("Modelos rurales revisados en " + Carpeta);
@@ -212,6 +220,788 @@ public static class GeneradorModelosRurales
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log("Prefab PuertaPulperia actualizado con la hoja abierta por defecto.");
+    }
+
+    [MenuItem("Trucardo/Recrear colección de chorizos y jamones")]
+    public static void RecrearColeccionEmbutidos()
+    {
+        CrearEmbutidosFaltantes(true);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("Colección de chorizos y jamones individuales actualizada en " + EmbutidosCarpeta);
+    }
+
+    [MenuItem("Trucardo/Recrear colección de barriles")]
+    public static void RecrearColeccionBarriles()
+    {
+        CrearBarrilesFaltantes(true);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("Colección de barriles individuales actualizada en " + BarrilesCarpeta);
+    }
+
+    private struct ConfiguracionBarril
+    {
+        public string Nombre;
+        public float Altura;
+        public float Diametro;
+        public int Duelas;
+        public int Aros;
+        public float Deformacion;
+        public float Inclinacion;
+        public float Desgaste;
+        public float HundimientoTapa;
+        public Color Madera;
+    }
+
+    private static void CrearBarrilesFaltantes(bool recrear)
+    {
+        AsegurarCarpeta(BarrilesCarpeta);
+        AsegurarCarpeta(BarrilesMaterialesCarpeta);
+        AsegurarCarpeta(BarrilesMallasCarpeta);
+
+        Texture2D texturaMadera = CargarOCrearTexturaBarril("Textura_MaderaBarril.asset", 41, 0);
+        Texture2D texturaHierro = CargarOCrearTexturaBarril("Textura_HierroBarril.asset", 83, 1);
+        Texture2D normalMadera = CargarOCrearTexturaBarril("Normal_MaderaBarril.asset", 59, 2);
+        Texture2D normalHierro = CargarOCrearTexturaBarril("Normal_HierroBarril.asset", 97, 2);
+        Texture2D suavidadMadera = CargarOCrearTexturaBarril("Suavidad_MaderaBarril.asset", 113, 3);
+        Texture2D suavidadHierro = CargarOCrearTexturaBarril("Suavidad_HierroBarril.asset", 131, 4);
+        if (texturaMadera == null || texturaHierro == null || normalMadera == null || normalHierro == null ||
+            suavidadMadera == null || suavidadHierro == null)
+        {
+            Debug.LogError("No se pudieron crear las texturas de la colección de barriles.");
+            return;
+        }
+
+        Material hierro = CargarOCrearMaterialBarril("Mat_HierroForgado", new Color(0.19f, 0.17f, 0.14f),
+            texturaHierro, normalHierro, suavidadHierro, true);
+        if (hierro == null) return;
+
+        ConfiguracionBarril[] variantes =
+        {
+            new ConfiguracionBarril { Nombre = "Barril_01", Altura = 0.90f, Diametro = 0.66f, Duelas = 16, Aros = 5, Deformacion = 0.018f, Inclinacion = 0f, Desgaste = 0.82f, HundimientoTapa = 0.012f, Madera = new Color(0.45f, 0.27f, 0.18f) },
+            new ConfiguracionBarril { Nombre = "Barril_02", Altura = 1.15f, Diametro = 0.85f, Duelas = 20, Aros = 6, Deformacion = 0.012f, Inclinacion = 0f, Desgaste = 0.50f, HundimientoTapa = 0.006f, Madera = new Color(0.54f, 0.31f, 0.20f) },
+            new ConfiguracionBarril { Nombre = "Barril_03", Altura = 0.60f, Diametro = 0.50f, Duelas = 14, Aros = 4, Deformacion = 0.028f, Inclinacion = 0f, Desgaste = 0.98f, HundimientoTapa = 0.021f, Madera = new Color(0.42f, 0.40f, 0.34f) },
+            new ConfiguracionBarril { Nombre = "Barril_04", Altura = 1.10f, Diametro = 0.55f, Duelas = 16, Aros = 5, Deformacion = 0.009f, Inclinacion = 0f, Desgaste = 0.56f, HundimientoTapa = 0.004f, Madera = new Color(0.50f, 0.31f, 0.20f) },
+            new ConfiguracionBarril { Nombre = "Barril_05", Altura = 0.70f, Diametro = 0.90f, Duelas = 20, Aros = 5, Deformacion = 0.021f, Inclinacion = 0f, Desgaste = 0.70f, HundimientoTapa = 0.014f, Madera = new Color(0.48f, 0.32f, 0.22f) },
+            new ConfiguracionBarril { Nombre = "Barril_06", Altura = 0.85f, Diametro = 0.70f, Duelas = 18, Aros = 6, Deformacion = 0.032f, Inclinacion = 0f, Desgaste = 0.94f, HundimientoTapa = 0.018f, Madera = new Color(0.36f, 0.23f, 0.17f) },
+            new ConfiguracionBarril { Nombre = "Barril_07", Altura = 0.80f, Diametro = 0.65f, Duelas = 15, Aros = 4, Deformacion = 0.044f, Inclinacion = -0.035f, Desgaste = 0.75f, HundimientoTapa = 0.009f, Madera = new Color(0.57f, 0.40f, 0.28f) }
+        };
+
+        for (int i = 0; i < variantes.Length; i++)
+            CrearBarrilIndividual(variantes[i], hierro, texturaMadera, normalMadera, suavidadMadera, recrear);
+    }
+
+    private static void CrearBarrilIndividual(ConfiguracionBarril perfil, Material hierro, Texture2D texturaMadera,
+        Texture2D normalMadera, Texture2D suavidadMadera, bool recrear)
+    {
+        Material[] materialesMadera = new Material[3];
+        float[] tonos = { 0.88f, 1f, 1.12f };
+        for (int i = 0; i < materialesMadera.Length; i++)
+        {
+            Color tono = perfil.Madera * tonos[i];
+            materialesMadera[i] = CargarOCrearMaterialBarril(perfil.Nombre + "_Madera_0" + (i + 1), tono,
+                texturaMadera, normalMadera, suavidadMadera, false);
+            if (materialesMadera[i] == null) return;
+        }
+
+        string prefabPath = BarrilesCarpeta + "/" + perfil.Nombre + ".prefab";
+        if (!recrear && AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null) return;
+
+        int semilla = System.Array.IndexOf(new[] { "Barril_01", "Barril_02", "Barril_03", "Barril_04", "Barril_05", "Barril_06", "Barril_07" }, perfil.Nombre) + 37;
+        Mesh meshDuelas = GuardarMallaBarril(CrearMallaDuelasBarril(perfil, semilla), perfil.Nombre + "_Duelas.asset");
+        Mesh meshSuperior = GuardarMallaBarril(CrearMallaTapaBarril(perfil, true, semilla), perfil.Nombre + "_TapaSuperior.asset");
+        Mesh meshInferior = GuardarMallaBarril(CrearMallaTapaBarril(perfil, false, semilla), perfil.Nombre + "_TapaInferior.asset");
+        if (meshDuelas == null || meshSuperior == null || meshInferior == null) return;
+
+        GameObject raiz = new GameObject(perfil.Nombre);
+        GameObject duelas = new GameObject("Duelas");
+        duelas.transform.SetParent(raiz.transform, false);
+        duelas.AddComponent<MeshFilter>().sharedMesh = meshDuelas;
+        duelas.AddComponent<MeshRenderer>().sharedMaterials = materialesMadera;
+
+        GameObject aros = new GameObject("Aros");
+        aros.transform.SetParent(raiz.transform, false);
+        for (int i = 0; i < perfil.Aros; i++)
+        {
+            float t = perfil.Aros == 1 ? 0.5f : 0.075f + i * (0.85f / (perfil.Aros - 1));
+            string nombreAro = "Aro_0" + (i + 1);
+            Mesh meshAro = GuardarMallaBarril(CrearMallaAroBarril(perfil, t, semilla + i * 13),
+                perfil.Nombre + "_" + nombreAro + ".asset");
+            GameObject aro = new GameObject(nombreAro);
+            aro.transform.SetParent(aros.transform, false);
+            aro.AddComponent<MeshFilter>().sharedMesh = meshAro;
+            aro.AddComponent<MeshRenderer>().sharedMaterial = hierro;
+        }
+
+        GameObject tapaSuperior = new GameObject("TapaSuperior");
+        tapaSuperior.transform.SetParent(raiz.transform, false);
+        tapaSuperior.AddComponent<MeshFilter>().sharedMesh = meshSuperior;
+        tapaSuperior.AddComponent<MeshRenderer>().sharedMaterials = materialesMadera;
+
+        GameObject tapaInferior = new GameObject("TapaInferior");
+        tapaInferior.transform.SetParent(raiz.transform, false);
+        tapaInferior.AddComponent<MeshFilter>().sharedMesh = meshInferior;
+        tapaInferior.AddComponent<MeshRenderer>().sharedMaterials = materialesMadera;
+
+        GuardarPrefab(raiz, prefabPath);
+    }
+
+    private static Mesh CrearMallaDuelasBarril(ConfiguracionBarril perfil, int semilla)
+    {
+        const int filas = 12;
+        const int segmentosAncho = 3;
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector2> uv = new List<Vector2>();
+        List<int>[] submallas = { new List<int>(), new List<int>(), new List<int>() };
+        float radio = perfil.Diametro * 0.5f;
+        float grosor = Mathf.Clamp(perfil.Diametro * 0.038f, 0.019f, 0.034f);
+        float huecoAngular = 0.021f + perfil.Desgaste * 0.009f;
+
+        for (int duela = 0; duela < perfil.Duelas; duela++)
+        {
+            int grupoMaterial = duela % 3;
+            List<int> triangulos = submallas[grupoMaterial];
+            float paso = Mathf.PI * 2f / perfil.Duelas;
+            float anguloInicio = duela * paso + huecoAngular * 0.5f;
+            float anguloFin = (duela + 1) * paso - huecoAngular * 0.5f;
+            int externo = vertices.Count;
+            AgregarSuperficieDuela(vertices, uv, perfil, radio, grosor, filas, segmentosAncho,
+                anguloInicio, anguloFin, duela, semilla, true);
+            AgregarTriangulosSuperficieDuela(triangulos, externo, filas, segmentosAncho, true);
+
+            int interno = vertices.Count;
+            AgregarSuperficieDuela(vertices, uv, perfil, radio, grosor, filas, segmentosAncho,
+                anguloInicio, anguloFin, duela, semilla, false);
+            AgregarTriangulosSuperficieDuela(triangulos, interno, filas, segmentosAncho, false);
+
+            int columnas = segmentosAncho + 1;
+            for (int fila = 0; fila < filas; fila++)
+            {
+                int exteriorIzquierdo = externo + fila * columnas;
+                int exteriorDerecho = exteriorIzquierdo + segmentosAncho;
+                int interiorIzquierdo = interno + fila * columnas;
+                int interiorDerecho = interiorIzquierdo + segmentosAncho;
+                AgregarCuadrilatero(triangulos, exteriorIzquierdo, interiorIzquierdo, exteriorIzquierdo + columnas, interiorIzquierdo + columnas);
+                AgregarCuadrilatero(triangulos, exteriorDerecho, exteriorDerecho + columnas, interiorDerecho, interiorDerecho + columnas);
+            }
+
+            int exteriorFinal = externo + filas * columnas;
+            int interiorFinal = interno + filas * columnas;
+            for (int columna = 0; columna < segmentosAncho; columna++)
+            {
+                AgregarCuadrilatero(triangulos, externo + columna, externo + columna + 1, interno + columna, interno + columna + 1);
+                AgregarCuadrilatero(triangulos, exteriorFinal + columna, interiorFinal + columna, exteriorFinal + columna + 1, interiorFinal + columna + 1);
+            }
+        }
+
+        Mesh mesh = new Mesh { name = "Malla_Duelas_" + perfil.Nombre };
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0, uv);
+        mesh.subMeshCount = submallas.Length;
+        for (int i = 0; i < submallas.Length; i++) mesh.SetTriangles(submallas[i], i);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static void AgregarSuperficieDuela(List<Vector3> vertices, List<Vector2> uv,
+        ConfiguracionBarril perfil, float radio, float grosor, int filas, int segmentosAncho,
+        float anguloInicio, float anguloFin, int duela, int semilla, bool exterior)
+    {
+        for (int fila = 0; fila <= filas; fila++)
+        {
+            float t = fila / (float)filas;
+            for (int segmento = 0; segmento <= segmentosAncho; segmento++)
+            {
+                float u = segmento / (float)segmentosAncho;
+                float angulo = Mathf.Lerp(anguloInicio, anguloFin, u);
+                float variacion = 1f + perfil.Deformacion * 0.18f * Mathf.Sin(duela * 1.71f + t * 9f + semilla)
+                    + perfil.Desgaste * 0.008f * Mathf.Sin(t * 47f + u * 11f + duela);
+                float radioExterior = RadioBarril(perfil, t, radio, duela, semilla) * variacion;
+                float r = exterior ? radioExterior : radioExterior - grosor;
+                vertices.Add(PuntoBarril(perfil, t, angulo, r, duela));
+                uv.Add(new Vector2(u, t));
+            }
+        }
+    }
+
+    private static void AgregarTriangulosSuperficieDuela(List<int> triangulos, int inicio,
+        int filas, int segmentosAncho, bool exterior)
+    {
+        int columnas = segmentosAncho + 1;
+        for (int fila = 0; fila < filas; fila++)
+        {
+            for (int segmento = 0; segmento < segmentosAncho; segmento++)
+            {
+                int abajoIzquierda = inicio + fila * columnas + segmento;
+                int abajoDerecha = abajoIzquierda + 1;
+                int arribaIzquierda = abajoIzquierda + columnas;
+                int arribaDerecha = arribaIzquierda + 1;
+                if (exterior)
+                {
+                    triangulos.Add(abajoIzquierda); triangulos.Add(arribaIzquierda); triangulos.Add(abajoDerecha);
+                    triangulos.Add(abajoDerecha); triangulos.Add(arribaIzquierda); triangulos.Add(arribaDerecha);
+                }
+                else
+                {
+                    triangulos.Add(abajoIzquierda); triangulos.Add(abajoDerecha); triangulos.Add(arribaIzquierda);
+                    triangulos.Add(abajoDerecha); triangulos.Add(arribaDerecha); triangulos.Add(arribaIzquierda);
+                }
+            }
+        }
+    }
+
+    private static void AgregarCuadrilatero(List<int> triangulos, int a, int b, int c, int d)
+    {
+        triangulos.Add(a); triangulos.Add(b); triangulos.Add(c);
+        triangulos.Add(b); triangulos.Add(d); triangulos.Add(c);
+    }
+
+    private static Mesh CrearMallaAroBarril(ConfiguracionBarril perfil, float t, int semilla)
+    {
+        const int segmentos = 40;
+        List<Vector3> vertices = new List<Vector3>(segmentos * 4);
+        List<Vector2> uv = new List<Vector2>(segmentos * 4);
+        List<int> triangulos = new List<int>(segmentos * 24);
+        float radio = perfil.Diametro * 0.5f;
+        float centroY = t * perfil.Altura;
+        float alturaAro = Mathf.Clamp(perfil.Altura * 0.024f, 0.019f, 0.031f);
+        float grosor = Mathf.Clamp(perfil.Diametro * 0.026f, 0.012f, 0.021f);
+
+        for (int i = 0; i < segmentos; i++)
+        {
+            float angulo = i * Mathf.PI * 2f / segmentos;
+            float irregularidad = perfil.Desgaste * 0.004f * Mathf.Sin(angulo * 7f + semilla)
+                + 0.002f * Mathf.Sin(angulo * 13f + semilla * 0.4f);
+            float radioExterior = RadioBarril(perfil, t, radio, i, semilla) + irregularidad + grosor;
+            float radioInterior = radioExterior - grosor;
+            float desplazamientoY = perfil.Deformacion * 0.015f * Mathf.Sin(angulo * 3f + semilla);
+            Vector3 punto = PuntoBarril(perfil, t, angulo, radioExterior, i);
+            float yAbajo = centroY - alturaAro * 0.5f + desplazamientoY;
+            float yArriba = centroY + alturaAro * 0.5f + desplazamientoY;
+            vertices.Add(new Vector3(punto.x, yAbajo, punto.z));
+            vertices.Add(new Vector3(punto.x, yArriba, punto.z));
+            Vector3 interior = PuntoBarril(perfil, t, angulo, radioInterior, i);
+            vertices.Add(new Vector3(interior.x, yAbajo, interior.z));
+            vertices.Add(new Vector3(interior.x, yArriba, interior.z));
+            uv.Add(new Vector2(i / (float)segmentos, 0f));
+            uv.Add(new Vector2(i / (float)segmentos, 1f));
+            uv.Add(new Vector2(i / (float)segmentos, 0f));
+            uv.Add(new Vector2(i / (float)segmentos, 1f));
+        }
+
+        for (int i = 0; i < segmentos; i++)
+        {
+            int actual = i * 4;
+            int siguiente = ((i + 1) % segmentos) * 4;
+            AgregarCuadrilatero(triangulos, actual, siguiente, actual + 1, siguiente + 1);
+            AgregarCuadrilatero(triangulos, actual + 2, actual + 3, siguiente + 2, siguiente + 3);
+            AgregarCuadrilatero(triangulos, actual + 1, siguiente + 1, actual + 3, siguiente + 3);
+            AgregarCuadrilatero(triangulos, actual, actual + 2, siguiente, siguiente + 2);
+        }
+
+        Mesh mesh = new Mesh { name = "Malla_Aro_" + perfil.Nombre };
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0, uv);
+        mesh.SetTriangles(triangulos, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static Mesh CrearMallaTapaBarril(ConfiguracionBarril perfil, bool superior, int semilla)
+    {
+        const int tablones = 11;
+        List<Vector3> vertices = new List<Vector3>(tablones * 8);
+        List<Vector2> uv = new List<Vector2>(tablones * 8);
+        List<int>[] submallas = { new List<int>(), new List<int>(), new List<int>() };
+        float t = superior ? 0.975f : 0.025f;
+        float radio = RadioBarril(perfil, t, perfil.Diametro * 0.5f, 0, semilla) - perfil.Diametro * 0.045f;
+        float grosor = Mathf.Clamp(perfil.Altura * 0.025f, 0.018f, 0.027f);
+        float y = superior ? perfil.Altura - perfil.HundimientoTapa : 0.012f;
+        float paso = radio * 2f / tablones;
+
+        for (int i = 0; i < tablones; i++)
+        {
+            float x0 = -radio + i * paso + 0.0015f;
+            float x1 = -radio + (i + 1) * paso - 0.0015f;
+            float borde = Mathf.Max(Mathf.Abs(x0), Mathf.Abs(x1));
+            float mitadZ = Mathf.Sqrt(Mathf.Max(0.001f, radio * radio - borde * borde));
+            float ondulacion = perfil.Desgaste * 0.002f * Mathf.Sin(i * 8.7f + semilla);
+            float yTablon = y + ondulacion;
+            int inicio = vertices.Count;
+            vertices.Add(new Vector3(x0, yTablon, -mitadZ));
+            vertices.Add(new Vector3(x1, yTablon, -mitadZ));
+            vertices.Add(new Vector3(x1, yTablon, mitadZ));
+            vertices.Add(new Vector3(x0, yTablon, mitadZ));
+            vertices.Add(new Vector3(x0, yTablon - grosor, -mitadZ));
+            vertices.Add(new Vector3(x1, yTablon - grosor, -mitadZ));
+            vertices.Add(new Vector3(x1, yTablon - grosor, mitadZ));
+            vertices.Add(new Vector3(x0, yTablon - grosor, mitadZ));
+            uv.Add(new Vector2(0f, 0f)); uv.Add(new Vector2(1f, 0f)); uv.Add(new Vector2(1f, 1f)); uv.Add(new Vector2(0f, 1f));
+            uv.Add(new Vector2(0f, 0f)); uv.Add(new Vector2(1f, 0f)); uv.Add(new Vector2(1f, 1f)); uv.Add(new Vector2(0f, 1f));
+            List<int> triangulos = submallas[i % 3];
+            triangulos.Add(inicio); triangulos.Add(inicio + 2); triangulos.Add(inicio + 1);
+            triangulos.Add(inicio); triangulos.Add(inicio + 3); triangulos.Add(inicio + 2);
+            triangulos.Add(inicio + 4); triangulos.Add(inicio + 5); triangulos.Add(inicio + 6);
+            triangulos.Add(inicio + 4); triangulos.Add(inicio + 6); triangulos.Add(inicio + 7);
+            AgregarCuadrilatero(triangulos, inicio, inicio + 1, inicio + 4, inicio + 5);
+            AgregarCuadrilatero(triangulos, inicio + 1, inicio + 2, inicio + 5, inicio + 6);
+            AgregarCuadrilatero(triangulos, inicio + 2, inicio + 3, inicio + 6, inicio + 7);
+            AgregarCuadrilatero(triangulos, inicio + 3, inicio, inicio + 7, inicio + 4);
+        }
+
+        Mesh mesh = new Mesh { name = superior ? "Malla_TapaSuperior_" + perfil.Nombre : "Malla_TapaInferior_" + perfil.Nombre };
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0, uv);
+        mesh.subMeshCount = submallas.Length;
+        for (int i = 0; i < submallas.Length; i++) mesh.SetTriangles(submallas[i], i);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static float RadioBarril(ConfiguracionBarril perfil, float t, float radio, int semilla, int duela)
+    {
+        float barriga = Mathf.Sin(t * Mathf.PI);
+        float perfilBase = 0.84f + 0.16f * barriga;
+        float asimetria = perfil.Deformacion * 0.22f * Mathf.Sin(t * Mathf.PI * 2f + semilla * 0.2f);
+        float variacionDuelas = perfil.Deformacion * 0.12f * Mathf.Sin(duela * 1.7f + t * 12f + semilla);
+        return radio * (perfilBase + asimetria + variacionDuelas);
+    }
+
+    private static Vector3 PuntoBarril(ConfiguracionBarril perfil, float t, float angulo, float radio, int indice)
+    {
+        float centroX = perfil.Inclinacion * t + perfil.Deformacion * 0.12f * Mathf.Sin(t * Mathf.PI * 2f + indice * 0.13f);
+        float centroZ = perfil.Deformacion * 0.08f * Mathf.Sin(t * Mathf.PI * 2f + 1.2f);
+        return new Vector3(centroX + Mathf.Cos(angulo) * radio, t * perfil.Altura, centroZ + Mathf.Sin(angulo) * radio);
+    }
+
+    private static Texture2D CargarOCrearTexturaBarril(string nombre, int semilla, int tipo)
+    {
+        string ruta = BarrilesMaterialesCarpeta + "/" + nombre;
+        Texture2D textura = AssetDatabase.LoadAssetAtPath<Texture2D>(ruta);
+        bool crearTextura = textura == null;
+
+        const int resolucion = 128;
+        if (crearTextura)
+        {
+            textura = new Texture2D(resolucion, resolucion, TextureFormat.RGBA32, true, tipo == 2 || tipo >= 3)
+            {
+                name = System.IO.Path.GetFileNameWithoutExtension(nombre),
+                wrapMode = TextureWrapMode.Repeat,
+                filterMode = FilterMode.Bilinear
+            };
+        }
+        Color[] pixeles = new Color[resolucion * resolucion];
+        for (int y = 0; y < resolucion; y++)
+        {
+            for (int x = 0; x < resolucion; x++)
+            {
+                float veta = Mathf.PerlinNoise((x + semilla) * 0.025f, (y + semilla) * 0.13f);
+                float fibra = Mathf.PerlinNoise((x + semilla * 2) * 0.09f, (y + semilla) * 0.21f);
+                float nudo = Mathf.PerlinNoise((x + semilla) * 0.045f, (y - semilla) * 0.045f);
+                if (tipo == 0)
+                {
+                    float valor = Mathf.Clamp01(0.77f + (veta - 0.5f) * 0.42f + (fibra - 0.5f) * 0.18f);
+                    if (nudo > 0.72f) valor *= 0.78f;
+                    if (fibra < 0.24f) valor *= 0.86f;
+                    pixeles[y * resolucion + x] = new Color(valor, valor * 0.94f, valor * 0.87f, 1f);
+                }
+                else if (tipo == 1)
+                {
+                    float oxido = Mathf.InverseLerp(0.55f, 0.82f, nudo) * Mathf.Clamp01((fibra + veta) * 0.7f);
+                    float oscuro = 0.22f + fibra * 0.24f;
+                    Color hierroColor = Color.Lerp(new Color(oscuro * 0.68f, oscuro * 0.61f, oscuro * 0.53f), new Color(0.43f, 0.22f, 0.11f), oxido * 0.7f);
+                    pixeles[y * resolucion + x] = new Color(hierroColor.r, hierroColor.g, hierroColor.b, 1f);
+                }
+                else if (tipo == 2)
+                {
+                    float dx = Mathf.PerlinNoise((x + 1 + semilla) * 0.045f, (y + semilla) * 0.08f)
+                        - Mathf.PerlinNoise((x - 1 + semilla) * 0.045f, (y + semilla) * 0.08f);
+                    float dy = Mathf.PerlinNoise((x + semilla) * 0.045f, (y + 1 + semilla) * 0.08f)
+                        - Mathf.PerlinNoise((x + semilla) * 0.045f, (y - 1 + semilla) * 0.08f);
+                    Vector3 normal = new Vector3(-dx * 3.2f, -dy * 3.2f, 1f).normalized;
+                    pixeles[y * resolucion + x] = new Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1f);
+                }
+                else
+                {
+                    float suavidad = tipo == 3 ? 0.16f + veta * 0.1f + fibra * 0.04f : 0.2f + veta * 0.14f + fibra * 0.08f;
+                    pixeles[y * resolucion + x] = new Color(tipo == 4 ? 0.66f : 0.0f, 0f, 0f, Mathf.Clamp01(suavidad));
+                }
+            }
+        }
+        textura.SetPixels(pixeles);
+        textura.Apply(true, false);
+        if (crearTextura) AssetDatabase.CreateAsset(textura, ruta);
+        else EditorUtility.SetDirty(textura);
+        return textura;
+    }
+
+    private static Material CargarOCrearMaterialBarril(string nombre, Color color, Texture2D textura,
+        Texture2D normal, Texture2D mapaSuavidad, bool esHierro)
+    {
+        string ruta = BarrilesMaterialesCarpeta + "/" + nombre + ".mat";
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(ruta);
+        if (material == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) return null;
+            material = new Material(shader) { name = nombre };
+            AssetDatabase.CreateAsset(material, ruta);
+        }
+
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", textura);
+        if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", textura);
+        if (material.HasProperty("_BumpMap")) material.SetTexture("_BumpMap", normal);
+        if (material.HasProperty("_BumpScale")) material.SetFloat("_BumpScale", esHierro ? 0.24f : 0.38f);
+        if (material.HasProperty("_MetallicGlossMap")) material.SetTexture("_MetallicGlossMap", mapaSuavidad);
+        if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", esHierro ? 0.64f : 0f);
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", esHierro ? 0.27f : 0.19f);
+        material.EnableKeyword("_NORMALMAP");
+        material.EnableKeyword("_METALLICGLOSSMAP");
+        EditorUtility.SetDirty(material);
+        return material;
+    }
+
+    private static Mesh GuardarMallaBarril(Mesh malla, string nombreArchivo)
+    {
+        string ruta = BarrilesMallasCarpeta + "/" + nombreArchivo;
+        Mesh existente = AssetDatabase.LoadAssetAtPath<Mesh>(ruta);
+        if (existente == null)
+        {
+            AssetDatabase.CreateAsset(malla, ruta);
+            return malla;
+        }
+
+        EditorUtility.CopySerialized(malla, existente);
+        Object.DestroyImmediate(malla);
+        EditorUtility.SetDirty(existente);
+        return existente;
+    }
+
+    private static void CrearEmbutidosFaltantes(bool recrear)
+    {
+        AsegurarCarpeta(EmbutidosCarpeta);
+        AsegurarCarpeta(EmbutidosMaterialesCarpeta);
+        AsegurarCarpeta(EmbutidosMallasCarpeta);
+
+        Texture2D texturaChorizo = CargarOCrearTexturaEmbutido("Textura_Chorizo.asset", 31, false);
+        Texture2D texturaJamon = CargarOCrearTexturaEmbutido("Textura_Jamon.asset", 73, true);
+        Texture2D texturaCuerda = CargarOCrearTexturaEmbutido("Textura_Yute.asset", 119, false);
+        if (texturaChorizo == null || texturaJamon == null || texturaCuerda == null)
+        {
+            Debug.LogError("No se pudieron crear las texturas de la colección de embutidos.");
+            return;
+        }
+
+        float[] longitudesChorizo = { 0.24f, 0.31f, 0.21f, 0.34f, 0.27f };
+        float[] anchosChorizo = { 0.048f, 0.056f, 0.044f, 0.051f, 0.059f };
+        float[] curvaturasChorizo = { 0.018f, -0.028f, 0.008f, 0.035f, -0.012f };
+        Color[] coloresChorizo =
+        {
+            new Color(0.73f, 0.37f, 0.29f), new Color(0.62f, 0.27f, 0.21f),
+            new Color(0.78f, 0.43f, 0.32f), new Color(0.57f, 0.25f, 0.2f),
+            new Color(0.69f, 0.32f, 0.24f)
+        };
+        for (int i = 0; i < longitudesChorizo.Length; i++)
+        {
+            string nombre = "Chorizo_0" + (i + 1);
+            CrearEmbutidoIndividual(nombre, false, longitudesChorizo[i], anchosChorizo[i],
+                curvaturasChorizo[i], 0.82f + i * 0.045f, coloresChorizo[i], texturaChorizo, texturaCuerda, recrear);
+        }
+
+        float[] longitudesJamon = { 0.66f, 0.78f, 0.71f, 0.62f };
+        float[] anchosJamon = { 0.28f, 0.31f, 0.25f, 0.30f };
+        float[] curvaturasJamon = { 0.035f, -0.052f, 0.018f, -0.028f };
+        Color[] coloresJamon =
+        {
+            new Color(0.62f, 0.39f, 0.29f), new Color(0.72f, 0.48f, 0.34f),
+            new Color(0.55f, 0.32f, 0.25f), new Color(0.68f, 0.43f, 0.31f)
+        };
+        for (int i = 0; i < longitudesJamon.Length; i++)
+        {
+            string nombre = "Jamon_0" + (i + 1);
+            CrearEmbutidoIndividual(nombre, true, longitudesJamon[i], anchosJamon[i],
+                curvaturasJamon[i], 1.17f + i * 0.11f, coloresJamon[i], texturaJamon, texturaCuerda, recrear);
+        }
+    }
+
+    private static void CrearEmbutidoIndividual(string nombre, bool esJamon, float longitud, float ancho,
+        float curvatura, float secado, Color color, Texture2D textura, Texture2D texturaCuerda, bool recrear)
+    {
+        string prefabPath = EmbutidosCarpeta + "/" + nombre + ".prefab";
+        if (!recrear && AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null) return;
+
+        Material material = CargarOCrearMaterialEmbutido(nombre, color, textura);
+        Material materialCuerda = CargarOCrearMaterialEmbutido("Mat_Yute", new Color(0.67f, 0.53f, 0.36f), texturaCuerda);
+        if (material == null || materialCuerda == null) return;
+
+        int semilla = nombre.GetHashCode();
+        Mesh mallaCarne = CrearMallaOrganica(nombre + "Mesh", longitud, ancho, curvatura, esJamon, semilla, secado);
+        Mesh mallaCarneAsset = GuardarMallaEmbutido(mallaCarne, nombre + "Mesh.asset");
+        Mesh mallaCuerda = CrearMallaCuerda(nombre + "CuerdaMesh", longitud, ancho, esJamon, semilla);
+        Mesh mallaCuerdaAsset = GuardarMallaEmbutido(mallaCuerda, nombre + "CuerdaMesh.asset");
+        if (mallaCarneAsset == null || mallaCuerdaAsset == null) return;
+
+        GameObject raiz = new GameObject(nombre);
+        GameObject alimento = new GameObject(esJamon ? "JamonMesh" : "ChorizoMesh");
+        alimento.transform.SetParent(raiz.transform, false);
+        alimento.AddComponent<MeshFilter>().sharedMesh = mallaCarneAsset;
+        alimento.AddComponent<MeshRenderer>().sharedMaterial = material;
+
+        GameObject cuerda = new GameObject("Cuerda");
+        cuerda.transform.SetParent(raiz.transform, false);
+        cuerda.AddComponent<MeshFilter>().sharedMesh = mallaCuerdaAsset;
+        cuerda.AddComponent<MeshRenderer>().sharedMaterial = materialCuerda;
+
+        GuardarPrefab(raiz, prefabPath);
+    }
+
+    private static Mesh CrearMallaOrganica(string nombre, float longitud, float ancho, float curvatura,
+        bool esJamon, int semilla, float secado)
+    {
+        const int anillos = 36;
+        const int segmentos = 20;
+        List<Vector3> vertices = new List<Vector3>((anillos + 1) * segmentos + 2);
+        List<Vector2> uv = new List<Vector2>(vertices.Capacity);
+        List<int> triangulos = new List<int>(anillos * segmentos * 6 + segmentos * 6);
+        float profundidad = ancho * (esJamon ? 0.72f : 0.92f);
+
+        for (int anillo = 0; anillo <= anillos; anillo++)
+        {
+            float t = anillo / (float)anillos;
+            float y = (0.5f - t) * longitud;
+            float centroX = curvatura * Mathf.Sin(t * Mathf.PI) + curvatura * 0.22f * Mathf.Sin(t * Mathf.PI * 2f + semilla * 0.001f);
+            float perfil;
+            if (esJamon)
+            {
+                float hombro = Mathf.Exp(-Mathf.Pow((t - 0.34f) / 0.34f, 2f));
+                perfil = 0.34f + 0.66f * hombro;
+                perfil *= 0.94f + 0.06f * Mathf.Sin(t * Mathf.PI * 1.4f + semilla);
+            }
+            else
+            {
+                perfil = 0.82f + 0.13f * Mathf.Sin(t * Mathf.PI) + 0.045f * Mathf.Sin(t * Mathf.PI * 3f + semilla);
+            }
+
+            for (int segmento = 0; segmento < segmentos; segmento++)
+            {
+                float angulo = segmento * Mathf.PI * 2f / segmentos;
+                float ondulacion = 1f
+                    + 0.025f * Mathf.Sin(angulo * 4f + t * 43f + semilla)
+                    + 0.018f * Mathf.Sin(angulo * 7f - t * 31f + semilla * 0.37f)
+                    + (0.012f + secado * 0.006f) * Mathf.Sin(t * 90f + angulo * 2f + semilla);
+                float radioX = ancho * 0.5f * perfil * ondulacion;
+                float radioZ = profundidad * 0.5f * perfil * ondulacion;
+                vertices.Add(new Vector3(centroX + Mathf.Cos(angulo) * radioX, y, Mathf.Sin(angulo) * radioZ));
+                uv.Add(new Vector2(segmento / (float)segmentos, t * 2f));
+            }
+        }
+
+        for (int anillo = 0; anillo < anillos; anillo++)
+        {
+            for (int segmento = 0; segmento < segmentos; segmento++)
+            {
+                int actual = anillo * segmentos + segmento;
+                int siguiente = anillo * segmentos + (segmento + 1) % segmentos;
+                int inferior = actual + segmentos;
+                int inferiorSiguiente = siguiente + segmentos;
+                triangulos.Add(actual); triangulos.Add(siguiente); triangulos.Add(inferior);
+                triangulos.Add(siguiente); triangulos.Add(inferiorSiguiente); triangulos.Add(inferior);
+            }
+        }
+
+        int centroSuperior = vertices.Count;
+        vertices.Add(new Vector3(curvatura * 0.22f * Mathf.Sin(semilla * 0.001f), longitud * 0.5f, 0f));
+        uv.Add(new Vector2(0.5f, 0f));
+        int centroInferior = vertices.Count;
+        vertices.Add(new Vector3(0f, -longitud * 0.5f, 0f));
+        uv.Add(new Vector2(0.5f, 1f));
+        for (int segmento = 0; segmento < segmentos; segmento++)
+        {
+            int siguiente = (segmento + 1) % segmentos;
+            triangulos.Add(centroSuperior); triangulos.Add(siguiente); triangulos.Add(segmento);
+            int baseInferior = anillos * segmentos;
+            triangulos.Add(centroInferior); triangulos.Add(baseInferior + segmento); triangulos.Add(baseInferior + siguiente);
+        }
+
+        Mesh mesh = new Mesh { name = nombre };
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0, uv);
+        mesh.SetTriangles(triangulos, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static Mesh CrearMallaCuerda(string nombre, float longitud, float ancho, bool esJamon, int semilla)
+    {
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector2> uv = new List<Vector2>();
+        List<int> triangulos = new List<int>();
+        float radioComida = ancho * (esJamon ? 0.26f : 0.33f);
+        float yAtadura = longitud * 0.5f - (esJamon ? 0.035f : 0.012f);
+        AgregarTuboCuerda(vertices, uv, triangulos, new[]
+        {
+            new Vector3(0f, yAtadura - 0.035f, 0f), new Vector3(0f, yAtadura + 0.01f, 0f),
+            new Vector3(0.012f, yAtadura + 0.07f, 0f), new Vector3(0f, yAtadura + 0.13f, 0f)
+        }, esJamon ? 0.009f : 0.0045f, semilla);
+
+        List<Vector3> vuelta = new List<Vector3>();
+        for (int i = 0; i <= 32; i++)
+        {
+            float angulo = i * Mathf.PI * 2f / 32f;
+            vuelta.Add(new Vector3(Mathf.Cos(angulo) * radioComida, yAtadura, Mathf.Sin(angulo) * radioComida));
+        }
+        AgregarTuboCuerda(vertices, uv, triangulos, vuelta, esJamon ? 0.009f : 0.0045f, semilla + 11);
+
+        float radioLazo = esJamon ? 0.065f : 0.037f;
+        float alturaLazo = yAtadura + (esJamon ? 0.19f : 0.12f);
+        List<Vector3> lazo = new List<Vector3>();
+        for (int i = 0; i <= 36; i++)
+        {
+            float angulo = i * Mathf.PI * 2f / 36f;
+            lazo.Add(new Vector3(Mathf.Sin(angulo) * radioLazo, alturaLazo + Mathf.Cos(angulo) * radioLazo * 1.2f,
+                Mathf.Sin(angulo * 2f) * radioLazo * 0.12f));
+        }
+        AgregarTuboCuerda(vertices, uv, triangulos, lazo, esJamon ? 0.009f : 0.005f, semilla + 23);
+
+        for (int cola = 0; cola < 2; cola++)
+        {
+            float lado = cola == 0 ? -1f : 1f;
+            AgregarTuboCuerda(vertices, uv, triangulos, new[]
+            {
+                new Vector3(0f, yAtadura + 0.015f, 0f),
+                new Vector3(lado * radioComida * 0.55f, yAtadura + 0.035f, radioComida * 0.65f),
+                new Vector3(lado * radioComida * 0.82f, yAtadura + 0.005f, radioComida * 0.35f)
+            }, esJamon ? 0.008f : 0.004f, semilla + cola * 7);
+        }
+
+        Mesh mesh = new Mesh { name = nombre };
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0, uv);
+        mesh.SetTriangles(triangulos, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static void AgregarTuboCuerda(List<Vector3> vertices, List<Vector2> uv, List<int> triangulos,
+        IList<Vector3> puntos, float radio, int semilla)
+    {
+        const int lados = 7;
+        if (puntos.Count < 2) return;
+        int inicio = vertices.Count;
+        for (int anillo = 0; anillo < puntos.Count; anillo++)
+        {
+            Vector3 tangente = (puntos[Mathf.Min(anillo + 1, puntos.Count - 1)] - puntos[Mathf.Max(anillo - 1, 0)]).normalized;
+            Vector3 referencia = Mathf.Abs(Vector3.Dot(tangente, Vector3.up)) > 0.92f ? Vector3.forward : Vector3.up;
+            Vector3 ejeA = Vector3.Cross(tangente, referencia).normalized;
+            Vector3 ejeB = Vector3.Cross(tangente, ejeA).normalized;
+            for (int lado = 0; lado < lados; lado++)
+            {
+                float angulo = lado * Mathf.PI * 2f / lados;
+                float fibra = 1f + 0.07f * Mathf.Sin(angulo * 3f + anillo * 0.9f + semilla);
+                vertices.Add(puntos[anillo] + (ejeA * Mathf.Cos(angulo) + ejeB * Mathf.Sin(angulo)) * radio * fibra);
+                uv.Add(new Vector2(lado / (float)lados, anillo * 0.35f));
+            }
+        }
+
+        for (int anillo = 0; anillo < puntos.Count - 1; anillo++)
+        {
+            for (int lado = 0; lado < lados; lado++)
+            {
+                int a = inicio + anillo * lados + lado;
+                int b = inicio + anillo * lados + (lado + 1) % lados;
+                int c = a + lados;
+                int d = b + lados;
+                triangulos.Add(a); triangulos.Add(b); triangulos.Add(c);
+                triangulos.Add(b); triangulos.Add(d); triangulos.Add(c);
+            }
+        }
+    }
+
+    private static Texture2D CargarOCrearTexturaEmbutido(string nombre, int semilla, bool grasa)
+    {
+        string ruta = EmbutidosMaterialesCarpeta + "/" + nombre;
+        Texture2D textura = AssetDatabase.LoadAssetAtPath<Texture2D>(ruta);
+        if (textura != null) return textura;
+
+        const int resolucion = 128;
+        textura = new Texture2D(resolucion, resolucion, TextureFormat.RGBA32, true) { name = System.IO.Path.GetFileNameWithoutExtension(nombre) };
+        Color[] pixeles = new Color[resolucion * resolucion];
+        for (int y = 0; y < resolucion; y++)
+        {
+            for (int x = 0; x < resolucion; x++)
+            {
+                float amplio = Mathf.PerlinNoise((x + semilla) * 0.055f, (y + semilla) * 0.055f);
+                float fino = Mathf.PerlinNoise((x + semilla * 2) * 0.19f, (y + semilla * 3) * 0.19f);
+                float manchas = Mathf.PerlinNoise((x + semilla) * 0.025f, (y - semilla) * 0.025f);
+                float valor = Mathf.Clamp01(0.7f + (amplio - 0.5f) * 0.28f + (fino - 0.5f) * 0.13f);
+                if (grasa && manchas > 0.68f) valor = Mathf.Lerp(valor, 0.97f, (manchas - 0.68f) * 1.8f);
+                if (manchas < 0.27f) valor *= 0.88f;
+                pixeles[y * resolucion + x] = new Color(valor, valor * (grasa ? 0.96f : 0.91f), valor * (grasa ? 0.87f : 0.84f), 1f);
+            }
+        }
+        textura.SetPixels(pixeles);
+        textura.wrapMode = TextureWrapMode.Repeat;
+        textura.filterMode = FilterMode.Bilinear;
+        textura.Apply(true, false);
+        AssetDatabase.CreateAsset(textura, ruta);
+        return textura;
+    }
+
+    private static Material CargarOCrearMaterialEmbutido(string nombre, Color color, Texture2D textura)
+    {
+        string ruta = EmbutidosMaterialesCarpeta + "/Mat_" + nombre + ".mat";
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(ruta);
+        if (material == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) return null;
+            material = new Material(shader) { name = "Mat_" + nombre };
+            AssetDatabase.CreateAsset(material, ruta);
+        }
+
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", textura);
+        if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", textura);
+        if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", 0f);
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.16f);
+        EditorUtility.SetDirty(material);
+        return material;
+    }
+
+    private static Mesh GuardarMallaEmbutido(Mesh malla, string nombreArchivo)
+    {
+        string ruta = EmbutidosMallasCarpeta + "/" + nombreArchivo;
+        Mesh existente = AssetDatabase.LoadAssetAtPath<Mesh>(ruta);
+        if (existente == null)
+        {
+            AssetDatabase.CreateAsset(malla, ruta);
+            return malla;
+        }
+
+        EditorUtility.CopySerialized(malla, existente);
+        Object.DestroyImmediate(malla);
+        EditorUtility.SetDirty(existente);
+        return existente;
+    }
+
+    private static void AsegurarCarpeta(string ruta)
+    {
+        if (AssetDatabase.IsValidFolder(ruta)) return;
+        string padre = System.IO.Path.GetDirectoryName(ruta).Replace('\\', '/');
+        string nombre = System.IO.Path.GetFileName(ruta);
+        if (!AssetDatabase.IsValidFolder(padre)) AsegurarCarpeta(padre);
+        AssetDatabase.CreateFolder(padre, nombre);
     }
 
     private static void CrearEstanteriaEpoca()
