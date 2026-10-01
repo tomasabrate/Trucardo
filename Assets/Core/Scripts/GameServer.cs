@@ -1,4 +1,4 @@
-ï»¿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -34,7 +34,7 @@ namespace Trucardo.Core
                 enabled = false;
                 return;
             }
-            Debug.Log("Servidor de Trucardo Iniciado. Soportando mÃºltiples mesas.");
+            Debug.Log("Servidor de Trucardo Iniciado. Soportando múltiples mesas.");
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
         }
 
@@ -163,7 +163,7 @@ namespace Trucardo.Core
 
             GameObject c = Instantiate(cardPrefab);
             NetworkObject netObj = c.GetComponent<NetworkObject>();
-            if (netObj != null) netObj.Spawn();
+            // Spawn later
 
             Vector3 startPos = Vector3.zero;
             Quaternion startRot = Quaternion.identity;
@@ -182,6 +182,8 @@ namespace Trucardo.Core
             }
 
             c.transform.position = startPos;
+            c.transform.rotation = startRot;
+            if (netObj != null) netObj.Spawn();
             int playerPlayedCount = 0;
             if (playerId == session.Player1Id) playerPlayedCount = 2 - session.GameModel.P1Hand.Count;
             else if (playerId == session.Player2Id) playerPlayedCount = 2 - session.GameModel.P2Hand.Count;
@@ -204,7 +206,7 @@ namespace Trucardo.Core
             float tableX = session.TablePosition.x;
             bool isLeftSide = pc != null && pc.transform.position.x < tableX;
                         float xOffset = isLeftSide ? -0.2f : 0.2f;
-            Vector3 targetPos = new Vector3(xOffset, 0.96f, zOffset);
+            Vector3 targetPos = new Vector3(xOffset, 0.975f, zOffset);
             
             // Y de la misma forma determinamos la rotacion
             float yRot = isLeftSide ? 90f : -90f;
@@ -312,7 +314,7 @@ namespace Trucardo.Core
         {
             if (session.Player1Seated && session.Player2Seated)
             {
-                Debug.Log($"Â¡Ambos jugadores en mesa {session.TablePosition}! Repartiendo.");
+                Debug.Log($"¡Ambos jugadores en mesa {session.TablePosition}! Repartiendo.");
                 StartRound(session);
             }
         }

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
 
@@ -632,7 +632,7 @@ namespace Trucardo.Core
 
             foreach (GameObject obj in allObjects)
             {
-                bool usesLegacyBehavior = obj.name.ToLower().Contains("silla") || obj.name.ToLower().Contains("banco");
+                bool usesLegacyBehavior = obj.name.ToLower().StartsWith("silla") || obj.name.ToLower().StartsWith("banco");
                 SeatInteractable interactable = obj.GetComponent<SeatInteractable>();
                 if (!usesLegacyBehavior && interactable == null) continue;
 
