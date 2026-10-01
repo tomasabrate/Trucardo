@@ -1,4 +1,4 @@
-﻿﻿using UnityEngine;
+﻿using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
 
@@ -632,7 +632,7 @@ namespace Trucardo.Core
 
             foreach (GameObject obj in allObjects)
             {
-                bool usesLegacyBehavior = obj.name.ToLower().Contains("silla");
+                bool usesLegacyBehavior = obj.name.ToLower().Contains("silla") || obj.name.ToLower().Contains("banco");
                 SeatInteractable interactable = obj.GetComponent<SeatInteractable>();
                 if (!usesLegacyBehavior && interactable == null) continue;
 
@@ -649,7 +649,7 @@ namespace Trucardo.Core
                 if (isOccupied) continue;
 
                 float distance = Vector3.Distance(transform.position, obj.transform.position);
-                float interactionRange = usesLegacyBehavior ? 2.5f : 1.5f;
+                float interactionRange = usesLegacyBehavior ? 1.5f : 1.0f;
                 if (distance < interactionRange && distance < closestDistance)
                 {
                     closestDistance = distance;

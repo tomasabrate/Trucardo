@@ -17,4 +17,4 @@ MonoBehaviour:
   TrucoRank: 2
   EnvidoValue: 5
   CardPrefab: {fileID: 0}
-  CardSprite: {fileID: 0}
+  CardSprite: {fileID: 21300000, guid: 130b91f35901f794991ad66fcbde2025, type: 3}

@@ -46,28 +46,9 @@ namespace Trucardo.Core
         {
             if (data != null)
             {
-                if (textNumber != null) 
+                if (iconImage != null && data.CardSprite != null)
                 {
-                    textNumber.text = data.Number.ToString();
-                    if (textNumberBottom != null) textNumberBottom.text = data.Number.ToString();
-                    
-                    // Colorear el numero sutilmente dependiendo del palo (opcional, para darle estilo)
-                    Color numColor = Color.black;
-                    if (data.Suit == CardSuit.Espada) numColor = new Color(0.2f, 0.6f, 0.8f); // Celeste
-                    else if (data.Suit == CardSuit.Oro) numColor = new Color(0.9f, 0.7f, 0.1f); // Dorado
-                    else if (data.Suit == CardSuit.Copa) numColor = new Color(0.8f, 0.4f, 0.2f); // Cobre
-                    else if (data.Suit == CardSuit.Basto) numColor = new Color(0.3f, 0.7f, 0.3f); // Verde
-
-                    textNumber.color = numColor;
-                    if (textNumberBottom != null) textNumberBottom.color = numColor;
-                }
-                
-                if (iconImage != null)
-                {
-                    if (data.Suit == CardSuit.Espada) iconImage.sprite = spriteEspada;
-                    else if (data.Suit == CardSuit.Oro) iconImage.sprite = spriteOro;
-                    else if (data.Suit == CardSuit.Copa) iconImage.sprite = spriteCopa;
-                    else if (data.Suit == CardSuit.Basto) iconImage.sprite = spriteBasto;
+                    iconImage.sprite = data.CardSprite;
                 }
             }
         }
