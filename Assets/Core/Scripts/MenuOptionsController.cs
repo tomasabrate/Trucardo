@@ -12,6 +12,7 @@ public class MenuOptionsController : MonoBehaviour
     private TMP_Dropdown resolutionDropdown;
     private Button backButton;
     private MainMenu mainMenu;
+    private Codigo_pausa pauseMenu;
 
     private void Awake()
     {
@@ -22,13 +23,24 @@ public class MenuOptionsController : MonoBehaviour
         resolutionDropdown = FindControl<TMP_Dropdown>("DropdownResolucion");
         backButton = FindBackButton();
         mainMenu = Object.FindAnyObjectByType<MainMenu>(FindObjectsInactive.Include);
+        pauseMenu = Object.FindAnyObjectByType<Codigo_pausa>(FindObjectsInactive.Include);
 
         if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.AddListener(GameSettingsManager.SetMasterVolume);
         if (musicVolumeSlider != null) musicVolumeSlider.onValueChanged.AddListener(GameSettingsManager.SetMusicVolume);
         if (brightnessSlider != null) brightnessSlider.onValueChanged.AddListener(GameSettingsManager.SetBrightness);
         if (qualityDropdown != null) qualityDropdown.onValueChanged.AddListener(GameSettingsManager.SetQuality);
         if (resolutionDropdown != null) resolutionDropdown.onValueChanged.AddListener(OnResolutionChanged);
-        if (backButton != null) backButton.onClick.AddListener(ReturnToMainMenu);
+        if (backButton != null)
+        {
+            if (pauseMenu != null)
+            {
+                backButton.onClick.AddListener(GameSettingsManager.SaveSettings);
+            }
+            else
+            {
+                backButton.onClick.AddListener(ReturnToMainMenu);
+            }
+        }
     }
 
     private void OnEnable()
@@ -43,7 +55,17 @@ public class MenuOptionsController : MonoBehaviour
         if (brightnessSlider != null) brightnessSlider.onValueChanged.RemoveListener(GameSettingsManager.SetBrightness);
         if (qualityDropdown != null) qualityDropdown.onValueChanged.RemoveListener(GameSettingsManager.SetQuality);
         if (resolutionDropdown != null) resolutionDropdown.onValueChanged.RemoveListener(OnResolutionChanged);
-        if (backButton != null) backButton.onClick.RemoveListener(ReturnToMainMenu);
+        if (backButton != null)
+        {
+            if (pauseMenu != null)
+            {
+                backButton.onClick.RemoveListener(GameSettingsManager.SaveSettings);
+            }
+            else
+            {
+                backButton.onClick.RemoveListener(ReturnToMainMenu);
+            }
+        }
     }
 
     private void InitializeControls()
@@ -107,10 +129,16 @@ public class MenuOptionsController : MonoBehaviour
         Resolution[] resolutions = GameSettingsManager.GetAvailableResolutions();
         List<string> labels = new List<string>(resolutions.Length);
         int selectedIndex = 0;
+        int savedWidth = PlayerPrefs.GetInt("Settings_ResolutionWidth", -1);
+        int savedHeight = PlayerPrefs.GetInt("Settings_ResolutionHeight", -1);
         for (int index = 0; index < resolutions.Length; index++)
         {
             Resolution resolution = resolutions[index];
             labels.Add(resolution.width + " x " + resolution.height);
+            if (Application.isEditor && resolution.width == savedWidth && resolution.height == savedHeight)
+            {
+                selectedIndex = index;
+            }
             if (resolution.width == Screen.width && resolution.height == Screen.height)
             {
                 selectedIndex = index;
@@ -162,7 +190,8 @@ public class MenuOptionsController : MonoBehaviour
     {
         foreach (Button button in GetComponentsInChildren<Button>(true))
         {
-            if (button.gameObject.name == "VolverAtrasMenuPrincipal")
+            if (button.gameObject.name == "VolverAtrasMenuPrincipal" ||
+                button.gameObject.name == "BottonVolverMenuPausa")
             {
                 return button;
             }

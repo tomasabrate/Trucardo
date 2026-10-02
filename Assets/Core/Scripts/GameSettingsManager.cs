@@ -2,8 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 
 public class GameSettingsManager : MonoBehaviour
 {
@@ -13,8 +12,10 @@ public class GameSettingsManager : MonoBehaviour
     private const string QualityKey = "Settings_Quality";
     private const string ResolutionWidthKey = "Settings_ResolutionWidth";
     private const string ResolutionHeightKey = "Settings_ResolutionHeight";
-    private const string BrightnessObjectName = "SettingsBrightnessVolume";
+    private const string BrightnessObjectName = "SettingsBrightnessOverlay";
+    private const string LegacyBrightnessVolumeName = "SettingsBrightnessVolume";
     private const string MusicSourceObjectName = "MusicaBar";
+    private const string MusicClipKeyword = "instrumental";
 
     private static readonly string[] QualityLabels =
     {
@@ -24,18 +25,14 @@ public class GameSettingsManager : MonoBehaviour
     private static readonly Dictionary<AudioSource, float> MusicSourceVolumes = new Dictionary<AudioSource, float>();
     private static bool initialized;
     private static float musicVolume = 1f;
-    private static Volume brightnessVolume;
-    private static ColorAdjustments brightnessAdjustments;
-    private static VolumeProfile brightnessProfile;
+    private static Image brightnessOverlay;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetRuntimeState()
     {
         initialized = false;
         musicVolume = 1f;
-        brightnessVolume = null;
-        brightnessAdjustments = null;
-        brightnessProfile = null;
+        brightnessOverlay = null;
         MusicSourceVolumes.Clear();
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
@@ -204,7 +201,7 @@ public class GameSettingsManager : MonoBehaviour
     {
         foreach (AudioSource source in Object.FindObjectsByType<AudioSource>())
         {
-            if (source.gameObject.name != MusicSourceObjectName)
+            if (!IsMusicSource(source))
             {
                 continue;
             }
@@ -222,40 +219,81 @@ public class GameSettingsManager : MonoBehaviour
     private static void ApplyBrightness(float value)
     {
         value = Mathf.Clamp01(value);
-        EnsureBrightnessVolume();
-        brightnessAdjustments.postExposure.value = (value - 0.5f) * 4f;
+        EnsureBrightnessOverlay();
+
+        if (value < 0.5f)
+        {
+            brightnessOverlay.color = new Color(0f, 0f, 0f, (0.5f - value) * 1.8f);
+        }
+        else
+        {
+            brightnessOverlay.color = new Color(1f, 1f, 1f, (value - 0.5f) * 1.1f);
+        }
     }
 
-    private static void EnsureBrightnessVolume()
+    private static bool IsMusicSource(AudioSource source)
     {
-        if (brightnessVolume != null && brightnessAdjustments != null)
+        if (source.gameObject.name == MusicSourceObjectName)
+        {
+            return true;
+        }
+
+        if (source.clip == null)
+        {
+            return false;
+        }
+
+        string clipName = source.clip.name;
+        return clipName.IndexOf(MusicClipKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            clipName.IndexOf("music", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            clipName.IndexOf("musica", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            clipName.IndexOf("soundtrack", System.StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void EnsureBrightnessOverlay()
+    {
+        if (brightnessOverlay != null)
         {
             return;
         }
 
-        GameObject volumeObject = GameObject.Find(BrightnessObjectName);
-        if (volumeObject == null)
+        GameObject legacyVolume = GameObject.Find(LegacyBrightnessVolumeName);
+        if (legacyVolume != null)
         {
-            volumeObject = new GameObject(BrightnessObjectName);
-            volumeObject.hideFlags = HideFlags.HideInHierarchy;
-            Object.DontDestroyOnLoad(volumeObject);
+            Object.Destroy(legacyVolume);
         }
 
-        brightnessVolume = volumeObject.GetComponent<Volume>();
-        if (brightnessVolume == null)
+        GameObject overlayObject = GameObject.Find(BrightnessObjectName);
+        Canvas overlayCanvas;
+        if (overlayObject == null)
         {
-            brightnessVolume = volumeObject.AddComponent<Volume>();
+            overlayObject = new GameObject(BrightnessObjectName, typeof(RectTransform), typeof(Canvas));
+            overlayObject.hideFlags = HideFlags.HideInHierarchy;
+            Object.DontDestroyOnLoad(overlayObject);
         }
 
-        brightnessVolume.isGlobal = true;
-        brightnessVolume.priority = 1000f;
-        brightnessVolume.weight = 1f;
+        overlayCanvas = overlayObject.GetComponent<Canvas>();
+        overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        overlayCanvas.overrideSorting = true;
+        overlayCanvas.sortingOrder = short.MaxValue;
 
-        brightnessProfile = ScriptableObject.CreateInstance<VolumeProfile>();
-        brightnessProfile.hideFlags = HideFlags.HideAndDontSave;
-        brightnessAdjustments = brightnessProfile.Add<ColorAdjustments>();
-        brightnessAdjustments.postExposure.overrideState = true;
-        brightnessVolume.sharedProfile = brightnessProfile;
+        Transform overlayTransform = overlayObject.transform.Find("Brightness");
+        if (overlayTransform == null)
+        {
+            GameObject imageObject = new GameObject("Brightness", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            imageObject.transform.SetParent(overlayObject.transform, false);
+            overlayTransform = imageObject.transform;
+        }
+
+        RectTransform rectTransform = (RectTransform)overlayTransform;
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.offsetMin = Vector2.zero;
+        rectTransform.offsetMax = Vector2.zero;
+
+        brightnessOverlay = overlayTransform.GetComponent<Image>();
+        brightnessOverlay.raycastTarget = false;
+        brightnessOverlay.color = Color.clear;
     }
 
     private static float GetRefreshRate(Resolution resolution)
