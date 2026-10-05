@@ -228,6 +228,7 @@ MonoBehaviour:
   textNumber: {fileID: 0}
   textNumberBottom: {fileID: 0}
   iconImage: {fileID: 0}
+  backSprite: {fileID: 21300000, guid: c84cfc7835742f8428fa60814ce875a7, type: 3}
   spriteEspada: {fileID: 21300000, guid: afe9aaa02f508504da05a1e959ad5e38, type: 3}
   spriteOro: {fileID: 21300000, guid: 2f93028d3369d454a9d01d94b4f2579a, type: 3}
   spriteCopa: {fileID: 21300000, guid: 0317fd50b2c652a4b841265b45ddf48a, type: 3}

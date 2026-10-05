@@ -8,6 +8,8 @@ namespace Trucardo.Core
 {
     public class TableSession
     {
+        public string TableId;
+        public TableDefinition Table;
         public Vector3 TablePosition;
         public GameModel GameModel;
         public ulong Player1Id = ulong.MaxValue;
@@ -29,12 +31,13 @@ namespace Trucardo.Core
 
         public override void OnNetworkSpawn()
         {
+            TableDefinition.EnsureSceneConfiguration();
             if (!IsServer)
             {
                 enabled = false;
                 return;
             }
-            Debug.Log("Servidor de Trucardo Iniciado. Soportando m˙ltiples mesas.");
+            Debug.Log("Servidor de Trucardo Iniciado. Soportando mÔøΩltiples mesas.");
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
         }
 
@@ -67,14 +70,16 @@ namespace Trucardo.Core
             return sessions.FirstOrDefault(s => s.Player1Id == clientId || s.Player2Id == clientId);
         }
 
-        private TableSession GetOrCreateSession(Vector3 tablePos)
+        private TableSession GetOrCreateSession(TableDefinition table)
         {
-            var session = sessions.FirstOrDefault(s => Vector3.Distance(s.TablePosition, tablePos) < 0.1f);
+            var session = sessions.FirstOrDefault(s => s.TableId == table.TableId);
             if (session == null)
             {
                 session = new TableSession 
                 { 
-                    TablePosition = tablePos,
+                    TableId = table.TableId,
+                    Table = table,
+                    TablePosition = table.transform.position,
                     GameModel = new GameModel(masterDeck)
                 };
                 sessions.Add(session);
@@ -96,9 +101,25 @@ namespace Trucardo.Core
         }
 
         [ServerRpc(RequireOwnership = false)]
-        public void PlayerSitDownServerRpc(Vector3 tablePos, ServerRpcParams rpcParams = default)
+        public void PlayerSitDownServerRpc(string tableId, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
+            TableDefinition table = TableDefinition.FindById(tableId);
+            if (table == null)
+            {
+                Debug.LogWarning($"El jugador {sender} intent√≥ sentarse en una mesa inexistente: {tableId}.");
+                return;
+            }
+
+            TableSession requestedSession = GetOrCreateSession(table);
+            if (requestedSession.Player1Id != ulong.MaxValue
+                && requestedSession.Player2Id != ulong.MaxValue
+                && requestedSession.Player1Id != sender
+                && requestedSession.Player2Id != sender)
+            {
+                Debug.LogWarning($"La mesa {table.TableId} ya tiene dos jugadores.");
+                return;
+            }
             
             var oldSession = GetSessionByPlayer(sender);
             if (oldSession != null)
@@ -107,7 +128,7 @@ namespace Trucardo.Core
                 if (oldSession.Player2Id == sender) { oldSession.Player2Id = ulong.MaxValue; oldSession.Player2Seated = false; }
             }
 
-            TableSession session = GetOrCreateSession(tablePos);
+            TableSession session = requestedSession;
 
             if (session.Player1Id == ulong.MaxValue)
             {
@@ -203,36 +224,21 @@ namespace Trucardo.Core
                 }
             }
             
-            float tableX = session.TablePosition.x;
-            bool isLeftSide = pc != null && pc.transform.position.x < tableX;
+            Vector3 tableCenter = session.Table.transform.position;
+            bool isLeftSide = pc != null && pc.transform.position.x < tableCenter.x;
                         float xOffset = isLeftSide ? -0.2f : 0.2f;
-            Vector3 targetPos = new Vector3(xOffset, 0.975f, zOffset);
+            Vector3 targetPos = new Vector3(xOffset, 0f, zOffset);
             
             // Y de la misma forma determinamos la rotacion
             float yRot = isLeftSide ? 90f : -90f;
             Quaternion targetRot = Quaternion.Euler(0, yRot, 0);
             
-                        // Buscar la mesa a la que pertenece esta sesion
-            Transform mesa = null;
-            GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-            foreach(var obj in allObjects)
-            {
-                if(obj.name.Contains("Mesa") && Vector3.Distance(obj.transform.position, session.TablePosition) < 0.1f)
-                {
-                    mesa = obj.transform;
-                    break;
-                }
-            }
-
-            if (mesa == null) // fallback
-            {
-                GameObject mesaObj = GameObject.Find("Mesa_Principal");
-                if (mesaObj != null) mesa = mesaObj.transform;
-            }
+            Transform mesa = session.Table != null ? session.Table.transform : null;
 
             if (mesa != null)
             {
                 targetPos = mesa.TransformPoint(targetPos);
+                targetPos.y = GetTableSurfaceHeight(mesa, targetPos.y);
                 targetRot = mesa.rotation * targetRot;
             }
 
@@ -246,6 +252,20 @@ namespace Trucardo.Core
 
                         session.TableCards.Add(c);
             SpawnCardOnTableClientRpc(cardIndex, targetPos, targetRot, c.GetComponent<Unity.Netcode.NetworkObject>());
+        }
+
+        private float GetTableSurfaceHeight(Transform table, float fallback)
+        {
+            float highestSurface = float.NegativeInfinity;
+            foreach (Renderer renderer in table.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!renderer.enabled || renderer.bounds.size.y > 1.5f)
+                    continue;
+
+                highestSurface = Mathf.Max(highestSurface, renderer.bounds.max.y);
+            }
+
+            return float.IsNegativeInfinity(highestSurface) ? fallback + 0.95f : highestSurface + 0.03f;
         }
 
         [ClientRpc]
@@ -312,9 +332,11 @@ namespace Trucardo.Core
 
         private void CheckStartGame(TableSession session)
         {
-            if (session.Player1Seated && session.Player2Seated)
+            bool canStart = session.Player1Seated && session.Player2Seated;
+
+            if (canStart && session.GameModel.CurrentState == GameState.EsperandoJugadores)
             {
-                Debug.Log($"°Ambos jugadores en mesa {session.TablePosition}! Repartiendo.");
+                Debug.Log($"Jugador listo en {session.TableId}! Repartiendo.");
                 StartRound(session);
             }
         }
@@ -369,7 +391,10 @@ namespace Trucardo.Core
             {
                 Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player2Id } }
             };
-            ReceiveCardsClientRpc(session.Player2Id, p2Cards, clientRpcParamsP2);
+            if (session.Player2Seated)
+            {
+                ReceiveCardsClientRpc(session.Player2Id, p2Cards, clientRpcParamsP2);
+            }
 
             session.GameModel.CurrentState = GameState.TurnoJugador;
             session.GameModel.CurrentTurnId = session.Player1Id;
@@ -414,23 +439,19 @@ namespace Trucardo.Core
 
         private void SyncClientState(TableSession session)
         {
+            List<ulong> seatedPlayers = new List<ulong>();
+            if (session.Player1Seated) seatedPlayers.Add(session.Player1Id);
+            if (session.Player2Seated) seatedPlayers.Add(session.Player2Id);
+            if (seatedPlayers.Count == 0) return;
+
             ClientRpcParams clientRpcParams = new ClientRpcParams
             {
-                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player1Id, session.Player2Id } }
+                Send = new ClientRpcSendParams { TargetClientIds = seatedPlayers.ToArray() }
             };
             UpdateClientStateClientRpc(session.GameModel.CurrentState, session.GameModel.CurrentTurnId, session.GameModel.ScoreTeam1, session.GameModel.ScoreTeam2, session.GameModel.CantoPendiente, session.GameModel.LastCallerId, session.GameModel.EstadoTruco, session.Player1Id, clientRpcParams);
         }
     }
 }
-
-
-
-
-
-
-
-
-
 
 
 

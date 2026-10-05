@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 namespace Trucardo.Core
 {
@@ -30,14 +31,19 @@ namespace Trucardo.Core
         private Animator animator;
                 private bool isSeated = false;
         private Transform currentTable = null;
+                private TableDefinition currentTableDefinition = null;
 
         [Header("Referencias a Prefabs")]
         public GameObject cardPrefab;
+        public PowerCatalog powerCatalog;
 
         private int[] myCards = new int[3] { -1, -1, -1 };
         private GameObject[] localCardInstances = new GameObject[3];
         private HandVisualizer handVisualizer;
         private HandVisualizer opponentHandVisualizer;
+        private PowerHandVisualizer powerHandVisualizer;
+        private PowerSystem powerSystem;
+        private readonly List<GameObject> localPowerInstances = new List<GameObject>();
         
         // Estado local para la UI
         private GameState localGameState;
@@ -54,7 +60,14 @@ namespace Trucardo.Core
 
         public override void OnNetworkSpawn()
         {
+            TableDefinition.EnsureSceneConfiguration();
             characterController = GetComponent<CharacterController>();
+
+            AudioListener audioListener = GetComponent<AudioListener>();
+            if (audioListener != null)
+            {
+                audioListener.enabled = IsOwner;
+            }
             
             // Fix culling issues (mesh disappearing when looking away from its original bounds)
             // Esto arregla que el sombrero/cabeza del oponente desaparezca al mirar hacia abajo
@@ -199,8 +212,14 @@ namespace Trucardo.Core
 
         public void ReceiveCards(int[] cards)
         {
+            if (cards == null || cards.Length < 3)
+            {
+                Debug.LogError("[Local Player] No se recibieron tres cartas válidas.");
+                return;
+            }
+
             myCards = cards;
-            Debug.Log($"[Local Player] Cartas recibidas. Instanciando 3D...");
+            Debug.Log($"[Local Player] Cartas recibidas ({cards.Length}). Instanciando 3D...");
 
                         for (int i = 0; i < 3; i++)
             {
@@ -216,10 +235,32 @@ namespace Trucardo.Core
             }
 
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
-            if (serverInstance == null) return;
+            if (serverInstance == null)
+            {
+                Debug.LogError("[Local Player] No se encontró GameServer para obtener el mazo.");
+                return;
+            }
             
             DeckData deck = serverInstance.masterDeck;
             
+            if (cardPrefab == null)
+            {
+                Debug.LogError("[Local Player] cardPrefab no está asignado.");
+                return;
+            }
+
+            if (deck == null || deck.AvailableCards == null)
+            {
+                Debug.LogError("[Local Player] GameServer no tiene un mazo válido asignado.");
+                return;
+            }
+
+            if (deck.AvailableCards.Count == 0)
+            {
+                Debug.LogError("[Local Player] El mazo no contiene cartas.");
+                return;
+            }
+
             if (cardPrefab != null && deck != null)
             {
                 if (handVisualizer == null)
@@ -231,8 +272,11 @@ namespace Trucardo.Core
                                 handVisualizer.tableCenter = currentTable;
                 handVisualizer.isOpponent = false;
                 handVisualizer.sideSpacing = 0.2f; 
-                handVisualizer.heightOffset = 1.08f; 
-                handVisualizer.tiltAngle = -35f; 
+                handVisualizer.heightOffset = 0.82f;
+                handVisualizer.forwardDistance = 1.0f;
+                handVisualizer.lateralOffset = 0f;
+                handVisualizer.tableEdgeDistance = 0.61f;
+                handVisualizer.tiltAngle = -35f;
                 
                 handVisualizer.cardsInHand.Clear();
 
@@ -244,7 +288,10 @@ namespace Trucardo.Core
                 opponentHandVisualizer.tableCenter = currentTable;
                 opponentHandVisualizer.isOpponent = true;
                 opponentHandVisualizer.sideSpacing = 0.2f;
-                opponentHandVisualizer.heightOffset = 0.99f; 
+                opponentHandVisualizer.heightOffset = 0.82f;
+                opponentHandVisualizer.forwardDistance = 1.8f;
+                opponentHandVisualizer.lateralOffset = 0f;
+                opponentHandVisualizer.tableEdgeDistance = 0.61f;
                 opponentHandVisualizer.tiltAngle = -35f;
                 
                 opponentHandVisualizer.cardsInHand.Clear();
@@ -259,7 +306,11 @@ namespace Trucardo.Core
                     CardVisual visual = c.GetComponent<CardVisual>();
                     if (visual != null)
                     {
-                        visual.SetCardData(deck.AvailableCards[cards[i]]);
+                        int cardIndex = cards[i];
+                        if (cardIndex >= 0 && cardIndex < deck.AvailableCards.Count)
+                        {
+                            visual.SetCardData(deck.AvailableCards[cardIndex]);
+                        }
                         handVisualizer.AddCardToHand(visual);
                     }
 
@@ -280,6 +331,56 @@ namespace Trucardo.Core
                         opponentHandVisualizer.AddCardToHand(oppVisual);
                     }
                 }
+
+                SetupPowerVisuals();
+            }
+        }
+
+        private void SetupPowerVisuals()
+        {
+            foreach (GameObject powerObject in localPowerInstances)
+            {
+                if (powerObject != null) Destroy(powerObject);
+            }
+            localPowerInstances.Clear();
+
+            if (powerCatalog == null || powerCatalog.AvailablePowers == null
+                || powerCatalog.AvailablePowers.Count == 0)
+            {
+                return;
+            }
+
+            if (powerHandVisualizer == null)
+            {
+                powerHandVisualizer = gameObject.AddComponent<PowerHandVisualizer>();
+            }
+
+            powerHandVisualizer.tableCenter = currentTable;
+            powerHandVisualizer.powersOnTable.Clear();
+
+            if (powerSystem == null)
+            {
+                powerSystem = gameObject.AddComponent<PowerSystem>();
+            }
+
+            foreach (PowerData power in powerCatalog.AvailablePowers)
+            {
+                if (power == null || !power.IsValid()) continue;
+
+                GameObject powerObject = power.WorldPrefab != null
+                    ? Instantiate(power.WorldPrefab, transform.position, transform.rotation)
+                    : GameObject.CreatePrimitive(PrimitiveType.Cube);
+                PowerVisual visual = powerObject.GetComponent<PowerVisual>();
+                if (visual == null) visual = powerObject.AddComponent<PowerVisual>();
+
+                if (power.WorldPrefab == null)
+                {
+                    powerObject.transform.localScale = new Vector3(0.45f, 0.08f, 0.7f);
+                }
+
+                visual.SetPowerData(power);
+                powerHandVisualizer.AddPower(visual);
+                localPowerInstances.Add(powerObject);
             }
         }
 
@@ -516,7 +617,17 @@ namespace Trucardo.Core
                 Ray ray = new Ray(headTransform.position, headTransform.forward);
                                 if (Physics.Raycast(ray, out RaycastHit hit, 5f))
                 {
-                    CardVisual visual = hit.collider.GetComponent<CardVisual>();
+                                    PowerVisual powerVisual = hit.collider.GetComponent<PowerVisual>();
+                                    if (powerVisual == null) powerVisual = hit.collider.GetComponentInParent<PowerVisual>();
+
+                                    if (powerVisual != null && powerHandVisualizer != null
+                                        && powerHandVisualizer.powersOnTable.Contains(powerVisual))
+                                    {
+                                        PlayPower(powerVisual);
+                                        return;
+                                    }
+
+                                    CardVisual visual = hit.collider.GetComponent<CardVisual>();
                     if (visual == null) visual = hit.collider.GetComponentInParent<CardVisual>();
                     
                     if (visual != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(visual))
@@ -620,12 +731,29 @@ namespace Trucardo.Core
             }
         }
 
+        private void PlayPower(PowerVisual visual)
+        {
+            if (visual == null || visual.Data == null || powerSystem == null) return;
+
+            bool executed = powerSystem.TryExecute(
+                visual.Data,
+                NetworkManager.Singleton.LocalClientId,
+                amIPlayer1 ? 1 : 2,
+                gameObject);
+            if (!executed) return;
+
+            powerHandVisualizer.RemovePower(visual);
+            localPowerInstances.Remove(visual.gameObject);
+            Destroy(visual.gameObject);
+        }
+
                 private void TrySitDown()
         {
-            GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+                    TableDefinition.EnsureSceneConfiguration();
+
+                    GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
             GameObject closestObject = null;
             SeatInteractable closestInteractable = null;
-            bool closestUsesLegacyBehavior = false;
             float closestDistance = float.PositiveInfinity;
 
             PlayerController[] allPlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
@@ -655,25 +783,44 @@ namespace Trucardo.Core
                     closestDistance = distance;
                     closestObject = obj;
                     closestInteractable = interactable;
-                    closestUsesLegacyBehavior = usesLegacyBehavior;
                 }
             }
 
             if (closestObject != null)
             {
                 Transform seatTransform = closestObject.transform;
-                currentTable = seatTransform.parent != null ? seatTransform.parent : seatTransform;
+                currentTableDefinition = TableDefinition.FindForSeat(seatTransform);
+                if (currentTableDefinition == null)
+                {
+                    Debug.LogError($"El banco {seatTransform.name} no está vinculado a ninguna mesa. Verificá que esté dentro de Mesas_y_Sillas.");
+                    return;
+                }
+                currentTable = currentTableDefinition.transform;
 
                 if (characterController != null) characterController.enabled = false;
 
                 transform.rotation = Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
-                float seatHeight = closestUsesLegacyBehavior ? 0f : closestInteractable.GetTopHeight();
+                float seatHeight = closestInteractable != null
+                    ? closestInteractable.GetTopHeight() - 0.45f
+                    : 0f;
                 transform.position = new Vector3(seatTransform.position.x, seatHeight, seatTransform.position.z);
 
                 isSeated = true;
 
+                if (handVisualizer != null)
+                {
+                    handVisualizer.tableCenter = currentTable;
+                    handVisualizer.RefreshLayout();
+                }
+
+                if (opponentHandVisualizer != null)
+                {
+                    opponentHandVisualizer.tableCenter = currentTable;
+                    opponentHandVisualizer.RefreshLayout();
+                }
+
                 if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
-                if (serverInstance != null) serverInstance.PlayerSitDownServerRpc(currentTable.position);
+                if (serverInstance != null) serverInstance.PlayerSitDownServerRpc(currentTableDefinition.TableId);
 
                 Debug.Log("Te has sentado en una silla.");
             }
@@ -753,7 +900,7 @@ namespace Trucardo.Core
 
         private void OnGUI()
         {
-            if (!IsOwner) return;
+            if (!IsOwner || !isSeated) return;
 
             // Puntuaci�n tipo Fosforos a la derecha
             GUI.skin.label.fontSize = 20;
@@ -829,26 +976,3 @@ namespace Trucardo.Core
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
