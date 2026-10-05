@@ -795,7 +795,7 @@ GameObject:
   - component: {fileID: 8616116934351972789}
   - component: {fileID: 9168468659289823037}
   m_Layer: 0
-  m_Name: BancoLargo
+  m_Name: Banco
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

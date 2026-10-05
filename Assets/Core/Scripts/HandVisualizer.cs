@@ -8,7 +8,10 @@ namespace Trucardo.Core
         public List<CardVisual> cardsInHand = new List<CardVisual>();
         
         public float sideSpacing = 0.2f;
-        public float heightOffset = 0.99f;
+        public float heightOffset = 0.82f;
+        public float forwardDistance = 1.0f;
+        public float lateralOffset = 0f;
+        public float tableEdgeDistance = 0.61f;
         public float tiltAngle = -35f;
         public bool isOpponent = false;
         public Transform tableCenter; // Keep for height reference if needed, but not required
@@ -20,6 +23,16 @@ namespace Trucardo.Core
                 cardsInHand.Add(card);
                 ArrangeHand();
             }
+        }
+
+        public void RefreshLayout()
+        {
+            ArrangeHand();
+        }
+
+        public bool HasCards()
+        {
+            return cardsInHand != null && cardsInHand.Count > 0;
         }
         
         public void RemoveCardFromHand(CardVisual cardPlayed)
@@ -44,47 +57,60 @@ namespace Trucardo.Core
 
                 float spread = startSpread + (i * sideSpacing);
                 
-                Vector3 playerForward = transform.forward;
-                Vector3 playerRight = transform.right;
                 Vector3 playerPos = transform.position;
-                
-                // Si es la mano local, a 0.7m de distancia. Si es del oponente, a 1.8m de distancia.
-                float forwardDistance = isOpponent ? 1.8f : 0.7f;
-                // Si es del oponente, invertimos el spread para que se vea bien desde su perspectiva
-                float finalSpread = isOpponent ? -spread : spread;
-
-                Vector3 targetPos = playerPos + playerForward * forwardDistance + playerRight * finalSpread;
-                
-                if (tableCenter != null)
+                Vector3 towardTable = tableCenter != null
+                    ? tableCenter.position - playerPos
+                    : transform.forward;
+                towardTable.y = 0f;
+                if (towardTable.sqrMagnitude < 0.001f)
                 {
-                    targetPos.y = tableCenter.position.y + heightOffset;
+                    towardTable = transform.forward;
+                    towardTable.y = 0f;
                 }
-                else
-                {
-                    targetPos.y = playerPos.y + heightOffset;
-                }
+                towardTable.Normalize();
 
-                                                                                bool isLeftSide = playerPos.x < (tableCenter != null ? tableCenter.position.x : 0f);
-                float yRot = isLeftSide ? 90f : -90f;
-                if (isOpponent) yRot = isLeftSide ? -90f : 90f;
+                float finalSpread = (isOpponent ? -spread : spread) + lateralOffset;
+                Vector3 tableRight = Vector3.Cross(Vector3.up, towardTable).normalized;
+                float edgeOffset = isOpponent ? tableEdgeDistance : -tableEdgeDistance;
+                Vector3 targetPos = tableCenter != null
+                    ? tableCenter.position + towardTable * edgeOffset + tableRight * finalSpread
+                    : playerPos + towardTable * forwardDistance + tableRight * finalSpread;
 
-                Quaternion targetRot = Quaternion.Euler(0, yRot, 0) * Quaternion.Euler(tiltAngle, 0, 0);
-                if (tableCenter != null)
-                {
-                    targetRot = tableCenter.rotation * targetRot;
-                }
+                targetPos.y = GetTableSurfaceHeight(playerPos.y + heightOffset);
+
+                float yRot = Mathf.Atan2(towardTable.x, towardTable.z) * Mathf.Rad2Deg;
+                float playerTilt = isOpponent ? -tiltAngle : tiltAngle;
+                Quaternion targetRot = Quaternion.Euler(playerTilt, yRot, 0f);
 
                 cardsInHand[i].AnimateTo(targetPos, targetRot, 0.4f, false);
             }
         }
 
-        
+        private float GetTableSurfaceHeight(float fallbackHeight)
+        {
+            if (tableCenter == null)
+            {
+                return fallbackHeight;
+            }
+
+            float highestSurface = float.NegativeInfinity;
+            Renderer[] renderers = tableCenter.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer renderer in renderers)
+            {
+                if (!renderer.enabled || renderer.bounds.size.y > 1.5f)
+                {
+                    continue;
+                }
+
+                if (renderer.bounds.max.y > highestSurface)
+                {
+                    highestSurface = renderer.bounds.max.y;
+                }
+            }
+
+            return float.IsNegativeInfinity(highestSurface)
+                ? fallbackHeight
+                : highestSurface + 0.05f;
+        }
     }
 }
-
-
-
-
-
-
-

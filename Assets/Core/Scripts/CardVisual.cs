@@ -14,23 +14,77 @@ namespace Trucardo.Core
         public Image iconImage;
 
         [Header("Sprites")]
+        public Sprite backSprite;
         public Sprite spriteEspada;
         public Sprite spriteOro;
         public Sprite spriteCopa;
         public Sprite spriteBasto;
 
         private Coroutine currentAnimation;
-
         public NetworkVariable<int> netCardIndex = new NetworkVariable<int>(-1);
+
+        private void Awake()
+        {
+            EnsureVisualReferences();
+        }
 
         public override void OnNetworkSpawn()
         {
+            EnsureVisualReferences();
+
             if (netCardIndex.Value != -1)
                 ApplyCardData(netCardIndex.Value);
 
             netCardIndex.OnValueChanged += (oldVal, newVal) => {
                 if (newVal != -1) ApplyCardData(newVal);
             };
+        }
+
+        private void EnsureVisualReferences()
+        {
+            if (iconImage == null)
+            {
+                iconImage = GetOrCreateImage("CardCanvas", "Icono");
+            }
+
+            Image backImage = GetOrCreateImage("BackCanvas", "Icono");
+            if (backImage != null && backImage.sprite == null && backSprite != null)
+            {
+                backImage.sprite = backSprite;
+            }
+        }
+
+        private Image GetOrCreateImage(string canvasName, string imageName)
+        {
+            Transform canvasTransform = transform.Find(canvasName);
+            if (canvasTransform == null)
+            {
+                return null;
+            }
+
+            Transform imageTransform = canvasTransform.Find(imageName);
+            Image image = imageTransform != null ? imageTransform.GetComponent<Image>() : null;
+            if (image != null)
+            {
+                ConfigureImageRect(image);
+                return image;
+            }
+
+            GameObject imageObject = new GameObject(imageName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            imageObject.transform.SetParent(canvasTransform, false);
+
+            image = imageObject.GetComponent<Image>();
+            ConfigureImageRect(image);
+            return image;
+        }
+
+        private void ConfigureImageRect(Image image)
+        {
+            RectTransform rectTransform = image.rectTransform;
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
         }
 
         private void ApplyCardData(int index)

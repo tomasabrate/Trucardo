@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7194559493505873049}
   m_Layer: 0
-  m_Name: Mesa
+  m_Name: Mesa_Individual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -49,7 +49,7 @@ GameObject:
   - component: {fileID: 5144940867278326034}
   - component: {fileID: 8880703408855946433}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Parte_Pata
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -161,7 +161,7 @@ GameObject:
   - component: {fileID: 8346042557540769714}
   - component: {fileID: 5180680764180069163}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Parte_Pata
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -273,7 +273,7 @@ GameObject:
   - component: {fileID: 7961323338513515340}
   - component: {fileID: 6490365685973978100}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Parte_Pata
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -385,7 +385,7 @@ GameObject:
   - component: {fileID: 9032595375847461886}
   - component: {fileID: 894307774720930184}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Parte_Pata
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -497,7 +497,7 @@ GameObject:
   - component: {fileID: 1295356684217015689}
   - component: {fileID: 4139431026338917847}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Parte_Superior
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
