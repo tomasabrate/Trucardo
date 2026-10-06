@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 using System.Linq;
+using Trucardo.Core.Bots;
 
 namespace Trucardo.Core
 {
@@ -25,6 +26,8 @@ namespace Trucardo.Core
         public bool Player2Seated = false;
         public ParticipantType Player1Type = ParticipantType.None;
         public ParticipantType Player2Type = ParticipantType.None;
+        public BotController Player2BotController;
+        public Coroutine PendingBotActionCoroutine;
         public List<GameObject> TableCards = new List<GameObject>();
         public bool IsStartingRound = false;
     }
@@ -36,6 +39,7 @@ namespace Trucardo.Core
         [Header("Datos Generales")]
         public DeckData masterDeck;
         [SerializeField] private bool autoFillPlayer2WithBot = false;
+        [SerializeField, Min(0f)] private float botActionDelaySeconds = 0.75f;
         [Header("Cartas")]
         public GameObject cardPrefab;
 
@@ -203,6 +207,7 @@ namespace Trucardo.Core
             session.Player2Seated = true;
             session.Player2Type = ParticipantType.Bot;
             session.GameModel.Player2Id = botId;
+            session.Player2BotController = new BotController(new BotBrain());
 
             Debug.Log($"Bot lógico {botId} registrado como Jugador 2 en la mesa {session.TableId}.");
             return true;
@@ -235,9 +240,61 @@ namespace Trucardo.Core
         {
             if (session == null || session.Player2Type != ParticipantType.Bot) return;
 
+            CancelPendingBotAction(session);
+            session.Player2BotController = null;
             session.Player2Id = ulong.MaxValue;
             session.Player2Seated = false;
             session.Player2Type = ParticipantType.None;
+        }
+
+        private void TryScheduleBotAction(TableSession session)
+        {
+            if (session == null || session.PendingBotActionCoroutine != null) return;
+            if (!CanPlayer2BotAct(session, session.Player2Id)) return;
+
+            ulong botId = session.Player2Id;
+            session.PendingBotActionCoroutine = StartCoroutine(ProcessBotTurnDelayed(session, botId));
+        }
+
+        private IEnumerator ProcessBotTurnDelayed(TableSession session, ulong botId)
+        {
+            yield return new WaitForSeconds(botActionDelaySeconds);
+            session.PendingBotActionCoroutine = null;
+
+            if (!CanPlayer2BotAct(session, botId)) yield break;
+
+            BotObservation observation = new BotObservation(
+                botId,
+                session.GameModel.CurrentState,
+                session.GameModel.CurrentTurnId,
+                session.GameModel.P2Hand);
+            BotDecision decision = session.Player2BotController.Decide(observation);
+
+            if (!CanPlayer2BotAct(session, botId)) yield break;
+
+            if (decision != null && decision.Type == BotDecisionType.PlayCard)
+            {
+                ProcessPlayCard(botId, decision.CardIndex);
+            }
+        }
+
+        private bool CanPlayer2BotAct(TableSession session, ulong expectedBotId)
+        {
+            return session != null
+                && session.Player2Type == ParticipantType.Bot
+                && session.Player2Seated
+                && session.Player2Id == expectedBotId
+                && session.Player2BotController != null
+                && session.GameModel.CurrentState == GameState.TurnoJugador
+                && session.GameModel.CurrentTurnId == expectedBotId;
+        }
+
+        private void CancelPendingBotAction(TableSession session)
+        {
+            if (session == null || session.PendingBotActionCoroutine == null) return;
+
+            StopCoroutine(session.PendingBotActionCoroutine);
+            session.PendingBotActionCoroutine = null;
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -288,6 +345,7 @@ namespace Trucardo.Core
             }
             
             SyncClientState(session);
+            TryScheduleBotAction(session);
         }
 
         private void SpawnCardOnTable(TableSession session, ulong playerId, int cardIndex)
@@ -533,6 +591,7 @@ namespace Trucardo.Core
             session.GameModel.CurrentTurnId = session.Player1Id;
             
             SyncClientState(session);
+            TryScheduleBotAction(session);
         }
 
                 [ClientRpc]
