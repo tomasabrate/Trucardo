@@ -150,22 +150,40 @@ namespace Trucardo.Core
         public void PlayCardServerRpc(int cardIndex, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            var session = GetSessionByPlayer(sender);
+            ProcessPlayCard(sender, cardIndex);
+        }
+
+        internal void ProcessPlayCard(ulong actorId, int cardIndex)
+        {
+            var session = GetSessionByPlayer(actorId);
             if (session == null) return;
+            if (actorId != session.Player1Id && actorId != session.Player2Id) return;
             
             if (session.GameModel.CurrentState != GameState.TurnoJugador) return;
-            if (session.GameModel.CurrentTurnId != sender) return;
-            
-            bool isP1 = (sender == session.Player1Id);
-            var hand = isP1 ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+            if (session.GameModel.CurrentTurnId != actorId) return;
+
+            List<int> hand;
+            if (actorId == session.Player1Id)
+            {
+                hand = session.GameModel.P1Hand;
+            }
+            else if (actorId == session.Player2Id)
+            {
+                hand = session.GameModel.P2Hand;
+            }
+            else
+            {
+                return;
+            }
+
             if (!hand.Contains(cardIndex)) return;
 
-            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.PlayCardCommand(session.GameModel, sender, cardIndex));
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.PlayCardCommand(session.GameModel, actorId, cardIndex));
             session.GameModel.actionQueue.ProcessNext();
 
-            SpawnCardOnTable(session, sender, cardIndex);
+            SpawnCardOnTable(session, actorId, cardIndex);
             
-            NotifyOpponentPlayedCardClientRpc(sender);
+            NotifyOpponentPlayedCardClientRpc(actorId);
 
             if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
@@ -290,10 +308,16 @@ namespace Trucardo.Core
         public void CallEnvidoServerRpc(ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            var session = GetSessionByPlayer(sender);
-            if (session == null) return;
+            ProcessCallEnvido(sender);
+        }
 
-            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallEnvidoCommand(session.GameModel, sender));
+        internal void ProcessCallEnvido(ulong actorId)
+        {
+            var session = GetSessionByPlayer(actorId);
+            if (session == null) return;
+            if (actorId != session.Player1Id && actorId != session.Player2Id) return;
+
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallEnvidoCommand(session.GameModel, actorId));
             session.GameModel.actionQueue.ProcessNext();
             SyncClientState(session);
         }
@@ -302,10 +326,16 @@ namespace Trucardo.Core
         public void CallTrucoServerRpc(ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            var session = GetSessionByPlayer(sender);
-            if (session == null) return;
+            ProcessCallTruco(sender);
+        }
 
-            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(session.GameModel, sender));
+        internal void ProcessCallTruco(ulong actorId)
+        {
+            var session = GetSessionByPlayer(actorId);
+            if (session == null) return;
+            if (actorId != session.Player1Id && actorId != session.Player2Id) return;
+
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(session.GameModel, actorId));
             session.GameModel.actionQueue.ProcessNext();
             SyncClientState(session);
         }
@@ -314,10 +344,16 @@ namespace Trucardo.Core
         public void RespondServerRpc(bool accepts, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            var session = GetSessionByPlayer(sender);
-            if (session == null) return;
+            ProcessResponse(sender, accepts);
+        }
 
-            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.RespondCommand(session.GameModel, sender, accepts));
+        internal void ProcessResponse(ulong actorId, bool accepts)
+        {
+            var session = GetSessionByPlayer(actorId);
+            if (session == null) return;
+            if (actorId != session.Player1Id && actorId != session.Player2Id) return;
+
+            session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.RespondCommand(session.GameModel, actorId, accepts));
             session.GameModel.actionQueue.ProcessNext();
 
             if (session.GameModel.CurrentState == GameState.RondaTerminada)
