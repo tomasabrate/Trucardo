@@ -19,7 +19,7 @@ namespace Trucardo.Core.Bots
             if (observation.CanCallTruco) return BotDecision.CallTruco();
             if (observation.OwnHand.Count == 0) return BotDecision.NoAction;
 
-            return BotDecision.PlayCard(observation.OwnHand[0]);
+            return BotDecision.PlayCard(observation.OwnHand[0].CardIndex);
         }
     }
 }

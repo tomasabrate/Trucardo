@@ -278,15 +278,7 @@ namespace Trucardo.Core
 
             if (!CanPlayer2BotTakeAction(session, botId)) yield break;
 
-            BotObservation observation = new BotObservation(
-                botId,
-                session.GameModel.CurrentState,
-                session.GameModel.CurrentTurnId,
-                session.GameModel.CantoPendiente,
-                session.GameModel.LastCallerId,
-                CanPlayer2BotCallEnvido(session, botId),
-                CanPlayer2BotCallTruco(session, botId),
-                session.GameModel.P2Hand);
+            BotObservation observation = BuildBotObservation(session, botId);
             BotDecision decision = session.Player2BotController.Decide(observation);
 
             if (decision == null) yield break;
@@ -307,6 +299,65 @@ namespace Trucardo.Core
             {
                 ProcessPlayCard(botId, decision.CardIndex);
             }
+        }
+
+        private BotObservation BuildBotObservation(TableSession session, ulong botId)
+        {
+            GameModel model = session.GameModel;
+            return new BotObservation(
+                botId,
+                model.CurrentState,
+                model.CurrentTurnId,
+                model.CantoPendiente,
+                model.LastCallerId,
+                CanPlayer2BotCallEnvido(session, botId),
+                CanPlayer2BotCallTruco(session, botId),
+                model.ScoreTeam1,
+                model.ScoreTeam2,
+                model.CurrentRoundIndex,
+                model.RoundWinners,
+                model.EnvidoCantado,
+                model.EstadoTruco,
+                BuildBotCardObservations(model, model.P2Hand),
+                BuildBotCardObservations(model, model.P1PlayedCards),
+                BuildBotCardObservations(model, model.P2PlayedCards));
+        }
+
+        private List<BotCardObservation> BuildBotCardObservations(GameModel model, IEnumerable<int> cardIndices)
+        {
+            var observations = new List<BotCardObservation>();
+
+            foreach (int cardIndex in cardIndices)
+            {
+                if (TryBuildBotCardObservation(model, cardIndex, out BotCardObservation observation))
+                {
+                    observations.Add(observation);
+                }
+            }
+
+            return observations;
+        }
+
+        private bool TryBuildBotCardObservation(
+            GameModel model,
+            int cardIndex,
+            out BotCardObservation observation)
+        {
+            observation = null;
+            DeckData deck = model != null ? model.DeckReference : null;
+            if (deck == null || deck.AvailableCards == null) return false;
+            if (cardIndex < 0 || cardIndex >= deck.AvailableCards.Count) return false;
+
+            CardData card = deck.AvailableCards[cardIndex];
+            if (card == null) return false;
+
+            observation = new BotCardObservation(
+                cardIndex,
+                card.Suit,
+                card.Number,
+                card.TrucoRank,
+                card.EnvidoValue);
+            return true;
         }
 
         private bool IsPlayer2BotActive(TableSession session, ulong expectedBotId)
