@@ -265,7 +265,7 @@ namespace Trucardo.Core
         private void TryScheduleBotAction(TableSession session)
         {
             if (session == null || session.PendingBotActionCoroutine != null) return;
-            if (!CanPlayer2BotAct(session, session.Player2Id)) return;
+            if (!CanPlayer2BotTakeAction(session, session.Player2Id)) return;
 
             ulong botId = session.Player2Id;
             session.PendingBotActionCoroutine = StartCoroutine(ProcessBotTurnDelayed(session, botId));
@@ -276,32 +276,57 @@ namespace Trucardo.Core
             yield return new WaitForSeconds(botActionDelaySeconds);
             session.PendingBotActionCoroutine = null;
 
-            if (!CanPlayer2BotAct(session, botId)) yield break;
+            if (!CanPlayer2BotTakeAction(session, botId)) yield break;
 
             BotObservation observation = new BotObservation(
                 botId,
                 session.GameModel.CurrentState,
                 session.GameModel.CurrentTurnId,
+                session.GameModel.CantoPendiente,
+                session.GameModel.LastCallerId,
                 session.GameModel.P2Hand);
             BotDecision decision = session.Player2BotController.Decide(observation);
 
-            if (!CanPlayer2BotAct(session, botId)) yield break;
+            if (decision == null) yield break;
 
-            if (decision != null && decision.Type == BotDecisionType.PlayCard)
+            if (decision.Type == BotDecisionType.PlayCard && CanPlayer2BotPlayCard(session, botId))
             {
                 ProcessPlayCard(botId, decision.CardIndex);
             }
+            else if (decision.Type == BotDecisionType.Respond && CanPlayer2BotRespond(session, botId))
+            {
+                ProcessResponse(botId, decision.Accepts);
+            }
         }
 
-        private bool CanPlayer2BotAct(TableSession session, ulong expectedBotId)
+        private bool IsPlayer2BotActive(TableSession session, ulong expectedBotId)
         {
             return session != null
                 && session.Player2Type == ParticipantType.Bot
                 && session.Player2Seated
                 && session.Player2Id == expectedBotId
-                && session.Player2BotController != null
+                && session.Player2BotController != null;
+        }
+
+        private bool CanPlayer2BotPlayCard(TableSession session, ulong expectedBotId)
+        {
+            return IsPlayer2BotActive(session, expectedBotId)
                 && session.GameModel.CurrentState == GameState.TurnoJugador
                 && session.GameModel.CurrentTurnId == expectedBotId;
+        }
+
+        private bool CanPlayer2BotRespond(TableSession session, ulong expectedBotId)
+        {
+            return IsPlayer2BotActive(session, expectedBotId)
+                && session.GameModel.CurrentState == GameState.EsperandoRespuestaCanto
+                && session.GameModel.CantoPendiente != TipoCanto.Ninguno
+                && session.GameModel.LastCallerId != expectedBotId;
+        }
+
+        private bool CanPlayer2BotTakeAction(TableSession session, ulong expectedBotId)
+        {
+            return CanPlayer2BotPlayCard(session, expectedBotId)
+                || CanPlayer2BotRespond(session, expectedBotId);
         }
 
         private void CancelPendingBotAction(TableSession session)
@@ -497,6 +522,7 @@ namespace Trucardo.Core
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallEnvidoCommand(session.GameModel, actorId));
             session.GameModel.actionQueue.ProcessNext();
             SyncClientState(session);
+            TryScheduleBotAction(session);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -515,6 +541,7 @@ namespace Trucardo.Core
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(session.GameModel, actorId));
             session.GameModel.actionQueue.ProcessNext();
             SyncClientState(session);
+            TryScheduleBotAction(session);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -538,6 +565,7 @@ namespace Trucardo.Core
                 ScheduleStartRound(session, 3f);
             }
             SyncClientState(session);
+            TryScheduleBotAction(session);
         }
 
         private void CheckStartGame(TableSession session)
