@@ -6,6 +6,13 @@ using System.Linq;
 
 namespace Trucardo.Core
 {
+    public enum ParticipantType
+    {
+        None,
+        Human,
+        Bot
+    }
+
     public class TableSession
     {
         public string TableId;
@@ -16,6 +23,8 @@ namespace Trucardo.Core
         public ulong Player2Id = ulong.MaxValue;
         public bool Player1Seated = false;
         public bool Player2Seated = false;
+        public ParticipantType Player1Type = ParticipantType.None;
+        public ParticipantType Player2Type = ParticipantType.None;
         public List<GameObject> TableCards = new List<GameObject>();
         public bool IsStartingRound = false;
     }
@@ -54,8 +63,8 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(clientId);
             if (session != null)
             {
-                if (session.Player1Id == clientId) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; }
-                if (session.Player2Id == clientId) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; }
+                if (session.Player1Id == clientId) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; session.Player1Type = ParticipantType.None; }
+                if (session.Player2Id == clientId) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; session.Player2Type = ParticipantType.None; }
             }
         }
 
@@ -94,8 +103,8 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(sender);
             if (session != null)
             {
-                if (session.Player1Id == sender) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; }
-                if (session.Player2Id == sender) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; }
+                if (session.Player1Id == sender) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; session.Player1Type = ParticipantType.None; }
+                if (session.Player2Id == sender) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; session.Player2Type = ParticipantType.None; }
                 Debug.Log($"Jugador {sender} se levanto de la mesa.");
             }
         }
@@ -124,8 +133,8 @@ namespace Trucardo.Core
             var oldSession = GetSessionByPlayer(sender);
             if (oldSession != null)
             {
-                if (oldSession.Player1Id == sender) { oldSession.Player1Id = ulong.MaxValue; oldSession.Player1Seated = false; }
-                if (oldSession.Player2Id == sender) { oldSession.Player2Id = ulong.MaxValue; oldSession.Player2Seated = false; }
+                if (oldSession.Player1Id == sender) { oldSession.Player1Id = ulong.MaxValue; oldSession.Player1Seated = false; oldSession.Player1Type = ParticipantType.None; }
+                if (oldSession.Player2Id == sender) { oldSession.Player2Id = ulong.MaxValue; oldSession.Player2Seated = false; oldSession.Player2Type = ParticipantType.None; }
             }
 
             TableSession session = requestedSession;
@@ -135,12 +144,14 @@ namespace Trucardo.Core
                 session.Player1Id = sender;
                 session.GameModel.Player1Id = sender;
                 session.Player1Seated = true;
+                session.Player1Type = ParticipantType.Human;
             }
             else if (session.Player2Id == ulong.MaxValue)
             {
                 session.Player2Id = sender;
                 session.GameModel.Player2Id = sender;
                 session.Player2Seated = true;
+                session.Player2Type = ParticipantType.Human;
             }
 
             CheckStartGame(session);
@@ -417,18 +428,21 @@ namespace Trucardo.Core
             session.GameModel.DealCardsToPlayer(1, new List<int>(p1Cards));
             session.GameModel.DealCardsToPlayer(2, new List<int>(p2Cards));
 
-            ClientRpcParams clientRpcParamsP1 = new ClientRpcParams
+            if (session.Player1Seated && session.Player1Type == ParticipantType.Human)
             {
-                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player1Id } }
-            };
-            ReceiveCardsClientRpc(session.Player1Id, p1Cards, clientRpcParamsP1);
+                ClientRpcParams clientRpcParamsP1 = new ClientRpcParams
+                {
+                    Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player1Id } }
+                };
+                ReceiveCardsClientRpc(session.Player1Id, p1Cards, clientRpcParamsP1);
+            }
 
-            ClientRpcParams clientRpcParamsP2 = new ClientRpcParams
+            if (session.Player2Seated && session.Player2Type == ParticipantType.Human)
             {
-                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player2Id } }
-            };
-            if (session.Player2Seated)
-            {
+                ClientRpcParams clientRpcParamsP2 = new ClientRpcParams
+                {
+                    Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { session.Player2Id } }
+                };
                 ReceiveCardsClientRpc(session.Player2Id, p2Cards, clientRpcParamsP2);
             }
 
@@ -476,8 +490,8 @@ namespace Trucardo.Core
         private void SyncClientState(TableSession session)
         {
             List<ulong> seatedPlayers = new List<ulong>();
-            if (session.Player1Seated) seatedPlayers.Add(session.Player1Id);
-            if (session.Player2Seated) seatedPlayers.Add(session.Player2Id);
+            if (session.Player1Seated && session.Player1Type == ParticipantType.Human) seatedPlayers.Add(session.Player1Id);
+            if (session.Player2Seated && session.Player2Type == ParticipantType.Human) seatedPlayers.Add(session.Player2Id);
             if (seatedPlayers.Count == 0) return;
 
             ClientRpcParams clientRpcParams = new ClientRpcParams
