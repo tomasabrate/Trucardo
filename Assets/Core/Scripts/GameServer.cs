@@ -31,12 +31,16 @@ namespace Trucardo.Core
 
     public class GameServer : NetworkBehaviour
     {
+        private const ulong FirstLogicalBotId = ulong.MaxValue - 1;
+
         [Header("Datos Generales")]
         public DeckData masterDeck;
+        [SerializeField] private bool autoFillPlayer2WithBot = false;
         [Header("Cartas")]
         public GameObject cardPrefab;
 
         private List<TableSession> sessions = new List<TableSession>();
+        private ulong nextLogicalBotId = FirstLogicalBotId;
 
         public override void OnNetworkSpawn()
         {
@@ -63,7 +67,13 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(clientId);
             if (session != null)
             {
-                if (session.Player1Id == clientId) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; session.Player1Type = ParticipantType.None; }
+                if (session.Player1Id == clientId)
+                {
+                    session.Player1Id = ulong.MaxValue;
+                    session.Player1Seated = false;
+                    session.Player1Type = ParticipantType.None;
+                    ReleasePlayer2Bot(session);
+                }
                 if (session.Player2Id == clientId) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; session.Player2Type = ParticipantType.None; }
             }
         }
@@ -103,7 +113,13 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(sender);
             if (session != null)
             {
-                if (session.Player1Id == sender) { session.Player1Id = ulong.MaxValue; session.Player1Seated = false; session.Player1Type = ParticipantType.None; }
+                if (session.Player1Id == sender)
+                {
+                    session.Player1Id = ulong.MaxValue;
+                    session.Player1Seated = false;
+                    session.Player1Type = ParticipantType.None;
+                    ReleasePlayer2Bot(session);
+                }
                 if (session.Player2Id == sender) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; session.Player2Type = ParticipantType.None; }
                 Debug.Log($"Jugador {sender} se levanto de la mesa.");
             }
@@ -133,7 +149,13 @@ namespace Trucardo.Core
             var oldSession = GetSessionByPlayer(sender);
             if (oldSession != null)
             {
-                if (oldSession.Player1Id == sender) { oldSession.Player1Id = ulong.MaxValue; oldSession.Player1Seated = false; oldSession.Player1Type = ParticipantType.None; }
+                if (oldSession.Player1Id == sender)
+                {
+                    oldSession.Player1Id = ulong.MaxValue;
+                    oldSession.Player1Seated = false;
+                    oldSession.Player1Type = ParticipantType.None;
+                    ReleasePlayer2Bot(oldSession);
+                }
                 if (oldSession.Player2Id == sender) { oldSession.Player2Id = ulong.MaxValue; oldSession.Player2Seated = false; oldSession.Player2Type = ParticipantType.None; }
             }
 
@@ -154,7 +176,68 @@ namespace Trucardo.Core
                 session.Player2Type = ParticipantType.Human;
             }
 
+            TryAutoFillPlayer2WithBot(session);
             CheckStartGame(session);
+        }
+
+        private void TryAutoFillPlayer2WithBot(TableSession session)
+        {
+            if (!autoFillPlayer2WithBot) return;
+            if (session.Player1Type != ParticipantType.Human || !session.Player1Seated) return;
+            if (session.Player2Id != ulong.MaxValue || session.Player2Seated || session.Player2Type != ParticipantType.None) return;
+
+            RegisterBotAsPlayer2(session);
+        }
+
+        private bool RegisterBotAsPlayer2(TableSession session)
+        {
+            if (session == null) return false;
+            if (session.Player2Id != ulong.MaxValue || session.Player2Seated || session.Player2Type != ParticipantType.None) return false;
+            if (!TryGenerateLogicalBotId(out ulong botId))
+            {
+                Debug.LogError($"No se pudo generar un ID lógico para el bot de la mesa {session.TableId}.");
+                return false;
+            }
+
+            session.Player2Id = botId;
+            session.Player2Seated = true;
+            session.Player2Type = ParticipantType.Bot;
+            session.GameModel.Player2Id = botId;
+
+            Debug.Log($"Bot lógico {botId} registrado como Jugador 2 en la mesa {session.TableId}.");
+            return true;
+        }
+
+        private bool TryGenerateLogicalBotId(out ulong botId)
+        {
+            while (nextLogicalBotId != ulong.MaxValue)
+            {
+                ulong candidate = nextLogicalBotId;
+                nextLogicalBotId = candidate == 0 ? ulong.MaxValue : candidate - 1;
+
+                bool isConnectedClient = NetworkManager.Singleton != null
+                    && NetworkManager.Singleton.ConnectedClients.ContainsKey(candidate);
+                bool isAssignedParticipant = sessions.Any(session =>
+                    session.Player1Id == candidate || session.Player2Id == candidate);
+
+                if (!isConnectedClient && !isAssignedParticipant)
+                {
+                    botId = candidate;
+                    return true;
+                }
+            }
+
+            botId = ulong.MaxValue;
+            return false;
+        }
+
+        private void ReleasePlayer2Bot(TableSession session)
+        {
+            if (session == null || session.Player2Type != ParticipantType.Bot) return;
+
+            session.Player2Id = ulong.MaxValue;
+            session.Player2Seated = false;
+            session.Player2Type = ParticipantType.None;
         }
 
         [ServerRpc(RequireOwnership = false)]
