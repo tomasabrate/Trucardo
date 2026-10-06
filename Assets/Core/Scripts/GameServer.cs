@@ -28,6 +28,7 @@ namespace Trucardo.Core
         public ParticipantType Player2Type = ParticipantType.None;
         public BotController Player2BotController;
         public Coroutine PendingBotActionCoroutine;
+        public Coroutine PendingStartRoundCoroutine;
         public List<GameObject> TableCards = new List<GameObject>();
         public bool IsStartingRound = false;
     }
@@ -71,14 +72,7 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(clientId);
             if (session != null)
             {
-                if (session.Player1Id == clientId)
-                {
-                    session.Player1Id = ulong.MaxValue;
-                    session.Player1Seated = false;
-                    session.Player1Type = ParticipantType.None;
-                    ReleasePlayer2Bot(session);
-                }
-                if (session.Player2Id == clientId) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; session.Player2Type = ParticipantType.None; }
+                CancelGameSession(session, clientId);
             }
         }
 
@@ -110,6 +104,41 @@ namespace Trucardo.Core
             return session;
         }
 
+        private void CancelGameSession(TableSession session, ulong departingPlayerId)
+        {
+            if (session == null) return;
+
+            CancelPendingBotAction(session);
+            CancelPendingStartRound(session);
+
+            if (session.Player1Id == departingPlayerId)
+            {
+                session.Player1Id = ulong.MaxValue;
+                session.Player1Seated = false;
+                session.Player1Type = ParticipantType.None;
+            }
+
+            if (session.Player2Id == departingPlayerId && session.Player2Type != ParticipantType.Bot)
+            {
+                session.Player2Id = ulong.MaxValue;
+                session.Player2Seated = false;
+                session.Player2Type = ParticipantType.None;
+            }
+
+            ReleasePlayer2Bot(session);
+            ClearTableCards(session);
+
+            session.GameModel = new GameModel(masterDeck)
+            {
+                Player1Id = session.Player1Id,
+                Player2Id = session.Player2Id,
+                CurrentTurnId = ulong.MaxValue
+            };
+            session.IsStartingRound = false;
+
+            SyncClientState(session);
+        }
+
                 [ServerRpc(RequireOwnership = false)]
         public void PlayerStandUpServerRpc(ServerRpcParams rpcParams = default)
         {
@@ -117,14 +146,7 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(sender);
             if (session != null)
             {
-                if (session.Player1Id == sender)
-                {
-                    session.Player1Id = ulong.MaxValue;
-                    session.Player1Seated = false;
-                    session.Player1Type = ParticipantType.None;
-                    ReleasePlayer2Bot(session);
-                }
-                if (session.Player2Id == sender) { session.Player2Id = ulong.MaxValue; session.Player2Seated = false; session.Player2Type = ParticipantType.None; }
+                CancelGameSession(session, sender);
                 Debug.Log($"Jugador {sender} se levanto de la mesa.");
             }
         }
@@ -153,14 +175,7 @@ namespace Trucardo.Core
             var oldSession = GetSessionByPlayer(sender);
             if (oldSession != null)
             {
-                if (oldSession.Player1Id == sender)
-                {
-                    oldSession.Player1Id = ulong.MaxValue;
-                    oldSession.Player1Seated = false;
-                    oldSession.Player1Type = ParticipantType.None;
-                    ReleasePlayer2Bot(oldSession);
-                }
-                if (oldSession.Player2Id == sender) { oldSession.Player2Id = ulong.MaxValue; oldSession.Player2Seated = false; oldSession.Player2Type = ParticipantType.None; }
+                CancelGameSession(oldSession, sender);
             }
 
             TableSession session = requestedSession;
@@ -297,6 +312,19 @@ namespace Trucardo.Core
             session.PendingBotActionCoroutine = null;
         }
 
+        private void CancelPendingStartRound(TableSession session)
+        {
+            if (session == null) return;
+
+            if (session.PendingStartRoundCoroutine != null)
+            {
+                StopCoroutine(session.PendingStartRoundCoroutine);
+                session.PendingStartRoundCoroutine = null;
+            }
+
+            session.IsStartingRound = false;
+        }
+
         [ServerRpc(RequireOwnership = false)]
         public void PlayCardServerRpc(int cardIndex, ServerRpcParams rpcParams = default)
         {
@@ -338,10 +366,7 @@ namespace Trucardo.Core
 
             if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
-                if (!session.IsStartingRound)
-                {
-                    StartCoroutine(StartRoundDelayed(session, 3f));
-                }
+                ScheduleStartRound(session, 3f);
             }
             
             SyncClientState(session);
@@ -510,47 +535,60 @@ namespace Trucardo.Core
 
             if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
-                if (!session.IsStartingRound)
-                {
-                    StartCoroutine(StartRoundDelayed(session, 3f));
-                }
+                ScheduleStartRound(session, 3f);
             }
             SyncClientState(session);
         }
 
         private void CheckStartGame(TableSession session)
         {
-            bool canStart = session.Player1Seated && session.Player2Seated;
-
-            if (canStart && session.GameModel.CurrentState == GameState.EsperandoJugadores)
+            if (CanStartGameSession(session) && session.GameModel.CurrentState == GameState.EsperandoJugadores)
             {
                 Debug.Log($"Jugador listo en {session.TableId}! Repartiendo.");
                 StartRound(session);
             }
         }
 
-        private IEnumerator StartRoundDelayed(TableSession session, float delay)
+        private bool CanStartGameSession(TableSession session)
         {
+            return session != null
+                && sessions.Contains(session)
+                && session.Player1Seated
+                && session.Player2Seated
+                && session.Player1Type != ParticipantType.None
+                && session.Player2Type != ParticipantType.None
+                && session.Player1Id != ulong.MaxValue
+                && session.Player2Id != ulong.MaxValue;
+        }
+
+        private void ScheduleStartRound(TableSession session, float delay)
+        {
+            if (session == null || session.PendingStartRoundCoroutine != null || session.IsStartingRound) return;
+
             session.IsStartingRound = true;
+            GameModel expectedGameModel = session.GameModel;
+            session.PendingStartRoundCoroutine = StartCoroutine(StartRoundDelayed(session, delay, expectedGameModel));
+        }
+
+        private IEnumerator StartRoundDelayed(TableSession session, float delay, GameModel expectedGameModel)
+        {
             yield return new WaitForSeconds(delay);
+
+            if (session.GameModel != expectedGameModel) yield break;
+
+            session.PendingStartRoundCoroutine = null;
             session.IsStartingRound = false;
+
+            if (!CanStartGameSession(session)) yield break;
+            if (expectedGameModel.CurrentState != GameState.RondaTerminada) yield break;
+
             StartRound(session);
         }
 
         private void StartRound(TableSession session)
         {
             session.GameModel.ResetHand();
-
-            foreach (var c in session.TableCards)
-            {
-                if (c != null)
-                {
-                    NetworkObject netObj = c.GetComponent<NetworkObject>();
-                    if (netObj != null && netObj.IsSpawned) netObj.Despawn();
-                    Destroy(c);
-                }
-            }
-            session.TableCards.Clear();
+            ClearTableCards(session);
 
             List<int> deckIndices = new List<int>();
             for (int i = 0; i < 40; i++) deckIndices.Add(i);
@@ -592,6 +630,22 @@ namespace Trucardo.Core
             
             SyncClientState(session);
             TryScheduleBotAction(session);
+        }
+
+        private void ClearTableCards(TableSession session)
+        {
+            if (session == null) return;
+
+            foreach (var card in session.TableCards)
+            {
+                if (card == null) continue;
+
+                NetworkObject netObj = card.GetComponent<NetworkObject>();
+                if (netObj != null && netObj.IsSpawned) netObj.Despawn();
+                Destroy(card);
+            }
+
+            session.TableCards.Clear();
         }
 
                 [ClientRpc]
