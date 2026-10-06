@@ -15,6 +15,8 @@ namespace Trucardo.Core.Bots
 
             if (observation.GameState != GameState.TurnoJugador) return BotDecision.NoAction;
             if (observation.CurrentTurnId != observation.BotId) return BotDecision.NoAction;
+            if (observation.CanCallEnvido) return BotDecision.CallEnvido();
+            if (observation.CanCallTruco) return BotDecision.CallTruco();
             if (observation.OwnHand.Count == 0) return BotDecision.NoAction;
 
             return BotDecision.PlayCard(observation.OwnHand[0]);

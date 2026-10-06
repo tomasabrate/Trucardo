@@ -4,7 +4,9 @@ namespace Trucardo.Core.Bots
     {
         None,
         PlayCard,
-        Respond
+        Respond,
+        CallEnvido,
+        CallTruco
     }
 
     public sealed class BotDecision
@@ -30,6 +32,16 @@ namespace Trucardo.Core.Bots
         public static BotDecision Respond(bool accepts)
         {
             return new BotDecision(BotDecisionType.Respond, -1, accepts);
+        }
+
+        public static BotDecision CallEnvido()
+        {
+            return new BotDecision(BotDecisionType.CallEnvido, -1, false);
+        }
+
+        public static BotDecision CallTruco()
+        {
+            return new BotDecision(BotDecisionType.CallTruco, -1, false);
         }
     }
 }

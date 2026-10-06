@@ -9,6 +9,8 @@ namespace Trucardo.Core.Bots
         public ulong CurrentTurnId { get; }
         public TipoCanto CantoPendiente { get; }
         public ulong LastCallerId { get; }
+        public bool CanCallEnvido { get; }
+        public bool CanCallTruco { get; }
         public IReadOnlyList<int> OwnHand { get; }
 
         public BotObservation(
@@ -17,6 +19,8 @@ namespace Trucardo.Core.Bots
             ulong currentTurnId,
             TipoCanto cantoPendiente,
             ulong lastCallerId,
+            bool canCallEnvido,
+            bool canCallTruco,
             IEnumerable<int> ownHand)
         {
             BotId = botId;
@@ -24,6 +28,8 @@ namespace Trucardo.Core.Bots
             CurrentTurnId = currentTurnId;
             CantoPendiente = cantoPendiente;
             LastCallerId = lastCallerId;
+            CanCallEnvido = canCallEnvido;
+            CanCallTruco = canCallTruco;
             OwnHand = new List<int>(ownHand).AsReadOnly();
         }
     }

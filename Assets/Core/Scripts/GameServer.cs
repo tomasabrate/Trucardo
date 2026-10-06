@@ -284,18 +284,28 @@ namespace Trucardo.Core
                 session.GameModel.CurrentTurnId,
                 session.GameModel.CantoPendiente,
                 session.GameModel.LastCallerId,
+                CanPlayer2BotCallEnvido(session, botId),
+                CanPlayer2BotCallTruco(session, botId),
                 session.GameModel.P2Hand);
             BotDecision decision = session.Player2BotController.Decide(observation);
 
             if (decision == null) yield break;
 
-            if (decision.Type == BotDecisionType.PlayCard && CanPlayer2BotPlayCard(session, botId))
-            {
-                ProcessPlayCard(botId, decision.CardIndex);
-            }
-            else if (decision.Type == BotDecisionType.Respond && CanPlayer2BotRespond(session, botId))
+            if (decision.Type == BotDecisionType.Respond && CanPlayer2BotRespond(session, botId))
             {
                 ProcessResponse(botId, decision.Accepts);
+            }
+            else if (decision.Type == BotDecisionType.CallEnvido && CanPlayer2BotCallEnvido(session, botId))
+            {
+                ProcessCallEnvido(botId);
+            }
+            else if (decision.Type == BotDecisionType.CallTruco && CanPlayer2BotCallTruco(session, botId))
+            {
+                ProcessCallTruco(botId);
+            }
+            else if (decision.Type == BotDecisionType.PlayCard && CanPlayer2BotPlayCard(session, botId))
+            {
+                ProcessPlayCard(botId, decision.CardIndex);
             }
         }
 
@@ -323,10 +333,33 @@ namespace Trucardo.Core
                 && session.GameModel.LastCallerId != expectedBotId;
         }
 
+        private bool CanPlayer2BotCallEnvido(TableSession session, ulong expectedBotId)
+        {
+            return IsPlayer2BotActive(session, expectedBotId)
+                && session.GameModel.CurrentState == GameState.TurnoJugador
+                && session.GameModel.CurrentTurnId == expectedBotId
+                && session.GameModel.CurrentRoundIndex == 0
+                && !session.GameModel.EnvidoCantado
+                && session.GameModel.CantoPendiente == TipoCanto.Ninguno
+                && session.GameModel.EstadoTruco == NivelTruco.Ninguno
+                && session.GameModel.P2PlayedCards.Count == 0;
+        }
+
+        private bool CanPlayer2BotCallTruco(TableSession session, ulong expectedBotId)
+        {
+            return IsPlayer2BotActive(session, expectedBotId)
+                && session.GameModel.CurrentState == GameState.TurnoJugador
+                && session.GameModel.CurrentTurnId == expectedBotId
+                && session.GameModel.CantoPendiente == TipoCanto.Ninguno
+                && session.GameModel.EstadoTruco == NivelTruco.Ninguno;
+        }
+
         private bool CanPlayer2BotTakeAction(TableSession session, ulong expectedBotId)
         {
-            return CanPlayer2BotPlayCard(session, expectedBotId)
-                || CanPlayer2BotRespond(session, expectedBotId);
+            return CanPlayer2BotRespond(session, expectedBotId)
+                || CanPlayer2BotCallEnvido(session, expectedBotId)
+                || CanPlayer2BotCallTruco(session, expectedBotId)
+                || CanPlayer2BotPlayCard(session, expectedBotId);
         }
 
         private void CancelPendingBotAction(TableSession session)
