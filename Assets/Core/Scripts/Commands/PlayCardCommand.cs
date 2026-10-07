@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Trucardo.Core;
 using UnityEngine;
+using Trucardo.Core.Rules;
 
 namespace Trucardo.Core.Commands
 {
@@ -85,7 +86,8 @@ namespace Trucardo.Core.Commands
             else
             {
                 model.RoundWinners[idx] = ManoGanadaPor.Parda;
-                // En parda, el turno es del que era mano (no lo cambiamos por ahora)
+                // The first tied trick is led again by mano. Later ties end the hand.
+                model.CurrentTurnId = model.ManoPlayerId;
                 Debug.Log($"Mano {idx + 1} fue Parda");
             }
 
@@ -95,24 +97,15 @@ namespace Trucardo.Core.Commands
 
         private void CheckManoGanada()
         {
-            // Lógica para ver quién ganó el Truco si ya hay 2 manos ganadas (Simplificada por ahora)
-            int p1Wins = 0, p2Wins = 0;
-            foreach(var w in model.RoundWinners)
-            {
-                if (w == ManoGanadaPor.Equipo1) p1Wins++;
-                if (w == ManoGanadaPor.Equipo2) p2Wins++;
-            }
-
-            if (p1Wins == 2 || p2Wins == 2 || model.CurrentRoundIndex >= 3)
+            var mano = model.ManoPlayerId == model.Player1Id ? ManoGanadaPor.Equipo1 : ManoGanadaPor.Equipo2;
+            var winner = TrucoRules.ResolveHand(model.RoundWinners, model.CurrentRoundIndex, mano);
+            if (winner != ManoGanadaPor.Nadie)
             {
                 model.CurrentState = GameState.RondaTerminada;
-                int puntos = (model.EstadoTruco == NivelTruco.Ninguno) ? 1 : (int)model.EstadoTruco;
-                
-                if (p1Wins >= p2Wins) model.AddPoints(1, puntos);
-                else model.AddPoints(2, puntos);
+                int puntos = TrucoRules.AcceptedTrucoPoints(model.EstadoTruco);
+                model.AddPoints(winner == ManoGanadaPor.Equipo1 ? 1 : 2, puntos);
 
                 Debug.Log($"¡Ronda Terminada! Puntos: P1={model.ScoreTeam1} | P2={model.ScoreTeam2}");
-                // Siguiente dealer, etc...
             }
         }
     }

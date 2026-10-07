@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Trucardo.Core;
 using UnityEngine;
 using System.Linq;
+using Trucardo.Core.Rules;
 
 namespace Trucardo.Core.Commands
 {
@@ -62,28 +63,30 @@ namespace Trucardo.Core.Commands
         {
             if (accepts)
             {
+                int stake = EnvidoRules.GetAcceptedPoints(
+                    model.EstadoEnvido, model.ScoreTeam1, model.ScoreTeam2);
                 int p1Points = CalculateEnvido(model.P1Hand, model.P1PlayedCards);
                 int p2Points = CalculateEnvido(model.P2Hand, model.P2PlayedCards);
 
                 Debug.Log($"Puntos de Envido: P1 ({p1Points}) vs P2 ({p2Points})");
 
-                if (p1Points >= p2Points) // En caso de empate gana el mano (por ahora P1 en este MVP)
+                if (p1Points > p2Points || (p1Points == p2Points && model.ManoPlayerId == model.Player1Id))
                 {
-                    Debug.Log("Jugador 1 gana el Envido (+2 pts)");
-                    model.AddPoints(1, 2);
+                    Debug.Log($"Jugador 1 gana el Envido (+{stake} pts)");
+                    model.AddPoints(1, stake);
                 }
                 else
                 {
-                    Debug.Log("Jugador 2 gana el Envido (+2 pts)");
-                    model.AddPoints(2, 2);
+                    Debug.Log($"Jugador 2 gana el Envido (+{stake} pts)");
+                    model.AddPoints(2, stake);
                 }
             }
             else
             {
-                // No quiso el envido, 1 punto para el que cantó
                 int winnerTeam = IsPlayer1(model.LastCallerId) ? 1 : 2;
-                Debug.Log($"Jugador {(IsPlayer1(clientId) ? "2" : "1")} gana 1 punto por rechazo de Envido.");
-                model.AddPoints(winnerTeam, 1);
+                int stake = EnvidoRules.GetRejectedPoints(model.EnvidoAcceptedPoints);
+                Debug.Log($"Jugador {(winnerTeam == 1 ? "1" : "2")} gana {stake} punto(s) por rechazo de Envido.");
+                model.AddPoints(winnerTeam, stake);
             }
         }
 
@@ -104,8 +107,8 @@ namespace Trucardo.Core.Commands
                 int puntosGanados = (model.EstadoTruco == NivelTruco.Ninguno) ? 1 : (int)model.EstadoTruco;
                 
                 Debug.Log($"No quiso el truco. Equipo {winnerTeam} gana {puntosGanados} puntos. Fin de ronda.");
-                model.AddPoints(winnerTeam, puntosGanados);
                 model.CurrentState = GameState.RondaTerminada;
+                model.AddPoints(winnerTeam, puntosGanados);
             }
         }
 

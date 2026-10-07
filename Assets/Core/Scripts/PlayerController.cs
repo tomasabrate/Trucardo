@@ -2,6 +2,7 @@ using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
+using Trucardo.Core.Rules;
 
 namespace Trucardo.Core
 {
@@ -51,6 +52,9 @@ namespace Trucardo.Core
         private int localP1Score;
         private int localP2Score;
         private TipoCanto localCantoPendiente;
+        private EstadoEnvido localEstadoEnvido;
+        private int localEnvidoAcceptedPoints;
+        private int localPendingEnvidoPoints;
         private ulong localLastCallerId;
         private GameServer serverInstance;
 
@@ -667,7 +671,9 @@ namespace Trucardo.Core
                 if (Keyboard.current.digit2Key.wasPressedThisFrame) PlayCard(1);
                 if (Keyboard.current.digit3Key.wasPressedThisFrame) PlayCard(2);
 
-                if (Keyboard.current.eKey.wasPressedThisFrame) CallAction("Envido");
+                if (Keyboard.current.eKey.wasPressedThisFrame) CallEnvido(EnvidoCall.Envido);
+                if (Keyboard.current.rKey.wasPressedThisFrame) CallEnvido(EnvidoCall.RealEnvido);
+                if (Keyboard.current.fKey.wasPressedThisFrame) CallEnvido(EnvidoCall.FaltaEnvido);
                 if (Keyboard.current.qKey.wasPressedThisFrame) CallAction("Truco");
                 if (Keyboard.current.aKey.wasPressedThisFrame) CallAction("Accept");
                 if (Keyboard.current.nKey.wasPressedThisFrame) CallAction("Decline");
@@ -696,11 +702,35 @@ namespace Trucardo.Core
 
             switch (actionType)
             {
-                case "Envido": serverInstance.CallEnvidoServerRpc(); break;
                 case "Truco": serverInstance.CallTrucoServerRpc(); break;
                 case "Accept": serverInstance.RespondServerRpc(true); break;
                 case "Decline": serverInstance.RespondServerRpc(false); break;
             }
+        }
+
+        private void CallEnvido(EnvidoCall call)
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null || !CanCallEnvidoLocally(call)) return;
+            serverInstance.CallEnvidoServerRpc(call);
+        }
+
+        private bool CanCallEnvidoLocally(EnvidoCall call)
+        {
+            int playedCardCount = 0;
+            for (int i = 0; i < myCards.Length; i++)
+                if (myCards[i] == -1) playedCardCount++;
+            int inferredRoundIndex = playedCardCount == 0 ? 0 : 1;
+            return EnvidoRules.CanCallFromContext(
+                localGameState,
+                localCantoPendiente,
+                localLastCallerId,
+                NetworkManager.Singleton.LocalClientId,
+                inferredRoundIndex,
+                playedCardCount,
+                localEstadoTruco,
+                localEstadoEnvido,
+                call);
         }
 
         private void PlayCard(int handSlot)
@@ -844,7 +874,18 @@ namespace Trucardo.Core
 
         private bool amIPlayer1 = true;
 
-        public void UpdateUIState(GameState state, ulong turnId, int p1Score, int p2Score, TipoCanto canto, ulong lastCaller, NivelTruco estadoTruco, ulong p1Id)
+        public void UpdateUIState(
+            GameState state,
+            ulong turnId,
+            int p1Score,
+            int p2Score,
+            TipoCanto canto,
+            ulong lastCaller,
+            NivelTruco estadoTruco,
+            EstadoEnvido estadoEnvido,
+            int envidoAcceptedPoints,
+            int pendingEnvidoPoints,
+            ulong p1Id)
         {
             localGameState = state;
             localTurnId = turnId;
@@ -853,6 +894,9 @@ namespace Trucardo.Core
             localCantoPendiente = canto;
             localLastCallerId = lastCaller;
             localEstadoTruco = estadoTruco;
+            localEstadoEnvido = estadoEnvido;
+            localEnvidoAcceptedPoints = envidoAcceptedPoints;
+            localPendingEnvidoPoints = pendingEnvidoPoints;
             amIPlayer1 = (NetworkManager.Singleton.LocalClientId == p1Id);
         }
 
@@ -951,11 +995,23 @@ namespace Trucardo.Core
                 if (localLastCallerId != NetworkManager.Singleton.LocalClientId)
                 {
                     // Un poco m�s arriba (Screen.height / 4)
-                    GUI.Label(new Rect(0, Screen.height / 4, Screen.width, 100), $"�El rival cantó {localCantoPendiente}!\n[A] Aceptar - [N] Declinar");
+                    string pendingName = localCantoPendiente == TipoCanto.Envido
+                        ? EnvidoRules.GetDisplayName(localEstadoEnvido)
+                        : localCantoPendiente.ToString().ToUpperInvariant();
+                    string options = "[A] Quiero - [N] No Quiero";
+                    if (CanCallEnvidoLocally(EnvidoCall.Envido)) options += " - [E] Envido";
+                    if (CanCallEnvidoLocally(EnvidoCall.RealEnvido)) options += " - [R] Real Envido";
+                    if (CanCallEnvidoLocally(EnvidoCall.FaltaEnvido)) options += " - [F] Falta Envido";
+                    if (localCantoPendiente == TipoCanto.Envido)
+                        options += $"\nApuesta: {localPendingEnvidoPoints} | No Quiero: {EnvidoRules.GetRejectedPoints(localEnvidoAcceptedPoints)}";
+                    GUI.Label(new Rect(0, Screen.height / 4, Screen.width, 120), $"¡El rival cantó {pendingName}!\n{options}");
                 }
                 else
                 {
-                    GUI.Label(new Rect(0, 80, Screen.width, 50), $"Esperando que el rival responda tu {localCantoPendiente}...");
+                    string pendingName = localCantoPendiente == TipoCanto.Envido
+                        ? EnvidoRules.GetDisplayName(localEstadoEnvido)
+                        : localCantoPendiente.ToString().ToUpperInvariant();
+                    GUI.Label(new Rect(0, 80, Screen.width, 50), $"Esperando que el rival responda tu {pendingName}...");
                 }
             }
             else if (localGameState == GameState.RondaTerminada)
@@ -967,7 +1023,7 @@ namespace Trucardo.Core
             GUI.contentColor = Color.white;
             GUI.skin.label.fontSize = 18;
             GUI.skin.label.alignment = TextAnchor.LowerLeft;
-            GUI.Label(new Rect(20, Screen.height - 120, 400, 100), "Controles:\n[1, 2, 3] Jugar Carta\n[E] Cantar Envido\n[Q] Cantar Truco");
+            GUI.Label(new Rect(20, Screen.height - 145, 500, 125), "Controles:\n[1, 2, 3] Jugar Carta\n[E] Envido - [R] Real Envido - [F] Falta Envido\n[Q] Truco - [A] Quiero - [N] No Quiero");
 
             // Crosshair
             GUI.skin.label.fontSize = 20; // Mas chico a pedido del jugador

@@ -1,4 +1,5 @@
 using Trucardo.Core;
+using Trucardo.Core.Rules;
 using UnityEngine;
 
 namespace Trucardo.Core.Commands
@@ -6,44 +7,52 @@ namespace Trucardo.Core.Commands
     public class CallEnvidoCommand : BaseCommand
     {
         private ulong clientId;
+        private EnvidoCall call;
 
-        public CallEnvidoCommand(GameModel model, ulong clientId) : base(model)
+        public CallEnvidoCommand(GameModel model, ulong clientId, EnvidoCall call) : base(model)
         {
             this.clientId = clientId;
+            this.call = call;
         }
 
         public override void Execute()
         {
-            if (model.CurrentState != GameState.TurnoJugador && 
-                !(model.CurrentState == GameState.EsperandoRespuestaCanto && model.CantoPendiente == TipoCanto.Truco && model.LastCallerId != clientId)) 
-            {
+            int playedCardCount = IsPlayer1(clientId)
+                ? model.P1PlayedCards.Count
+                : model.P2PlayedCards.Count;
+            if (!EnvidoRules.CanCallFromContext(
+                    model.CurrentState,
+                    model.CantoPendiente,
+                    model.LastCallerId,
+                    clientId,
+                    model.CurrentRoundIndex,
+                    playedCardCount,
+                    model.EstadoTruco,
+                    model.EstadoEnvido,
+                    call))
                 return;
-            }
-            if (model.CurrentRoundIndex != 0)
+
+            bool isRaise = model.CantoPendiente == TipoCanto.Envido;
+            if (isRaise)
             {
-                Debug.LogWarning("El Envido solo se puede cantar en la primera mano.");
-                return;
+                model.EnvidoAcceptedPoints = EnvidoRules.GetAcceptedPoints(
+                    model.EstadoEnvido, model.ScoreTeam1, model.ScoreTeam2);
             }
-            if (model.EnvidoCantado)
+            else
             {
-                Debug.LogWarning("Ya se cantó el Envido en esta ronda.");
-                return;
+                model.EnvidoCantado = true;
+                model.EnvidoAcceptedPoints = 0;
+                if (model.CantoPendiente == TipoCanto.Truco)
+                    model.CantoAnterior = TipoCanto.Truco;
             }
-            
-            // Permitimos el canto
-            model.EnvidoCantado = true;
-            
-            if (model.CantoPendiente == TipoCanto.Truco) 
-            {
-                model.CantoAnterior = TipoCanto.Truco;
-            }
-            
+
+            model.EstadoEnvido = EnvidoRules.Raise(model.EstadoEnvido, call);
             model.CurrentState = GameState.EsperandoRespuestaCanto;
             model.CantoPendiente = TipoCanto.Envido;
             model.LastCallerId = clientId;
 
             string callerName = IsPlayer1(clientId) ? "Jugador 1" : "Jugador 2";
-            Debug.Log($"¡{callerName} cantó ENVIDO! Esperando respuesta...");
+            Debug.Log($"¡{callerName} cantó {EnvidoRules.GetDisplayName(model.EstadoEnvido)}! Esperando respuesta...");
         }
     }
 }

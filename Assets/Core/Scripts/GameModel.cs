@@ -10,7 +10,8 @@ namespace Trucardo.Core
         Repartiendo,
         TurnoJugador,
         EsperandoRespuestaCanto,
-        RondaTerminada
+        RondaTerminada,
+        PartidaTerminada
     }
 
     public enum ManoGanadaPor
@@ -36,6 +37,25 @@ namespace Trucardo.Core
         Truco
     }
 
+    public enum EnvidoCall
+    {
+        Ninguno,
+        Envido,
+        RealEnvido,
+        FaltaEnvido
+    }
+
+    public enum EstadoEnvido
+    {
+        Ninguno,
+        Envido,
+        EnvidoEnvido,
+        RealEnvido,
+        EnvidoRealEnvido,
+        EnvidoEnvidoRealEnvido,
+        FaltaEnvido
+    }
+
     /// <summary>
     /// El Modelo del Servidor.
     /// Calcula puntos y turnos puramente en memoria, sin depender de GameObjects.
@@ -55,6 +75,8 @@ namespace Trucardo.Core
         public ulong CurrentTurnId { get; set; }
         public ulong Player1Id { get; set; }
         public ulong Player2Id { get; set; }
+        public ulong ManoPlayerId { get; private set; }
+        private bool hasStartedHand;
 
         // Cartas en Mano de cada jugador (índices en el mazo maestro)
         public List<int> P1Hand { get; private set; } = new List<int>();
@@ -69,6 +91,8 @@ namespace Trucardo.Core
 
         // Estado de Cantos
         public bool EnvidoCantado { get; set; } = false;
+        public EstadoEnvido EstadoEnvido { get; set; } = EstadoEnvido.Ninguno;
+        public int EnvidoAcceptedPoints { get; set; }
         public NivelTruco EstadoTruco { get; set; } = NivelTruco.Ninguno;
         public TipoCanto CantoPendiente { get; set; } = TipoCanto.Ninguno;
         public TipoCanto CantoAnterior { get; set; } = TipoCanto.Ninguno;
@@ -87,11 +111,15 @@ namespace Trucardo.Core
         {
             ScoreTeam1 = 0;
             ScoreTeam2 = 0;
+            hasStartedHand = false;
             ResetHand();
         }
 
         public void ResetHand()
         {
+            ManoPlayerId = !hasStartedHand || ManoPlayerId == Player2Id ? Player1Id : Player2Id;
+            hasStartedHand = true;
+            CurrentTurnId = ManoPlayerId;
             CurrentState = GameState.Repartiendo;
             P1Hand.Clear();
             P2Hand.Clear();
@@ -99,6 +127,8 @@ namespace Trucardo.Core
             P2PlayedCards.Clear();
             CurrentRoundIndex = 0;
             EnvidoCantado = false;
+            EstadoEnvido = EstadoEnvido.Ninguno;
+            EnvidoAcceptedPoints = 0;
             EstadoTruco = NivelTruco.Ninguno;
             CantoPendiente = TipoCanto.Ninguno;
             CantoAnterior = TipoCanto.Ninguno;
@@ -119,6 +149,7 @@ namespace Trucardo.Core
 
         public void AddPoints(int team, int points)
         {
+            if (CurrentState == GameState.PartidaTerminada) return;
             if (team == 1) ScoreTeam1 += points;
             else if (team == 2) ScoreTeam2 += points;
 
@@ -127,8 +158,12 @@ namespace Trucardo.Core
 
         private void CheckWinCondition()
         {
-            if (ScoreTeam1 >= 30) Debug.Log("Ganó el Equipo 1!");
-            else if (ScoreTeam2 >= 30) Debug.Log("Ganó el Equipo 2!");
+            if (ScoreTeam1 < 30 && ScoreTeam2 < 30) return;
+            CurrentState = GameState.PartidaTerminada;
+            CurrentTurnId = ulong.MaxValue;
+            CantoPendiente = TipoCanto.Ninguno;
+            CantoAnterior = TipoCanto.Ninguno;
+            Debug.Log(ScoreTeam1 >= 30 ? "Ganó el Equipo 1!" : "Ganó el Equipo 2!");
         }
     }
 }

@@ -1,25 +1,252 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+using Trucardo.Core.Rules;
+
 namespace Trucardo.Core.Bots
 {
     public sealed class BotBrain
     {
-        public BotDecision Decide(BotObservation observation)
+        // Calls measure gain over continuing play; responses compare actual stakes.
+        private const double PlayBaseline = 0.5;
+        private const double CardUtilityScale = 2;
+        private const double CallUtilityScale = 0.35;
+        private const double EnvidoCallPremium = 0.3;
+        private const double EnvidoStakePremium = 0.055;
+        private const double EnvidoFoldProbability = 0.08;
+        private const double TrucoCallPremium = 0.22;
+        private const double RaisePremium = 0.12;
+        private const double AggressionWeight = 0.45;
+        private const double RiskWeight = 0.35;
+        private const double OpponentCallEvidence = 0.2;
+        private const double MatchWinBonus = 8;
+        private const double BluffBonus = 0.85;
+        private const double BluffMinStrength = 0.18;
+        private const double BluffMaxStrength = 0.6;
+        private const double EstimatedFoldProbability = 0.12;
+        private readonly BotProfile profile;
+        private readonly Random random;
+        public string LastEvaluationSummary { get; private set; } = string.Empty;
+
+        public BotBrain(BotProfile profile = null, int seed = 0)
         {
+            this.profile = profile ?? BotProfile.Create(BotDifficulty.Normal, BotPersonality.Balanced);
+            random = new Random(seed);
+        }
+
+        public BotDecision Decide(BotObservation observation, bool includeDiagnostics = false)
+        {
+            LastEvaluationSummary = string.Empty;
             if (observation == null) return BotDecision.NoAction;
-
-            if (observation.GameState == GameState.EsperandoRespuestaCanto
+            bool responding = observation.GameState == GameState.EsperandoRespuestaCanto
                 && observation.CantoPendiente != TipoCanto.Ninguno
-                && observation.LastCallerId != observation.BotId)
+                && observation.LastCallerId != observation.BotId;
+            bool playing = observation.GameState == GameState.TurnoJugador
+                && observation.CurrentTurnId == observation.BotId;
+            if (!responding && !playing) return BotDecision.NoAction;
+
+            var evaluation = new BotEvaluator(observation, profile, random);
+            var decisions = new List<BotDecision>(8);
+            var utilities = new List<double>(8);
+            if (responding)
             {
-                return BotDecision.Respond(true);
+                decisions.Add(BotDecision.Respond(true));
+                decisions.Add(BotDecision.Respond(false));
+                bool envido = observation.CantoPendiente == TipoCanto.Envido;
+                utilities.Add(envido ? EvaluateRespondEnvido(observation, evaluation, true)
+                    : EvaluateRespondTruco(observation, evaluation, true));
+                utilities.Add(envido ? EvaluateRespondEnvido(observation, evaluation, false)
+                    : EvaluateRespondTruco(observation, evaluation, false));
+                AddEnvidoCallOptions(observation, evaluation, decisions, utilities, true);
             }
+            else
+            {
+                AddPlayOptions(observation, evaluation, decisions, utilities);
+                AddEnvidoCallOptions(observation, evaluation, decisions, utilities, false);
+                if (observation.CanCallTruco && observation.EstadoTruco != NivelTruco.Vale4
+                    && (observation.EstadoTruco == NivelTruco.Ninguno || observation.LastTrucoCallerId != observation.BotId))
+                {
+                    decisions.Add(BotDecision.CallTruco());
+                    utilities.Add(EvaluateCallTruco(observation, evaluation));
+                }
+            }
+            return Choose(observation, evaluation, decisions, utilities, includeDiagnostics);
+        }
 
-            if (observation.GameState != GameState.TurnoJugador) return BotDecision.NoAction;
-            if (observation.CurrentTurnId != observation.BotId) return BotDecision.NoAction;
-            if (observation.CanCallEnvido) return BotDecision.CallEnvido();
-            if (observation.CanCallTruco) return BotDecision.CallTruco();
-            if (observation.OwnHand.Count == 0) return BotDecision.NoAction;
+        private void AddPlayOptions(BotObservation observation, BotEvaluator evaluation,
+            List<BotDecision> decisions, List<double> utilities)
+        {
+            double best = double.NegativeInfinity;
+            for (int i = 0; i < observation.OwnHand.Count; i++)
+                best = Math.Max(best, evaluation.EvaluatePlayCard(i));
+            for (int i = 0; i < observation.OwnHand.Count; i++)
+            {
+                decisions.Add(BotDecision.PlayCard(observation.OwnHand[i].CardIndex));
+                utilities.Add(PlayBaseline + CardUtilityScale * profile.DecisionQuality
+                    * (evaluation.EvaluatePlayCard(i) - best));
+            }
+        }
 
-            return BotDecision.PlayCard(observation.OwnHand[0].CardIndex);
+        private void AddEnvidoCallOptions(
+            BotObservation observation,
+            BotEvaluator evaluation,
+            List<BotDecision> decisions,
+            List<double> utilities,
+            bool whileResponding)
+        {
+            AddEnvidoCallOption(EnvidoCall.Envido, observation.CanCallEnvido);
+            AddEnvidoCallOption(EnvidoCall.RealEnvido, observation.CanCallRealEnvido);
+            AddEnvidoCallOption(EnvidoCall.FaltaEnvido, observation.CanCallFaltaEnvido);
+
+            void AddEnvidoCallOption(EnvidoCall call, bool legal)
+            {
+                if (!legal) return;
+                decisions.Add(BotDecision.CallEnvido(call));
+                utilities.Add(EvaluateCallEnvido(
+                    observation, evaluation, call, whileResponding));
+            }
+        }
+
+        private double EvaluateCallEnvido(
+            BotObservation observation,
+            BotEvaluator evaluation,
+            EnvidoCall call,
+            bool whileResponding)
+        {
+            double probability = PerceivedProbability(evaluation.EnvidoWinProbability);
+            EstadoEnvido raisedState = EnvidoRules.Raise(observation.EstadoEnvido, call);
+            int acceptedStake = EnvidoRules.GetAcceptedPoints(
+                raisedState, observation.ScoreTeam1, observation.ScoreTeam2);
+            int rejectedStake = EnvidoRules.GetRejectedPoints(observation.PendingEnvidoPoints);
+            double called = EnvidoFoldProbability * PointValue(observation.BotScore, rejectedStake)
+                + (1 - EnvidoFoldProbability) * ExpectedPoints(
+                    observation, ConditionOnCall(probability), acceptedStake);
+            double premium = EnvidoCallPremium
+                + EnvidoStakePremium * Math.Max(0, acceptedStake - 2);
+            double gain = called - premium;
+            gain += AggressionWeight * (profile.EnvidoAggression - 0.5) + RiskAdjustment(observation);
+            return whileResponding ? gain : PlayBaseline + CallUtilityScale * gain;
+        }
+
+        private double EvaluateCallTruco(BotObservation observation, BotEvaluator evaluation)
+        {
+            double probability = PerceivedProbability(evaluation.TrucoStrength);
+            int current = TrucoRules.AcceptedTrucoPoints(observation.EstadoTruco);
+            int raised = TrucoRules.RaisedTrucoPoints(observation.EstadoTruco);
+            double continuing = ExpectedPoints(observation, probability, current);
+            // Acceptance selects somewhat stronger opponents: a tunable prior, not hidden knowledge.
+            double acceptedProbability = ConditionOnCall(probability);
+            double called = EstimatedFoldProbability * PointValue(observation.BotScore, current)
+                + (1 - EstimatedFoldProbability) * ExpectedPoints(observation, acceptedProbability, raised);
+            double gain = called - continuing - TrucoCallPremium - RaisePremium * (raised - 2);
+            gain += AggressionWeight * (profile.Aggression - 0.5) + RiskAdjustment(observation);
+
+            // Bluff mediocre hands only, with room to lose the stake and no match win
+            // available just by playing. Randomness modifies an already evaluated action.
+            if (evaluation.TrucoStrength >= BluffMinStrength && evaluation.TrucoStrength <= BluffMaxStrength
+                && observation.OpponentScore + raised < 30 && observation.BotScore + current < 30
+                && random.NextDouble() < profile.BluffFrequency)
+                gain += BluffBonus;
+            return PlayBaseline + CallUtilityScale * gain;
+        }
+
+        private double EvaluateRespondEnvido(BotObservation observation, BotEvaluator evaluation, bool accepts)
+        {
+            int rejectedStake = EnvidoRules.GetRejectedPoints(observation.EnvidoAcceptedPoints);
+            if (!accepts) return -PointValue(observation.OpponentScore, rejectedStake);
+            double probability = ConditionOnCall(PerceivedProbability(evaluation.EnvidoWinProbability));
+            return ExpectedPoints(observation, probability, observation.PendingEnvidoPoints)
+                + RiskAdjustment(observation)
+                + AggressionWeight * (profile.EnvidoAggression - 0.5);
+        }
+
+        private double EvaluateRespondTruco(BotObservation observation, BotEvaluator evaluation, bool accepts)
+        {
+            int current = TrucoRules.AcceptedTrucoPoints(observation.EstadoTruco);
+            if (!accepts) return -PointValue(observation.OpponentScore, current);
+            double probability = ConditionOnCall(PerceivedProbability(evaluation.TrucoStrength));
+            return ExpectedPoints(observation, probability, TrucoRules.RaisedTrucoPoints(observation.EstadoTruco))
+                + RiskAdjustment(observation) + AggressionWeight * (profile.Aggression - 0.5);
+        }
+
+        private double PerceivedProbability(double probability)
+        {
+            return 0.5 + (probability - 0.5) * profile.DecisionQuality;
+        }
+
+        private static double ConditionOnCall(double probability)
+        {
+            return probability * (1 - OpponentCallEvidence * (1 - probability));
+        }
+
+        private double RiskAdjustment(BotObservation observation)
+        {
+            double scorePressure = (observation.OpponentScore - observation.BotScore) / 30.0;
+            return RiskWeight * (profile.RiskTolerance - 0.5 + scorePressure);
+        }
+
+        private static double PointValue(int score, int points)
+        {
+            int distance = Math.Max(0, 30 - score);
+            return Math.Min(points, distance) + (distance > 0 && points >= distance ? MatchWinBonus : 0);
+        }
+
+        private static double ExpectedPoints(BotObservation observation, double probability, int stake)
+        {
+            return probability * PointValue(observation.BotScore, stake)
+                - (1 - probability) * PointValue(observation.OpponentScore, stake);
+        }
+
+        private BotDecision Choose(BotObservation observation, BotEvaluator evaluation,
+            List<BotDecision> decisions, List<double> utilities, bool diagnostics)
+        {
+            if (decisions.Count == 0) return BotDecision.NoAction;
+            var summary = diagnostics ? new StringBuilder() : null;
+            if (summary != null)
+            {
+                summary.AppendFormat(CultureInfo.InvariantCulture,
+                    "[BOT] Envido: {0}; P(win envido): {1}; combinations: {2}; Truco strength: {3:F3}\n",
+                    evaluation.OwnEnvido,
+                    evaluation.EnvidoCombinationsEvaluated == 0 ? "n/a" : evaluation.EnvidoWinProbability.ToString("F3", CultureInfo.InvariantCulture),
+                    evaluation.EnvidoCombinationsEvaluated, evaluation.TrucoStrength);
+                if (observation.Player1PlayedCards.Count > observation.CurrentRoundIndex)
+                {
+                    var opponent = observation.Player1PlayedCards[observation.CurrentRoundIndex];
+                    summary.AppendLine($"Opponent card: {opponent.Number} {opponent.Suit}");
+                }
+            }
+            int best = 0;
+            double bestUtility = double.NegativeInfinity;
+            for (int i = 0; i < decisions.Count; i++)
+            {
+                double utility = utilities[i] + (random.NextDouble() * 2 - 1) * profile.DecisionNoise;
+                if (summary != null)
+                    summary.AppendFormat(CultureInfo.InvariantCulture, "{0}: {1:F3} -> {2:F3}\n",
+                        Describe(decisions[i], observation), utilities[i], utility);
+                if (utility > bestUtility)
+                {
+                    best = i;
+                    bestUtility = utility;
+                }
+            }
+            if (summary != null)
+            {
+                summary.Append("Chosen: ").Append(Describe(decisions[best], observation));
+                LastEvaluationSummary = summary.ToString();
+            }
+            return decisions[best];
+        }
+
+        private static string Describe(BotDecision decision, BotObservation observation)
+        {
+            if (decision.Type == BotDecisionType.Respond) return $"Respond({decision.Accepts})";
+            if (decision.Type == BotDecisionType.CallEnvido)
+                return $"CallEnvido({decision.EnvidoCall})";
+            if (decision.Type == BotDecisionType.PlayCard)
+                foreach (var card in observation.OwnHand)
+                    if (card.CardIndex == decision.CardIndex) return $"PlayCard({card.Number} {card.Suit})";
+            return decision.Type.ToString();
         }
     }
 }
