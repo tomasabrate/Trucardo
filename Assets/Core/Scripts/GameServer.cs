@@ -49,6 +49,11 @@ namespace Trucardo.Core
         [SerializeField] private bool logBotDecisions = false;
         [Header("Cartas")]
         public GameObject cardPrefab;
+        [Header("Bots")]
+        public GameObject botPrefab;
+        public float botYOffset = 0.35f; // Ajuste vertical
+        public float botForwardOffset = 0.15f; // Ajuste hacia adelante
+        public Transform bartenderPosition; // Asignar un objeto vacío en la barra
 
         private List<TableSession> sessions = new List<TableSession>();
         private ulong nextLogicalBotId = FirstLogicalBotId;
@@ -61,8 +66,112 @@ namespace Trucardo.Core
                 enabled = false;
                 return;
             }
-            Debug.Log("Servidor de Trucardo Iniciado. Soportando m�ltiples mesas.");
+            Debug.Log("Servidor de Trucardo Iniciado. Soportando múltiples mesas.");
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
+
+            if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer && botPrefab != null)
+            {
+                SpawnVisualBots();
+            }
+        }
+
+        private void SpawnVisualBots()
+        {
+            var tables = TableDefinition.FindAll();
+            foreach (var table in tables)
+            {
+                // Ignorar la mesa 9
+                if (table.TableId == "Mesa_9" || table.TableId.Contains("9"))
+                    continue;
+
+                if (table.Seats != null && table.Seats.Count >= 2)
+                {
+                    var seat = table.Seats[1].transform; // Banquito B
+                    
+                    Vector3 spawnPos = seat.position + (Vector3.up * botYOffset) + (seat.forward * botForwardOffset);
+                    GameObject botInst = Instantiate(botPrefab, spawnPos, seat.rotation);
+                    botInst.name = $"Bot {table.TableId.Replace("_", " ")}";
+                    
+                    CleanBotComponents(botInst);
+
+                    Animator anim = botInst.GetComponentInChildren<Animator>();
+                    if (anim != null)
+                    {
+                        anim.SetBool("IsSeated", true);
+                        anim.Play("Seated", 0, 0f);
+                    }
+                }
+            }
+
+            // Spawn Bartender
+            Transform barTransform = bartenderPosition != null ? bartenderPosition : null;
+            if (barTransform == null)
+            {
+                GameObject posObj = GameObject.Find("PosicionBartender");
+                if (posObj != null) barTransform = posObj.transform;
+            }
+
+            Vector3 bartenderPos = Vector3.zero;
+            Quaternion bartenderRot = Quaternion.identity;
+
+            if (barTransform != null)
+            {
+                bartenderPos = barTransform.position;
+                bartenderRot = barTransform.rotation;
+            }
+            else
+            {
+                // Fallback: Entre Mostrador_Principal y MesaLarga
+                GameObject mostrador = GameObject.Find("Mostrador_Principal");
+                GameObject mesaLarga = GameObject.Find("MesaLarga");
+
+                if (mostrador != null && mesaLarga != null)
+                {
+                    bartenderPos = (mostrador.transform.position + mesaLarga.transform.position) / 2f;
+                    
+                    // Asegurar que esté tocando el piso (tiramos un rayo hacia abajo)
+                    if (Physics.Raycast(bartenderPos + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f))
+                    {
+                        bartenderPos.y = hit.point.y;
+                    }
+                    else
+                    {
+                        bartenderPos.y = 0f; // Asumir piso en 0 si no hay colliders físicos
+                    }
+                    
+                    // Que mire hacia la mesa larga de forma natural
+                    Vector3 lookDir = mesaLarga.transform.position - bartenderPos;
+                    lookDir.y = 0;
+                    if (lookDir != Vector3.zero) bartenderRot = Quaternion.LookRotation(lookDir);
+                }
+                else
+                {
+                    bartenderPos = new Vector3(0, 0f, 0); // Si no encuentra los objetos, centro del mapa en el piso
+                }
+            }
+
+            GameObject bartender = Instantiate(botPrefab, bartenderPos, bartenderRot);
+            bartender.name = "Bartender";
+            CleanBotComponents(bartender);
+
+            Animator animBar = bartender.GetComponentInChildren<Animator>();
+            if (animBar != null)
+            {
+                animBar.SetBool("IsSeated", false);
+                animBar.Play("Idle", 0, 0f); // Animación base respirando/parado
+            }
+        }
+
+        private void CleanBotComponents(GameObject botInst)
+        {
+            var netObj = botInst.GetComponent<Unity.Netcode.NetworkObject>();
+            if (netObj != null) Destroy(netObj);
+            var playerCtrl = botInst.GetComponent<PlayerController>();
+            if (playerCtrl != null) Destroy(playerCtrl);
+            var cam = botInst.GetComponentInChildren<Camera>();
+            if (cam != null) Destroy(cam.gameObject);
+            var audioListener = botInst.GetComponentInChildren<AudioListener>();
+            if (audioListener != null) Destroy(audioListener);
         }
 
         public override void OnNetworkDespawn()

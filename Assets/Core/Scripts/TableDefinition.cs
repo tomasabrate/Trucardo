@@ -108,31 +108,44 @@ namespace Trucardo.Core
                 .Where(t => t != group.transform && IsTableName(t.name))
                 .Where(t => t.parent == group.transform
                     || !IsTableName(t.parent != null ? t.parent.name : ""))
-                .OrderBy(t => t.position.x)
-                .ThenBy(t => t.position.z)
                 .ToList();
+            
             List<SeatInteractable> remainingSeats = group.GetComponentsInChildren<Transform>(true)
                 .Where(t => IsSeatName(t.name))
                 .Select(t => t.GetComponent<SeatInteractable>() ?? t.gameObject.AddComponent<SeatInteractable>())
                 .ToList();
 
-            for (int i = 0; i < tables.Count; i++)
+            foreach (var tableTransform in tables)
             {
-                List<SeatInteractable> nearestSeats = remainingSeats
-                    .OrderBy(seat => HorizontalDistance(seat.transform.position, tables[i].position))
+                string id = tableTransform.name; // Respetar el nombre original en jerarquía (e.g., Mesa_9)
+                
+                // Buscar asientos que sean Hijos de esta mesa específica
+                List<SeatInteractable> mySeats = remainingSeats
+                    .Where(s => s.transform.IsChildOf(tableTransform))
                     .Take(2)
                     .ToList();
-                if (nearestSeats.Count != 2)
+
+                // Si no tiene 2 asientos hijos, buscamos los más cercanos globalmente
+                if (mySeats.Count < 2)
+                {
+                    int needed = 2 - mySeats.Count;
+                    var nearest = remainingSeats
+                        .Where(s => !s.transform.IsChildOf(tableTransform))
+                        .OrderBy(seat => HorizontalDistance(seat.transform.position, tableTransform.position))
+                        .Take(needed);
+                    mySeats.AddRange(nearest);
+                }
+
+                if (mySeats.Count != 2)
                     continue;
 
-                string id = $"Mesa_{i + 1}";
-                tables[i].name = id;
-                nearestSeats[0].name = $"{id}_Banco_A";
-                nearestSeats[1].name = $"{id}_Banco_B";
-                TableDefinition definition = tables[i].gameObject.AddComponent<TableDefinition>();
-                definition.Configure(id, nearestSeats[0], nearestSeats[1]);
-                remainingSeats.Remove(nearestSeats[0]);
-                remainingSeats.Remove(nearestSeats[1]);
+                mySeats[0].name = $"{id}_Banco_A";
+                mySeats[1].name = $"{id}_Banco_B";
+                TableDefinition definition = tableTransform.gameObject.AddComponent<TableDefinition>();
+                definition.Configure(id, mySeats[0], mySeats[1]);
+                
+                remainingSeats.Remove(mySeats[0]);
+                remainingSeats.Remove(mySeats[1]);
             }
         }
 

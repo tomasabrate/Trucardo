@@ -58,7 +58,10 @@ namespace Trucardo.Core
             if (NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer)
             {
                 GUILayout.BeginArea(new Rect(10, 10, 300, 300));
-                GUILayout.Label($"Estado: {(NetworkManager.Singleton.IsServer ? "Servidor/Host" : "Cliente Conectado")}");
+                if (selectedMode == GameMode.Singleplayer)
+                    GUILayout.Label("Estado: Modo Individual (Solo)");
+                else
+                    GUILayout.Label($"Estado: {(NetworkManager.Singleton.IsServer ? "Servidor/Host" : "Cliente Conectado")}");
                 GUILayout.EndArea();
                 return;
             }
@@ -98,10 +101,18 @@ namespace Trucardo.Core
             if (selectedMode != GameMode.None) return;
 
             // --- FALLBACK UI (por si corren la escena directamente sin pasar por el menú) ---
-            GUILayout.BeginArea(new Rect(10, 10, 300, 300));
+            GUILayout.BeginArea(new Rect(10, 10, 300, 350));
             
+            if (GUILayout.Button("Individual (Solo)", GUILayout.Width(200), GUILayout.Height(50)))
+            {
+                selectedMode = GameMode.Singleplayer;
+                NetworkManager.Singleton.StartHost();
+            }
+            
+            GUILayout.Space(10);
             if (GUILayout.Button("Start Host", GUILayout.Width(200), GUILayout.Height(50)))
             {
+                selectedMode = GameMode.Host;
                 NetworkManager.Singleton.StartHost();
             }
             
@@ -110,6 +121,7 @@ namespace Trucardo.Core
             
             if (GUILayout.Button("Start Client", GUILayout.Width(200), GUILayout.Height(50)))
             {
+                selectedMode = GameMode.Client;
                 var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
                 if (transport != null)
                 {
