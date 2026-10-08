@@ -62,6 +62,22 @@ namespace Trucardo.Core
         private Camera thirdPersonCamera;
         public bool isFirstPersonView = true;
 
+        public bool ModalInputBlocked { get; set; }
+        private int suppressedInputFrame = -1;
+        public bool GameplayInputBlocked => ModalInputBlocked || suppressedInputFrame == Time.frameCount;
+        public Camera InteractionCamera => thirdPersonCamera != null && thirdPersonCamera.enabled
+            ? thirdPersonCamera : firstPersonCamera;
+
+        public void SuppressGameplayInputThisFrame() => suppressedInputFrame = Time.frameCount;
+
+        // Called only by the Interact router when no physical object consumed the press.
+        public void HandleContextualInteract()
+        {
+            if (!IsOwner || !IsSpawned || GameplayInputBlocked || Time.timeScale <= 0f) return;
+            if (isSeated) CallEnvido(EnvidoCall.Envido);
+            else TrySitDown();
+        }
+
         public override void OnNetworkSpawn()
         {
             TableDefinition.EnsureSceneConfiguration();
@@ -390,7 +406,7 @@ namespace Trucardo.Core
 
         private void Update()
         {
-            if (IsOwner && Time.timeScale <= 0f)
+            if (IsOwner && (Time.timeScale <= 0f || GameplayInputBlocked))
             {
                 netSpeed.Value = 0f;
             }
@@ -606,10 +622,6 @@ namespace Trucardo.Core
 
             characterController.Move(move * Time.deltaTime);
 
-            if (Keyboard.current.eKey.wasPressedThisFrame)
-            {
-                TrySitDown();
-            }
         }
 
         private void HandleInputs()
@@ -671,7 +683,6 @@ namespace Trucardo.Core
                 if (Keyboard.current.digit2Key.wasPressedThisFrame) PlayCard(1);
                 if (Keyboard.current.digit3Key.wasPressedThisFrame) PlayCard(2);
 
-                if (Keyboard.current.eKey.wasPressedThisFrame) CallEnvido(EnvidoCall.Envido);
                 if (Keyboard.current.rKey.wasPressedThisFrame) CallEnvido(EnvidoCall.RealEnvido);
                 if (Keyboard.current.fKey.wasPressedThisFrame) CallEnvido(EnvidoCall.FaltaEnvido);
                 if (Keyboard.current.qKey.wasPressedThisFrame) CallAction("Truco");
