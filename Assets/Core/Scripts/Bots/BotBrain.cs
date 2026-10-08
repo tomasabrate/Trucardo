@@ -12,9 +12,8 @@ namespace Trucardo.Core.Bots
         private const double PlayBaseline = 0.5;
         private const double CardUtilityScale = 2;
         private const double CallUtilityScale = 0.35;
-        private const double EnvidoCallPremium = 0.3;
-        private const double EnvidoStakePremium = 0.055;
-        private const double EnvidoFoldProbability = 0.08;
+        private const double BaseEnvidoFoldProbability = 0.08;
+        private const double EnvidoAggressionProbabilityRange = 0.10;
         private const double TrucoCallPremium = 0.22;
         private const double RaisePremium = 0.12;
         private const double AggressionWeight = 0.45;
@@ -114,19 +113,58 @@ namespace Trucardo.Core.Bots
             EnvidoCall call,
             bool whileResponding)
         {
-            double probability = PerceivedProbability(evaluation.EnvidoWinProbability);
+            double probability = EnvidoDecisionProbability(evaluation.EnvidoWinProbability);
             EstadoEnvido raisedState = EnvidoRules.Raise(observation.EstadoEnvido, call);
             int acceptedStake = EnvidoRules.GetAcceptedPoints(
                 raisedState, observation.ScoreTeam1, observation.ScoreTeam2);
             int rejectedStake = EnvidoRules.GetRejectedPoints(observation.PendingEnvidoPoints);
-            double called = EnvidoFoldProbability * PointValue(observation.BotScore, rejectedStake)
-                + (1 - EnvidoFoldProbability) * ExpectedPoints(
-                    observation, ConditionOnCall(probability), acceptedStake);
-            double premium = EnvidoCallPremium
-                + EnvidoStakePremium * Math.Max(0, acceptedStake - 2);
-            double gain = called - premium;
-            gain += AggressionWeight * (profile.EnvidoAggression - 0.5) + RiskAdjustment(observation);
+            bool resumesPendingTruco = whileResponding
+                && observation.CantoPendiente == TipoCanto.Truco;
+            double gain = EvaluateProposedEnvido(
+                observation,
+                evaluation,
+                probability,
+                acceptedStake,
+                rejectedStake,
+                resumesPendingTruco);
             return whileResponding ? gain : PlayBaseline + CallUtilityScale * gain;
+        }
+
+        private double EvaluateProposedEnvido(
+            BotObservation observation,
+            BotEvaluator evaluation,
+            double probability,
+            int acceptedStake,
+            int rejectedStake,
+            bool resumesPendingTruco)
+        {
+            int botScore = observation.BotScore;
+            int opponentScore = observation.OpponentScore;
+            double winValue = PointValue(botScore, acceptedStake);
+            double lossValue = PointValue(opponentScore, acceptedStake);
+            double rejectionValue = PointValue(botScore, rejectedStake);
+            double foldProbability = EnvidoFoldProbability(
+                rejectedStake, acceptedStake);
+
+            double foldUtility = rejectionValue;
+            double winUtility = winValue;
+            double lossUtility = -lossValue;
+            if (resumesPendingTruco)
+            {
+                foldUtility += EvaluatePendingTrucoContinuation(
+                    observation, evaluation, AddPoints(botScore, rejectedStake), opponentScore);
+                winUtility += EvaluatePendingTrucoContinuation(
+                    observation, evaluation, AddPoints(botScore, acceptedStake), opponentScore);
+                lossUtility += EvaluatePendingTrucoContinuation(
+                    observation, evaluation, botScore, AddPoints(opponentScore, acceptedStake));
+            }
+
+            double acceptedUtility = probability * winUtility
+                + (1 - probability) * lossUtility
+                - EnvidoRiskPenalty(
+                    probability, botScore, opponentScore, lossValue);
+            return foldProbability * foldUtility
+                + (1 - foldProbability) * acceptedUtility;
         }
 
         private double EvaluateCallTruco(BotObservation observation, BotEvaluator evaluation)
@@ -155,19 +193,96 @@ namespace Trucardo.Core.Bots
         {
             int rejectedStake = EnvidoRules.GetRejectedPoints(observation.EnvidoAcceptedPoints);
             if (!accepts) return -PointValue(observation.OpponentScore, rejectedStake);
-            double probability = ConditionOnCall(PerceivedProbability(evaluation.EnvidoWinProbability));
+            double probability = EnvidoDecisionProbability(evaluation.EnvidoWinProbability);
+            double lossValue = PointValue(observation.OpponentScore, observation.PendingEnvidoPoints);
             return ExpectedPoints(observation, probability, observation.PendingEnvidoPoints)
-                + RiskAdjustment(observation)
-                + AggressionWeight * (profile.EnvidoAggression - 0.5);
+                - EnvidoRiskPenalty(
+                    probability,
+                    observation.BotScore,
+                    observation.OpponentScore,
+                    lossValue);
         }
 
         private double EvaluateRespondTruco(BotObservation observation, BotEvaluator evaluation, bool accepts)
         {
+            return EvaluateRespondTrucoAtScores(
+                observation,
+                evaluation,
+                accepts,
+                observation.BotScore,
+                observation.OpponentScore);
+        }
+
+        private double EvaluateRespondTrucoAtScores(
+            BotObservation observation,
+            BotEvaluator evaluation,
+            bool accepts,
+            int botScore,
+            int opponentScore)
+        {
             int current = TrucoRules.AcceptedTrucoPoints(observation.EstadoTruco);
-            if (!accepts) return -PointValue(observation.OpponentScore, current);
+            if (!accepts) return -PointValue(opponentScore, current);
             double probability = ConditionOnCall(PerceivedProbability(evaluation.TrucoStrength));
-            return ExpectedPoints(observation, probability, TrucoRules.RaisedTrucoPoints(observation.EstadoTruco))
-                + RiskAdjustment(observation) + AggressionWeight * (profile.Aggression - 0.5);
+            return ExpectedPoints(
+                    botScore,
+                    opponentScore,
+                    probability,
+                    TrucoRules.RaisedTrucoPoints(observation.EstadoTruco))
+                + RiskAdjustment(botScore, opponentScore)
+                + AggressionWeight * (profile.Aggression - 0.5);
+        }
+
+        private double EvaluatePendingTrucoContinuation(
+            BotObservation observation,
+            BotEvaluator evaluation,
+            int botScore,
+            int opponentScore)
+        {
+            if (botScore >= 30 || opponentScore >= 30) return 0;
+            return Math.Max(
+                EvaluateRespondTrucoAtScores(
+                    observation, evaluation, true, botScore, opponentScore),
+                EvaluateRespondTrucoAtScores(
+                    observation, evaluation, false, botScore, opponentScore));
+        }
+
+        private double EnvidoDecisionProbability(double probability)
+        {
+            double conditioned = ConditionOnCall(PerceivedProbability(probability));
+            double personalityShift = EnvidoAggressionProbabilityRange
+                * (profile.EnvidoAggression - 0.5);
+            return Math.Max(0, Math.Min(1, conditioned + personalityShift));
+        }
+
+        private static double EnvidoFoldProbability(
+            int rejectionStake,
+            int acceptedStake)
+        {
+            if (rejectionStake <= 0 || acceptedStake <= 0)
+                return BaseEnvidoFoldProbability;
+            // Do not reward raises where folding pays more than accepting risks.
+            double relativeReward = Math.Min(1, (double)acceptedStake / rejectionStake);
+            return BaseEnvidoFoldProbability * relativeReward;
+        }
+
+        private double EnvidoRiskPenalty(
+            double probability,
+            int botScore,
+            int opponentScore,
+            double downsideValue)
+        {
+            if (downsideValue <= 0) return 0;
+            double maximumLossValue = PointValue(
+                opponentScore, Math.Max(0, 30 - opponentScore));
+            if (maximumLossValue <= 0) return 0;
+
+            double scorePressure = (opponentScore - botScore) / 30.0;
+            double riskSensitivity = Math.Max(0, Math.Min(1,
+                (1 - profile.RiskTolerance) * (1 - scorePressure)));
+            // Exposure makes downside convex: two points early are a small fraction
+            // of the match, while a terminal loss receives the full profile penalty.
+            double exposure = Math.Min(1, downsideValue / maximumLossValue);
+            return (1 - probability) * downsideValue * riskSensitivity * exposure;
         }
 
         private double PerceivedProbability(double probability)
@@ -182,8 +297,18 @@ namespace Trucardo.Core.Bots
 
         private double RiskAdjustment(BotObservation observation)
         {
-            double scorePressure = (observation.OpponentScore - observation.BotScore) / 30.0;
+            return RiskAdjustment(observation.BotScore, observation.OpponentScore);
+        }
+
+        private double RiskAdjustment(int botScore, int opponentScore)
+        {
+            double scorePressure = (opponentScore - botScore) / 30.0;
             return RiskWeight * (profile.RiskTolerance - 0.5 + scorePressure);
+        }
+
+        private static int AddPoints(int score, int points)
+        {
+            return Math.Min(30, score + points);
         }
 
         private static double PointValue(int score, int points)
@@ -194,8 +319,15 @@ namespace Trucardo.Core.Bots
 
         private static double ExpectedPoints(BotObservation observation, double probability, int stake)
         {
-            return probability * PointValue(observation.BotScore, stake)
-                - (1 - probability) * PointValue(observation.OpponentScore, stake);
+            return ExpectedPoints(
+                observation.BotScore, observation.OpponentScore, probability, stake);
+        }
+
+        private static double ExpectedPoints(
+            int botScore, int opponentScore, double probability, int stake)
+        {
+            return probability * PointValue(botScore, stake)
+                - (1 - probability) * PointValue(opponentScore, stake);
         }
 
         private BotDecision Choose(BotObservation observation, BotEvaluator evaluation,
