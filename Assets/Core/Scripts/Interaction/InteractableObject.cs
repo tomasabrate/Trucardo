@@ -15,9 +15,11 @@ namespace Trucardo.Core.Interaction
         public bool CanInteract(GameObject interactor) => isActiveAndEnabled && available;
         public void SetAvailable(bool value) => available = value;
 
-        public void Interact(GameObject interactor)
+                        public void Interact(GameObject interactor)
         {
             if (CanInteract(interactor)) onInteract.Invoke(interactor);
         }
     }
 }
+
+

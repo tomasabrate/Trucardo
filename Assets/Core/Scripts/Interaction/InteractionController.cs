@@ -1,30 +1,29 @@
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Unity.Netcode;
 
 namespace Trucardo.Core.Interaction
 {
-    // Runs after the player's look/movement, so the ray uses the rendered viewpoint.
-    [DefaultExecutionOrder(100)]
-    public sealed class InteractionController : MonoBehaviour
+    [DefaultExecutionOrder(-50)]
+    public class InteractionController : MonoBehaviour
     {
         [SerializeField] private InputActionAsset inputActions;
         [SerializeField] private InteractionPromptUI promptUI;
-        [SerializeField, Min(0.01f)] private float maxDistance = 3f;
+        [SerializeField] private float maxDistance = 3f;
         [Tooltip("Include walls and other occluders as well as interactable objects.")]
         [SerializeField] private LayerMask raycastMask = ~0;
         [SerializeField] private QueryTriggerInteraction triggerInteraction = QueryTriggerInteraction.Ignore;
 
         private InputAction interact;
-        private bool enabledAction;
         private PlayerController player;
         private IInteractable target;
         private MonoBehaviour targetComponent;
         private Collider targetCollider;
-        private string bindingLabel;
-        private int bindingIndex = 0;
+        private int bindingIndex;
+        private string bindingLabel = "";
+        private bool enabledAction;
 
-        private void OnEnable()
+                        private void OnEnable()
         {
             if (inputActions == null) return;
             interact = inputActions.FindAction("Player/Interact", true);
@@ -32,7 +31,13 @@ namespace Trucardo.Core.Interaction
             RefreshBinding();
         }
 
-        private void OnActionChange(object changed, InputActionChange change)
+        private void OnDisable()
+        {
+            if (enabledAction && interact != null) interact.Disable();
+            InputSystem.onActionChange -= OnActionChange;
+        }
+
+        private void OnActionChange(object obj, InputActionChange change)
         {
             if (change == InputActionChange.BoundControlsChanged) RefreshBinding();
         }
@@ -40,8 +45,25 @@ namespace Trucardo.Core.Interaction
         private void RefreshBinding()
         {
             if (interact == null) return;
-            bindingLabel = bindingIndex >= 0 && bindingIndex < interact.bindings.Count
-                ? interact.GetBindingDisplayString(bindingIndex) : interact.GetBindingDisplayString();
+            bindingIndex = interact.GetBindingIndex(InputBinding.MaskByGroup(interact.activeControl?.device?.name ?? "Keyboard"));
+            bindingLabel = bindingIndex >= 0 ? interact.bindings[bindingIndex].ToDisplayString() : interact.bindings[0].ToDisplayString();
+        }
+
+        private void ReleaseInput()
+        {
+            if (enabledAction && interact != null)
+            {
+                interact.Disable();
+                enabledAction = false;
+            }
+        }
+
+                private void ClearTarget()
+        {
+            if (promptUI != null) promptUI.Hide();
+            target = null;
+            targetComponent = null;
+            targetCollider = null;
         }
 
         private void Update()
@@ -65,6 +87,7 @@ namespace Trucardo.Core.Interaction
                 ClearTarget();
                 return;
             }
+
             if (!interact.enabled)
             {
                 interact.Enable();
@@ -76,20 +99,41 @@ namespace Trucardo.Core.Interaction
                 return;
             }
 
-            Camera view = player.InteractionCamera;
+                        Camera view = player.InteractionCamera;
+            if (view == null) view = Camera.main;
+
+            Transform raycastOrigin = view != null ? view.transform : player.transform.Find("Cabeza");
+            if (raycastOrigin == null) raycastOrigin = player.transform; // Ultimate fallback
+
             target = null;
             targetComponent = null;
             targetCollider = null;
-            if (view != null && view.isActiveAndEnabled && Physics.Raycast(view.transform.position,
-                view.transform.forward, out RaycastHit hit, maxDistance, raycastMask, triggerInteraction))
+
+            if (raycastOrigin != null)
             {
-                var candidate = hit.collider.GetComponentInParent<IInteractable>();
-                var component = candidate as MonoBehaviour;
-                if (component != null && component.isActiveAndEnabled && candidate.CanInteract(player.gameObject))
+                var hits = Physics.RaycastAll(raycastOrigin.position, raycastOrigin.forward, maxDistance, raycastMask, triggerInteraction);
+                
+                if (hits.Length == 0)
                 {
-                    target = candidate;
-                    targetComponent = component;
-                    targetCollider = hit.collider;
+                    hits = Physics.SphereCastAll(raycastOrigin.position, 0.05f, raycastOrigin.forward, maxDistance, raycastMask, triggerInteraction);
+                }
+
+                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+                foreach (var hit in hits)
+                {
+                    if (hit.collider.transform.root == player.transform.root) continue;
+
+                    var candidate = hit.collider.GetComponentInParent<IInteractable>();
+                    var component = candidate as MonoBehaviour;
+                    
+                    if (component != null && component.isActiveAndEnabled && candidate.CanInteract(player.gameObject))
+                    {
+                        target = candidate;
+                        targetComponent = component;
+                        targetCollider = hit.collider;
+                        break;
+                    }
                 }
             }
 
@@ -100,7 +144,7 @@ namespace Trucardo.Core.Interaction
                     bindingIndex = interact.GetBindingIndexForControl(interact.activeControl);
                     RefreshBinding();
                 }
-                // A valid physical receiver consumes the press even if its action disables/destroys it.
+
                 if (target != null) target.Interact(player.gameObject);
                 else player.HandleContextualInteract();
             }
@@ -111,26 +155,12 @@ namespace Trucardo.Core.Interaction
                 ClearTarget();
             else if (promptUI != null) promptUI.Show(bindingLabel, target.PromptText);
         }
-
-        private void ClearTarget()
-        {
-            target = null;
-            targetComponent = null;
-            targetCollider = null;
-            if (promptUI != null) promptUI.Hide();
-        }
-
-        private void ReleaseInput()
-        {
-            if (enabledAction && interact != null) interact.Disable();
-            enabledAction = false;
-        }
-
-        private void OnDisable()
-        {
-            InputSystem.onActionChange -= OnActionChange;
-            ReleaseInput();
-            ClearTarget();
-        }
     }
 }
+
+
+
+
+
+
+
