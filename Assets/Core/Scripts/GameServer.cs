@@ -5,6 +5,7 @@ using Unity.Netcode;
 using System.Linq;
 using Trucardo.Core.Bots;
 using Trucardo.Core.Rules;
+using Trucardo.Core.BotDialogue;
 
 namespace Trucardo.Core
 {
@@ -28,13 +29,15 @@ namespace Trucardo.Core
         public ParticipantType Player1Type = ParticipantType.None;
         public ParticipantType Player2Type = ParticipantType.None;
         public BotController Player2BotController;
+        public BotDialogueController Player2Dialogue;
+        public BotPersonality DialoguePersonality;
         public Coroutine PendingBotActionCoroutine;
         public Coroutine PendingStartRoundCoroutine;
         public List<GameObject> TableCards = new List<GameObject>();
         public bool IsStartingRound = false;
     }
 
-    public class GameServer : NetworkBehaviour
+    public partial class GameServer : NetworkBehaviour
     {
         private const ulong FirstLogicalBotId = ulong.MaxValue - 1;
 
@@ -176,6 +179,7 @@ namespace Trucardo.Core
 
         public override void OnNetworkDespawn()
         {
+            ReleaseAllDialogue();
             if (IsServer)
             {
                 NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnect;
@@ -340,6 +344,7 @@ namespace Trucardo.Core
             BotProfile profile = BotProfile.Create(defaultBotDifficulty, defaultBotPersonality);
             int seed = useFixedBotSeed ? botSeed : unchecked((int)(botId ^ (botId >> 32)));
             session.Player2BotController = new BotController(new BotBrain(profile, seed));
+            RegisterDialogue(session);
 
             Debug.Log($"Bot lógico {botId} registrado como Jugador 2 en la mesa {session.TableId}.");
             return true;
@@ -374,6 +379,7 @@ namespace Trucardo.Core
 
             CancelPendingBotAction(session);
             session.Player2BotController = null;
+            ReleaseDialogue(session);
             session.Player2Id = ulong.MaxValue;
             session.Player2Seated = false;
             session.Player2Type = ParticipantType.None;
@@ -633,8 +639,10 @@ namespace Trucardo.Core
 
             if (!hand.Contains(cardIndex)) return;
 
+            var dialogueBefore = CaptureDialogue(session);
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.PlayCardCommand(session.GameModel, actorId, cardIndex));
             session.GameModel.actionQueue.ProcessNext();
+            AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.PlayedCard);
 
             SpawnCardOnTable(session, actorId, cardIndex);
             
@@ -771,9 +779,11 @@ namespace Trucardo.Core
             if (actorId != session.Player1Id && actorId != session.Player2Id) return;
             if (!CanPlayerCallEnvido(session, actorId, call)) return;
 
+            var dialogueBefore = CaptureDialogue(session);
             session.GameModel.actionQueue.EnqueueCommand(
                 new Trucardo.Core.Commands.CallEnvidoCommand(session.GameModel, actorId, call));
             session.GameModel.actionQueue.ProcessNext();
+            AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, ToDialogueCall(call));
             SyncClientState(session);
             TryScheduleBotAction(session);
         }
@@ -791,8 +801,10 @@ namespace Trucardo.Core
             if (session == null) return;
             if (actorId != session.Player1Id && actorId != session.Player2Id) return;
 
+            var dialogueBefore = CaptureDialogue(session);
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(session.GameModel, actorId));
             session.GameModel.actionQueue.ProcessNext();
+            AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, PendingTrucoName(dialogueBefore.Truco));
             SyncClientState(session);
             TryScheduleBotAction(session);
         }
@@ -810,8 +822,10 @@ namespace Trucardo.Core
             if (session == null) return;
             if (actorId != session.Player1Id && actorId != session.Player2Id) return;
 
+            var dialogueBefore = CaptureDialogue(session);
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.RespondCommand(session.GameModel, actorId, accepts));
             session.GameModel.actionQueue.ProcessNext();
+            AfterDialogueAction(session, dialogueBefore, actorId, accepts ? DialogueDecision.Accept : DialogueDecision.Reject);
 
             if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
@@ -910,6 +924,7 @@ namespace Trucardo.Core
 
             session.GameModel.CurrentState = GameState.TurnoJugador;
             session.GameModel.CurrentTurnId = session.GameModel.ManoPlayerId;
+            DialogueHandStarted(session);
             
             SyncClientState(session);
             TryScheduleBotAction(session);

@@ -117,6 +117,11 @@ namespace Trucardo.Core.Bots
             EstadoEnvido raisedState = EnvidoRules.Raise(observation.EstadoEnvido, call);
             int acceptedStake = EnvidoRules.GetAcceptedPoints(
                 raisedState, observation.ScoreTeam1, observation.ScoreTeam2);
+            // A personality/exposure gate for Falta only. Keep the existing utility,
+            // stakes and response maths intact; decision noise cannot bypass this gate.
+            if (call == EnvidoCall.FaltaEnvido
+                && evaluation.EnvidoWinProbability < FaltaConfidenceThreshold(observation, acceptedStake))
+                return double.NegativeInfinity;
             int rejectedStake = EnvidoRules.GetRejectedPoints(observation.PendingEnvidoPoints);
             bool resumesPendingTruco = whileResponding
                 && observation.CantoPendiente == TipoCanto.Truco;
@@ -128,6 +133,20 @@ namespace Trucardo.Core.Bots
                 rejectedStake,
                 resumesPendingTruco);
             return whileResponding ? gain : PlayBaseline + CallUtilityScale * gain;
+        }
+
+        private double FaltaConfidenceThreshold(BotObservation observation, int acceptedStake)
+        {
+            // Full exposure at 15+ points; one/two-point Falta remains a closing option.
+            double exposure = Math.Max(0, Math.Min(1, (acceptedStake - 2) / 13.0));
+            double threshold = 0.62 + 0.12 * (1 - profile.RiskTolerance)
+                + 0.26 * exposure;
+            if (observation.EstadoEnvido == EstadoEnvido.Ninguno)
+                threshold += 0.04 * exposure; // Prefer escalation over opening with Falta.
+            if (observation.OpponentScore >= observation.BotScore
+                && observation.OpponentScore + acceptedStake >= 30)
+                threshold += 0.015; // Losing this accepted bet ends the match.
+            return Math.Max(0.62, Math.Min(0.999, threshold));
         }
 
         private double EvaluateProposedEnvido(
