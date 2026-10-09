@@ -72,7 +72,10 @@ namespace Trucardo.Core
             Debug.Log("Servidor de Trucardo Iniciado. Soportando múltiples mesas.");
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
 
-            if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer && botPrefab != null)
+            bool isSingleplayer = Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer
+                || (Trucardo.Core.NetworkUI.selectedMode == GameMode.None && autoFillPlayer2WithBot);
+
+            if (isSingleplayer && botPrefab != null)
             {
                 SpawnVisualBots();
             }
@@ -91,11 +94,29 @@ namespace Trucardo.Core
                 {
                     var seat = table.Seats[1].transform; // Banquito B
                     
-                    Vector3 spawnPos = seat.position + (Vector3.up * botYOffset) + (seat.forward * botForwardOffset);
-                    GameObject botInst = Instantiate(botPrefab, spawnPos, seat.rotation);
+                    Vector3 toTable = table.transform.position - seat.position;
+                    toTable.y = 0;
+                    Quaternion botRot = toTable.sqrMagnitude > 0.001f 
+                        ? Quaternion.LookRotation(toTable) 
+                        : seat.rotation;
+                    
+                    Vector3 forwardDir = toTable.sqrMagnitude > 0.001f 
+                        ? toTable.normalized 
+                        : seat.forward;
+
+                    Vector3 spawnPos = seat.position + (Vector3.up * botYOffset) + (forwardDir * botForwardOffset);
+                    GameObject botInst = Instantiate(botPrefab, spawnPos, botRot);
                     botInst.name = $"Bot {table.TableId.Replace("_", " ")}";
                     
                     CleanBotComponents(botInst);
+
+                    SeatInteractable seatComp = seat.GetComponent<SeatInteractable>();
+                    if (seatComp != null)
+                    {
+                        seatComp.CurrentOccupant = botInst;
+                    }
+                    var botMarker = botInst.AddComponent<BotMarker>();
+                    botMarker.assignedSeat = seatComp;
 
                     Animator anim = botInst.GetComponentInChildren<Animator>();
                     if (anim != null)
@@ -124,32 +145,41 @@ namespace Trucardo.Core
             }
             else
             {
-                // Fallback: Entre Mostrador_Principal y MesaLarga
+                // Fallback: Detrás del mostrador principal mirando al salón
                 GameObject mostrador = GameObject.Find("Mostrador_Principal");
                 GameObject mesaLarga = GameObject.Find("MesaLarga");
 
-                if (mostrador != null && mesaLarga != null)
+                if (mostrador != null)
                 {
-                    bartenderPos = (mostrador.transform.position + mesaLarga.transform.position) / 2f;
+                    if (mesaLarga != null)
+                    {
+                        bartenderPos = (mostrador.transform.position + mesaLarga.transform.position) / 2f;
+                    }
+                    else
+                    {
+                        bartenderPos = mostrador.transform.position + new Vector3(0f, 0f, 1.4f);
+                    }
                     
-                    // Asegurar que esté tocando el piso (tiramos un rayo hacia abajo)
-                    if (Physics.Raycast(bartenderPos + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f))
+                    // Asegurar que esté tocando el piso (raycast desde 1.5m de altura, NO 5m para evitar el techo a 4.1m)
+                    if (Physics.Raycast(bartenderPos + Vector3.up * 1.5f, Vector3.down, out RaycastHit hit, 5f))
                     {
                         bartenderPos.y = hit.point.y;
                     }
                     else
                     {
-                        bartenderPos.y = 0f; // Asumir piso en 0 si no hay colliders físicos
+                        bartenderPos.y = 0f; // Asumir piso en 0
                     }
                     
-                    // Que mire hacia la mesa larga de forma natural
-                    Vector3 lookDir = mesaLarga.transform.position - bartenderPos;
+                    // Que mire hacia el mostrador / salón
+                    Vector3 lookDir = mostrador.transform.position - bartenderPos;
                     lookDir.y = 0;
                     if (lookDir != Vector3.zero) bartenderRot = Quaternion.LookRotation(lookDir);
+                    else bartenderRot = Quaternion.Euler(0f, 180f, 0f);
                 }
                 else
                 {
-                    bartenderPos = new Vector3(0, 0f, 0); // Si no encuentra los objetos, centro del mapa en el piso
+                    bartenderPos = new Vector3(6.05f, 0f, 8.2f);
+                    bartenderRot = Quaternion.Euler(0f, 180f, 0f);
                 }
             }
 
@@ -167,10 +197,14 @@ namespace Trucardo.Core
 
         private void CleanBotComponents(GameObject botInst)
         {
-            var netObj = botInst.GetComponent<Unity.Netcode.NetworkObject>();
-            if (netObj != null) Destroy(netObj);
             var playerCtrl = botInst.GetComponent<PlayerController>();
             if (playerCtrl != null) Destroy(playerCtrl);
+            var netTransform = botInst.GetComponent<ClientNetworkTransform>();
+            if (netTransform != null) Destroy(netTransform);
+            var netObj = botInst.GetComponent<Unity.Netcode.NetworkObject>();
+            if (netObj != null) Destroy(netObj);
+            var charCtrl = botInst.GetComponent<CharacterController>();
+            if (charCtrl != null) Destroy(charCtrl);
             var cam = botInst.GetComponentInChildren<Camera>();
             if (cam != null) Destroy(cam.gameObject);
             var audioListener = botInst.GetComponentInChildren<AudioListener>();
@@ -663,56 +697,109 @@ namespace Trucardo.Core
 
             GameObject c = Instantiate(cardPrefab);
             NetworkObject netObj = c.GetComponent<NetworkObject>();
-            // Spawn later
 
+            Transform mesa = session.Table != null ? session.Table.transform : null;
+
+            PlayerController pc = null;
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                if (client.ClientId == playerId)
+                {
+                    pc = client.PlayerObject != null ? client.PlayerObject.GetComponent<PlayerController>() : null;
+                    break;
+                }
+            }
+
+            // Determinar si el jugador que jugó la carta está en el Banco A (Seats[0]) o Banco B (Seats[1])
+            bool isAtSeatA = true;
+            if (pc != null)
+            {
+                if (session.Table != null && session.Table.Seats != null && session.Table.Seats.Count >= 2 
+                    && session.Table.Seats[0] != null && session.Table.Seats[1] != null)
+                {
+                    float distA = Vector3.Distance(pc.transform.position, session.Table.Seats[0].transform.position);
+                    float distB = Vector3.Distance(pc.transform.position, session.Table.Seats[1].transform.position);
+                    isAtSeatA = distA <= distB;
+                }
+                else if (mesa != null)
+                {
+                    Vector3 localPlayerPos = mesa.InverseTransformPoint(pc.transform.position);
+                    isAtSeatA = localPlayerPos.x <= 0f;
+                }
+            }
+            else
+            {
+                // Si pc == null, es un bot (en modo individual siempre juega como Player 2 desde Banco B / Seats[1]).
+                isAtSeatA = (playerId == session.Player1Id);
+            }
+
+            // Origen del tiro de la carta (startPos y startRot)
             Vector3 startPos = Vector3.zero;
             Quaternion startRot = Quaternion.identity;
-            foreach (var client in NetworkManager.Singleton.ConnectedClients)
+
+            if (pc != null)
             {
-                if (client.Value.ClientId == playerId)
+                startPos = pc.transform.position + pc.transform.forward * 0.8f;
+                startPos.y = 0.80f;
+
+                Vector3 forwardOnTable = pc.transform.forward;
+                forwardOnTable.y = 0;
+                if (forwardOnTable != Vector3.zero)
                 {
-                    startPos = client.Value.PlayerObject.transform.position + client.Value.PlayerObject.transform.forward * 0.8f;
-                    startPos.y = 0.80f; 
-                    
-                    Vector3 forwardOnTable = client.Value.PlayerObject.transform.forward;
-                    forwardOnTable.y = 0;
                     startRot = Quaternion.LookRotation(forwardOnTable, Vector3.up);
-                    startRot *= Quaternion.Euler(-35f, 0f, 0f); 
+                    startRot *= Quaternion.Euler(-35f, 0f, 0f);
+                }
+            }
+            else
+            {
+                // El bot tira la carta desde su banco hacia el centro de la mesa
+                Transform botSeat = (session.Table != null && session.Table.Seats != null && session.Table.Seats.Count >= 2)
+                    ? (isAtSeatA ? session.Table.Seats[0].transform : session.Table.Seats[1].transform)
+                    : null;
+
+                if (botSeat != null && mesa != null)
+                {
+                    Vector3 toCenter = mesa.position - botSeat.position;
+                    toCenter.y = 0;
+                    Vector3 forward = toCenter != Vector3.zero ? toCenter.normalized : botSeat.forward;
+
+                    startPos = botSeat.position + forward * 0.35f + Vector3.up * 0.75f;
+                    startRot = Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(-35f, 0f, 0f);
+                }
+                else if (mesa != null)
+                {
+                    startPos = mesa.position + Vector3.up * 0.8f;
+                    startRot = mesa.rotation * Quaternion.Euler(-35f, 0f, 0f);
                 }
             }
 
             c.transform.position = startPos;
             c.transform.rotation = startRot;
             if (netObj != null) netObj.Spawn();
+
             int playerPlayedCount = 0;
             if (playerId == session.Player1Id) playerPlayedCount = 2 - session.GameModel.P1Hand.Count;
             else if (playerId == session.Player2Id) playerPlayedCount = 2 - session.GameModel.P2Hand.Count;
+            playerPlayedCount = Mathf.Clamp(playerPlayedCount, 0, 2);
 
-                        float zSpacing = 0.22f;
-            // Para que queden enfrentadas en la mesa, ambas se propagan en la misma direccion fisica (+Z a -Z)
-            // Jugador 1 (-X) lo vera de izquierda a derecha, Jugador 2 (+X) lo vera de derecha a izquierda
-            float zOffset = zSpacing - (playerPlayedCount * zSpacing);
-            
-                        PlayerController pc = null;
-            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-            {
-                if (client.ClientId == playerId)
-                {
-                    pc = client.PlayerObject.GetComponent<PlayerController>();
-                    break;
-                }
-            }
-            
-            Vector3 tableCenter = session.Table.transform.position;
-            bool isLeftSide = pc != null && pc.transform.position.x < tableCenter.x;
-                        float xOffset = isLeftSide ? -0.2f : 0.2f;
+            float zSpacing = 0.22f;
+            // Visto desde la perspectiva del jugador (en Banco A mirando a la mesa):
+            // -Z local es la Izquierda del jugador.
+            // +Z local es la Derecha del jugador.
+            // Mano 1 (playerPlayedCount = 0): zOffset = -0.22 (Izquierda)
+            // Mano 2 (playerPlayedCount = 1): zOffset = 0.00 (Centro)
+            // Mano 3 (playerPlayedCount = 2): zOffset = +0.22 (Derecha)
+            // Tanto las cartas del jugador como las del rival se alinean en las mismas columnas,
+            // garantizando que el jugador siempre ve todas las manos jugarse de izquierda a derecha.
+            float zOffset = (playerPlayedCount - 1) * zSpacing;
+
+            // Banco A (lado del jugador) usa xOffset = +0.2f y rotación -90° para estar de su lado y mirarlo
+            // Banco B (lado del rival) usa xOffset = -0.2f y rotación +90° para estar de su lado y mirarlo
+            float xOffset = isAtSeatA ? 0.2f : -0.2f;
+            float yRot = isAtSeatA ? -90f : 90f;
+
             Vector3 targetPos = new Vector3(xOffset, 0f, zOffset);
-            
-            // Y de la misma forma determinamos la rotacion
-            float yRot = isLeftSide ? 90f : -90f;
             Quaternion targetRot = Quaternion.Euler(0, yRot, 0);
-            
-            Transform mesa = session.Table != null ? session.Table.transform : null;
 
             if (mesa != null)
             {
@@ -721,15 +808,15 @@ namespace Trucardo.Core
                 targetRot = mesa.rotation * targetRot;
             }
 
-                                    CardVisual visual = c.GetComponent<CardVisual>();
-            if (visual != null) 
+            CardVisual visual = c.GetComponent<CardVisual>();
+            if (visual != null)
             {
                 var nt = c.GetComponent<Unity.Netcode.Components.NetworkTransform>();
                 if (nt != null) Destroy(nt);
                 visual.netCardIndex.Value = cardIndex;
             }
 
-                        session.TableCards.Add(c);
+            session.TableCards.Add(c);
             SpawnCardOnTableClientRpc(cardIndex, targetPos, targetRot, c.GetComponent<Unity.Netcode.NetworkObject>());
         }
 

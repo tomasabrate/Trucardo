@@ -13,11 +13,11 @@ namespace Trucardo.Core.BotDialogue
         [Min(1)] public int requestTimeout = 8;
         [Range(16, 64)] public int maxTokens = 48;
         [Range(0, 2)] public float temperature = 0.9f;
-        [Min(0)] public float cooldown = 6f;
-        [Range(0, 1)] public float baseSpeakProbability = 0.75f;
+        [Min(0)] public float cooldown = 3.5f;
+        [Range(0, 1)] public float baseSpeakProbability = 0.85f;
         public bool logDebug;
         [Range(512, 4096)] public int contextSize = 2048;
-        [Range(1, 8)] public int threads = 2;
+        [Range(1, 8)] public int threads = 4;
         [Min(1)] public float eventLifetime = 8;
 
         internal void Validate()

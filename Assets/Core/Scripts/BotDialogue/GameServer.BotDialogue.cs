@@ -72,10 +72,8 @@ namespace Trucardo.Core
             if (before.State == after.State && before.BotScore == after.BotScore && before.OpponentScore == after.OpponentScore
                 && before.Played == after.Played && before.Pending == after.Pending && before.Envido == after.Envido
                 && before.Truco == after.Truco && before.Caller == after.Caller) return;
-            // A comment about the last call remains relevant while ordinary cards are played.
-            // The next meaningful exchange, hand or match boundary invalidates it immediately.
-            if (decision != DialogueDecision.PlayedCard || after.State == GameState.RondaTerminada
-                || after.State == GameState.PartidaTerminada)
+            // Only invalidate when the round or match has truly ended, avoiding aborting in-flight comments prematurely
+            if (after.State == GameState.RondaTerminada || after.State == GameState.PartidaTerminada)
                 session.Player2Dialogue.Invalidate();
             bool botActed = actor == session.Player2Id;
             if (decision == DialogueDecision.Accept || decision == DialogueDecision.Reject)
@@ -91,6 +89,8 @@ namespace Trucardo.Core
                 ev = new BotDialogueEvent(botActed ? BotDialogueEventType.BotCalled : BotDialogueEventType.OpponentCalled, call, actualDecision);
             else if (botActed && (decision == DialogueDecision.Accept || decision == DialogueDecision.Reject))
                 ev = new BotDialogueEvent(decision == DialogueDecision.Accept ? BotDialogueEventType.BotAccepted : BotDialogueEventType.BotRejected, call, actualDecision);
+            else if (decision == DialogueDecision.PlayedCard)
+                ev = new BotDialogueEvent(BotDialogueEventType.CardPlayed, DialogueCall.None, actualDecision);
             if (ev != null) EmitDialogue(session, ev);
         }
 
@@ -98,9 +98,10 @@ namespace Trucardo.Core
         {
             try
             {
+                var model = session.GameModel;
                 // Only our bot's cards enter this local reduction. Nothing literal survives it.
-                var cards = BuildBotCardObservations(session.GameModel, session.GameModel.P2Hand);
-                cards.AddRange(BuildBotCardObservations(session.GameModel, session.GameModel.P2PlayedCards));
+                var cards = BuildBotCardObservations(model, model.P2Hand);
+                cards.AddRange(BuildBotCardObservations(model, model.P2PlayedCards));
                 int points = BotEvaluator.CalculateEnvido(cards);
                 EnvidoStrength envido = points >= 31 ? EnvidoStrength.VeryStrong : points >= 27 ? EnvidoStrength.Strong
                     : points >= 20 ? EnvidoStrength.Medium : EnvidoStrength.Weak;
@@ -114,9 +115,43 @@ namespace Trucardo.Core
                 DialogueConfidence confidence = envidoEvent
                     ? (envido >= EnvidoStrength.Strong ? DialogueConfidence.High : envido == EnvidoStrength.Medium ? DialogueConfidence.Medium : DialogueConfidence.Low)
                     : (truco == TrucoStrength.Strong ? DialogueConfidence.High : truco == TrucoStrength.Medium ? DialogueConfidence.Medium : DialogueConfidence.Low);
-                var model = session.GameModel;
-                var context = new BotDialogueContext(session.DialoguePersonality, model.ScoreTeam2, model.ScoreTeam1,
-                    envido, truco, confidence, model.CurrentState);
+
+                // Compute rich match situation and hand context for authentic Argentine dialogue
+                int botScore = model.ScoreTeam2;
+                int oppScore = model.ScoreTeam1;
+                int diff = botScore - oppScore;
+                ScoreSituation scoreSituation;
+                if (botScore >= 25 || oppScore >= 25) scoreSituation = ScoreSituation.DefinicionBuenas;
+                else if (diff == 0) scoreSituation = ScoreSituation.Empatados;
+                else if (diff >= 5) scoreSituation = ScoreSituation.GanandoComodo;
+                else if (diff > 0) scoreSituation = ScoreSituation.GanandoAjustado;
+                else if (diff <= -5) scoreSituation = ScoreSituation.PerdiendoFeo;
+                else scoreSituation = ScoreSituation.PerdiendoAjustado;
+
+                int trickIndex = Mathf.Clamp(model.CurrentRoundIndex + 1, 1, 3);
+                TrickState trickState;
+                if (model.CurrentRoundIndex == 0)
+                {
+                    trickState = TrickState.PrimeraMano;
+                }
+                else if (model.CurrentRoundIndex == 1)
+                {
+                    var r0 = model.RoundWinners != null && model.RoundWinners.Length > 0 ? model.RoundWinners[0] : ManoGanadaPor.Nadie;
+                    if (r0 == ManoGanadaPor.Equipo2) trickState = TrickState.GanamosPrimera;
+                    else if (r0 == ManoGanadaPor.Equipo1) trickState = TrickState.PerdimosPrimera;
+                    else if (r0 == ManoGanadaPor.Parda) trickState = TrickState.PardaPrimera;
+                    else trickState = TrickState.PrimeraMano;
+                }
+                else
+                {
+                    trickState = TrickState.TerceraDefinitoria;
+                }
+
+                PlayerRole role = (model.ManoPlayerId == session.Player2Id) ? PlayerRole.BotEsMano : PlayerRole.BotEsPie;
+
+                var context = new BotDialogueContext(session.DialoguePersonality, botScore, oppScore,
+                    envido, truco, confidence, model.CurrentState,
+                    scoreSituation, trickState, role, trickIndex);
                 _ = session.Player2Dialogue.ObserveAsync(context, ev);
             }
             catch (Exception exception) { DialogueFailed(exception); }

@@ -111,7 +111,7 @@ namespace Trucardo.Core
                 .ToList();
             
             List<SeatInteractable> remainingSeats = group.GetComponentsInChildren<Transform>(true)
-                .Where(t => IsSeatName(t.name))
+                .Where(t => t.gameObject.activeInHierarchy && IsSeatName(t.name))
                 .Select(t => t.GetComponent<SeatInteractable>() ?? t.gameObject.AddComponent<SeatInteractable>())
                 .ToList();
 
@@ -119,9 +119,10 @@ namespace Trucardo.Core
             {
                 string id = tableTransform.name; // Respetar el nombre original en jerarquía (e.g., Mesa_9)
                 
-                // Buscar asientos que sean Hijos de esta mesa específica
+                // Buscar asientos que sean Hijos de esta mesa específica ordenados por posición local
                 List<SeatInteractable> mySeats = remainingSeats
                     .Where(s => s.transform.IsChildOf(tableTransform))
+                    .OrderBy(s => s.transform.localPosition.x)
                     .Take(2)
                     .ToList();
 
@@ -138,6 +139,10 @@ namespace Trucardo.Core
 
                 if (mySeats.Count != 2)
                     continue;
+
+                // Ordenar SIEMPRE por posición local en X respecto a la mesa
+                // local X < 0 es Banco A, local X > 0 es Banco B
+                mySeats = mySeats.OrderBy(s => tableTransform.InverseTransformPoint(s.transform.position).x).ToList();
 
                 mySeats[0].name = $"{id}_Banco_A";
                 mySeats[1].name = $"{id}_Banco_B";
@@ -162,16 +167,18 @@ namespace Trucardo.Core
             return Vector3.Distance(first, second);
         }
 
-        private static bool IsTableName(string name)
+        public static bool IsTableName(string name)
         {
+            if (string.IsNullOrEmpty(name)) return false;
             string lowerName = name.ToLowerInvariant();
-            return lowerName.Contains("mesa") && lowerName != "mesas_y_sillas";
+            return lowerName.Contains("mesa") && lowerName != "mesas_y_sillas" && !lowerName.Contains("mesalarga");
         }
 
-        private static bool IsSeatName(string name)
+        public static bool IsSeatName(string name)
         {
+            if (string.IsNullOrEmpty(name)) return false;
             string lowerName = name.ToLowerInvariant();
-            return lowerName.StartsWith("silla") || lowerName.StartsWith("banco");
+            return lowerName.Contains("banco") || lowerName.Contains("banquito") || lowerName.Contains("silla") || lowerName.Contains("seat");
         }
     }
 }

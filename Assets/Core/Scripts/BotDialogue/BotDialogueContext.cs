@@ -7,8 +7,11 @@ namespace Trucardo.Core.BotDialogue
     public enum DialogueConfidence { Low, Medium, High }
     public enum DialogueCall { None, Envido, RealEnvido, FaltaEnvido, Truco, Retruco, ValeCuatro }
     public enum DialogueDecision { None, Call, Accept, Reject, PlayedCard }
+    public enum ScoreSituation { Empatados, GanandoComodo, GanandoAjustado, PerdiendoAjustado, PerdiendoFeo, DefinicionBuenas }
+    public enum TrickState { PrimeraMano, GanamosPrimera, PerdimosPrimera, PardaPrimera, TerceraDefinitoria }
+    public enum PlayerRole { BotEsMano, BotEsPie }
     public enum BotDialogueEventType { HandStarted, OpponentCalled, BotCalled, BotAccepted, BotRejected,
-        HandWon, HandLost, MatchWon, MatchLost }
+        CardPlayed, HandWon, HandLost, MatchWon, MatchLost }
 
     // An immutable allowlist. No model, observation, cards, commands or callbacks can cross this boundary.
     public sealed class BotDialogueContext
@@ -20,12 +23,22 @@ namespace Trucardo.Core.BotDialogue
         public TrucoStrength Truco { get; }
         public DialogueConfidence Confidence { get; }
         public GameState Phase { get; }
+        public ScoreSituation ScoreSituation { get; }
+        public TrickState TrickState { get; }
+        public PlayerRole Role { get; }
+        public int TrickIndex { get; }
 
         public BotDialogueContext(BotPersonality personality, int botScore, int opponentScore,
-            EnvidoStrength envido, TrucoStrength truco, DialogueConfidence confidence, GameState phase)
+            EnvidoStrength envido, TrucoStrength truco, DialogueConfidence confidence, GameState phase,
+            ScoreSituation scoreSituation = ScoreSituation.Empatados,
+            TrickState trickState = TrickState.PrimeraMano,
+            PlayerRole role = PlayerRole.BotEsMano,
+            int trickIndex = 1)
         {
             Personality = personality; BotScore = botScore; OpponentScore = opponentScore;
             Envido = envido; Truco = truco; Confidence = confidence; Phase = phase;
+            ScoreSituation = scoreSituation; TrickState = trickState; Role = role;
+            TrickIndex = trickIndex;
         }
     }
 

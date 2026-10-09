@@ -45,15 +45,17 @@ namespace Trucardo.Core.BotDialogue
         {
             if (disposed || busy || !settings.enabled || clock.Elapsed.TotalSeconds < nextSpeech)
                 return Task.CompletedTask;
-            double personality = context.Personality == BotPersonality.Conservative ? 0.5
-                : context.Personality == BotPersonality.Balanced ? 0.85 : 1.15;
-            double importance = dialogueEvent.Type == BotDialogueEventType.HandStarted ? 0.45
-                : dialogueEvent.Type == BotDialogueEventType.MatchWon || dialogueEvent.Type == BotDialogueEventType.MatchLost ? 2
-                : dialogueEvent.Call == DialogueCall.FaltaEnvido || dialogueEvent.Call == DialogueCall.ValeCuatro ? 1.5 : 1;
+            double personality = context.Personality == BotPersonality.Conservative ? 0.75
+                : context.Personality == BotPersonality.Balanced ? 0.95 : 1.15;
+            double importance = dialogueEvent.Type == BotDialogueEventType.HandStarted ? 0.85
+                : dialogueEvent.Type == BotDialogueEventType.CardPlayed ? 0.75
+                : dialogueEvent.Type == BotDialogueEventType.MatchWon || dialogueEvent.Type == BotDialogueEventType.MatchLost ? 2.0
+                : dialogueEvent.Type == BotDialogueEventType.HandWon || dialogueEvent.Type == BotDialogueEventType.HandLost ? 1.25
+                : dialogueEvent.Call == DialogueCall.FaltaEnvido || dialogueEvent.Call == DialogueCall.ValeCuatro ? 1.5 : 1.1;
             if (random.NextDouble() >= Math.Min(1, settings.baseSpeakProbability * personality * importance))
                 return Task.CompletedTask;
             busy = true;
-            nextSpeech = clock.Elapsed.TotalSeconds + settings.cooldown / personality;
+            nextSpeech = clock.Elapsed.TotalSeconds + (settings.cooldown * (1.2 - 0.2 * personality));
             pending = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
             pending.CancelAfter(TimeSpan.FromSeconds(settings.eventLifetime));
             return SpeakAsync(context, dialogueEvent, revision, pending);

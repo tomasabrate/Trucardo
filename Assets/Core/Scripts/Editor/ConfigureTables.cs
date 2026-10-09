@@ -29,38 +29,50 @@ namespace Trucardo.EditorScripts
                 throw new InvalidOperationException("No se encontraron mesas dentro de Mesas_y_Sillas.");
 
             List<Trucardo.Core.SeatInteractable> remainingSeats = group.GetComponentsInChildren<Transform>(true)
-                .Where(t => t.GetComponent<Trucardo.Core.SeatInteractable>() != null)
-                .Select(t => t.GetComponent<Trucardo.Core.SeatInteractable>())
+                .Where(t => t.gameObject.activeInHierarchy && Trucardo.Core.TableDefinition.IsSeatName(t.name))
+                .Select(t => t.GetComponent<Trucardo.Core.SeatInteractable>() ?? Undo.AddComponent<Trucardo.Core.SeatInteractable>(t.gameObject))
                 .ToList();
 
             for (int i = 0; i < tables.Count; i++)
             {
                 Transform table = tables[i];
-                string id = $"Mesa_{i + 1}";
+                string id = string.IsNullOrEmpty(table.name) || table.name.StartsWith("Mesa_Individual") ? $"Mesa_{i + 1}" : table.name;
                 table.name = id;
 
                 Trucardo.Core.TableDefinition definition = table.GetComponent<Trucardo.Core.TableDefinition>();
                 if (definition == null)
                     definition = Undo.AddComponent<Trucardo.Core.TableDefinition>(table.gameObject);
 
-                List<Trucardo.Core.SeatInteractable> nearestSeats = remainingSeats
-                    .Where(s => s != null)
-                    .OrderBy(s => HorizontalDistance(s.transform.position, table.position))
+                List<Trucardo.Core.SeatInteractable> mySeats = remainingSeats
+                    .Where(s => s.transform.IsChildOf(table))
+                    .OrderBy(s => s.transform.localPosition.x)
                     .Take(2)
                     .ToList();
 
-                if (nearestSeats.Count != 2)
+                if (mySeats.Count < 2)
+                {
+                    int needed = 2 - mySeats.Count;
+                    var nearest = remainingSeats
+                        .Where(s => !s.transform.IsChildOf(table))
+                        .OrderBy(s => HorizontalDistance(s.transform.position, table.position))
+                        .Take(needed);
+                    mySeats.AddRange(nearest);
+                }
+
+                if (mySeats.Count != 2)
                     throw new InvalidOperationException($"{id} no tiene dos bancos con SeatInteractable.");
 
-                nearestSeats[0].name = $"{id}_Banco_A";
-                nearestSeats[1].name = $"{id}_Banco_B";
-                definition.Configure(id, nearestSeats[0], nearestSeats[1]);
-                remainingSeats.Remove(nearestSeats[0]);
-                remainingSeats.Remove(nearestSeats[1]);
+                mySeats = mySeats.OrderBy(s => table.InverseTransformPoint(s.transform.position).x).ToList();
+
+                mySeats[0].name = $"{id}_Banco_A";
+                mySeats[1].name = $"{id}_Banco_B";
+                definition.Configure(id, mySeats[0], mySeats[1]);
+                remainingSeats.Remove(mySeats[0]);
+                remainingSeats.Remove(mySeats[1]);
 
                 EditorUtility.SetDirty(table.gameObject);
-                EditorUtility.SetDirty(nearestSeats[0].gameObject);
-                EditorUtility.SetDirty(nearestSeats[1].gameObject);
+                EditorUtility.SetDirty(mySeats[0].gameObject);
+                EditorUtility.SetDirty(mySeats[1].gameObject);
             }
 
             EditorSceneManager.MarkSceneDirty(group.scene);
@@ -73,11 +85,7 @@ namespace Trucardo.EditorScripts
             ConfigureSampleScene();
         }
 
-        private static bool IsTableName(string name)
-        {
-            string lowerName = name.ToLowerInvariant();
-            return lowerName.Contains("mesa") && !lowerName.Contains("mesas_y_sillas");
-        }
+        private static bool IsTableName(string name) => Trucardo.Core.TableDefinition.IsTableName(name);
 
         private static float HorizontalDistance(Vector3 first, Vector3 second)
         {

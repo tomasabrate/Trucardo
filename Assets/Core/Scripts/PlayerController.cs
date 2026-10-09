@@ -33,6 +33,7 @@ namespace Trucardo.Core
                 private bool isSeated = false;
         private Transform currentTable = null;
                 private TableDefinition currentTableDefinition = null;
+        private SeatInteractable currentSeatInteractable = null;
 
         [Header("Referencias a Prefabs")]
         public GameObject cardPrefab;
@@ -697,6 +698,15 @@ namespace Trucardo.Core
             if (!isSeated) return;
             isSeated = false;
             
+            if (currentSeatInteractable != null)
+            {
+                if (currentSeatInteractable.CurrentOccupant == gameObject)
+                {
+                    currentSeatInteractable.CurrentOccupant = null;
+                }
+                currentSeatInteractable = null;
+            }
+
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
             if (serverInstance != null) serverInstance.PlayerStandUpServerRpc();
 
@@ -801,21 +811,62 @@ namespace Trucardo.Core
 
             foreach (GameObject obj in allObjects)
             {
-                bool usesLegacyBehavior = obj.name.ToLower().StartsWith("silla") || obj.name.ToLower().StartsWith("banco");
+                bool usesLegacyBehavior = TableDefinition.IsSeatName(obj.name);
                 SeatInteractable interactable = obj.GetComponent<SeatInteractable>();
                 if (!usesLegacyBehavior && interactable == null) continue;
 
+                if (interactable != null && interactable.IsOccupied)
+                    continue;
+
                 bool isOccupied = false;
+                Vector3 seatPos = obj.transform.position;
                 foreach (PlayerController player in allPlayers)
                 {
-                    if (player != this && Vector3.Distance(player.transform.position, obj.transform.position) < 0.5f)
+                    if (player != this)
                     {
-                        isOccupied = true;
-                        break;
+                        Vector3 playerPos = player.transform.position;
+                        float horizDist = Mathf.Sqrt((playerPos.x - seatPos.x) * (playerPos.x - seatPos.x) + (playerPos.z - seatPos.z) * (playerPos.z - seatPos.z));
+                        if (horizDist < 0.6f && Mathf.Abs(playerPos.y - seatPos.y) < 1.2f)
+                        {
+                            isOccupied = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isOccupied)
+                {
+                    BotMarker[] allBots = FindObjectsByType<BotMarker>(FindObjectsSortMode.None);
+                    foreach (BotMarker bot in allBots)
+                    {
+                        if (interactable != null && bot.assignedSeat == interactable)
+                        {
+                            isOccupied = true;
+                            break;
+                        }
+                        Vector3 botPos = bot.transform.position;
+                        float horizDist = Mathf.Sqrt((botPos.x - seatPos.x) * (botPos.x - seatPos.x) + (botPos.z - seatPos.z) * (botPos.z - seatPos.z));
+                        if (horizDist < 0.6f && Mathf.Abs(botPos.y - seatPos.y) < 1.2f)
+                        {
+                            isOccupied = true;
+                            break;
+                        }
                     }
                 }
 
                 if (isOccupied) continue;
+
+                // En modo individual o si hay bots en la escena, Banco B siempre está reservado para el bot
+                if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer 
+                    || FindObjectsByType<BotMarker>(FindObjectsSortMode.None).Length > 0)
+                {
+                    TableDefinition table = TableDefinition.FindForSeat(obj.transform);
+                    if (table != null && table.Seats != null && table.Seats.Count >= 2 && table.Seats[1] != null 
+                        && (table.Seats[1].gameObject == obj || obj.transform.IsChildOf(table.Seats[1].transform)))
+                    {
+                        continue;
+                    }
+                }
 
                 float distance = Vector3.Distance(transform.position, obj.transform.position);
                 float interactionRange = usesLegacyBehavior ? 1.5f : 1.0f;
@@ -840,11 +891,19 @@ namespace Trucardo.Core
 
                 if (characterController != null) characterController.enabled = false;
 
-                transform.rotation = Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
+                Vector3 toTable = currentTable.position - seatTransform.position;
+                toTable.y = 0;
+                transform.rotation = toTable.sqrMagnitude > 0.001f ? Quaternion.LookRotation(toTable) : Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
                 float seatHeight = closestInteractable != null
                     ? closestInteractable.GetTopHeight() - 0.45f
                     : 0f;
                 transform.position = new Vector3(seatTransform.position.x, seatHeight, seatTransform.position.z);
+
+                currentSeatInteractable = closestInteractable;
+                if (currentSeatInteractable != null)
+                {
+                    currentSeatInteractable.CurrentOccupant = gameObject;
+                }
 
                 isSeated = true;
 
