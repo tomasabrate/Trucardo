@@ -80,7 +80,7 @@ public class ApplyStone
     private static void AssignMaterialTo(string namePart, Material mat)
     {
         if (mat == null) return;
-        GameObject[] objs = Object.FindObjectsOfType<GameObject>(true);
+        GameObject[] objs = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (GameObject obj in objs)
         {
             if (obj.name.ToLower().Contains(namePart.ToLower()))

@@ -4,14 +4,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using System.IO;
 
-[InitializeOnLoad]
 public static class RestoreFloorTexture
 {
-    static RestoreFloorTexture()
-    {
-        EditorApplication.delayCall += Execute;
-    }
-
     [MenuItem("Tools/Restaurar Textura Suelo Bar")]
     public static void Execute()
     {

@@ -54,6 +54,7 @@ namespace Trucardo.Core
         public GameObject cardPrefab;
         [Header("Bots")]
         public GameObject botPrefab;
+        public GameObject bartenderPrefab;
         public float botYOffset = 0.35f; // Ajuste vertical
         public float botForwardOffset = 0.15f; // Ajuste hacia adelante
         public Transform bartenderPosition; // Asignar un objeto vacío en la barra
@@ -183,12 +184,24 @@ namespace Trucardo.Core
                 }
             }
 
-            GameObject bartender = Instantiate(botPrefab, bartenderPos, bartenderRot);
+            GameObject prefabToSpawn = bartenderPrefab;
+            if (prefabToSpawn == null)
+            {
+#if UNITY_EDITOR
+                prefabToSpawn = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Core/Prefabs/BartenderPrefab.prefab");
+#endif
+            }
+            if (prefabToSpawn == null)
+            {
+                prefabToSpawn = botPrefab;
+            }
+
+            GameObject bartender = Instantiate(prefabToSpawn, bartenderPos, bartenderRot);
             bartender.name = "Bartender";
             CleanBotComponents(bartender);
 
             Animator animBar = bartender.GetComponentInChildren<Animator>();
-            if (animBar != null)
+            if (animBar != null && animBar.runtimeAnimatorController != null && animBar.avatar != null && animBar.avatar.isValid)
             {
                 animBar.SetBool("IsSeated", false);
                 animBar.Play("Idle", 0, 0f); // Animación base respirando/parado

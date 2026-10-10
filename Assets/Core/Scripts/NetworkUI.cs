@@ -19,6 +19,12 @@ namespace Trucardo.Core
     public class NetworkUI : MonoBehaviour
     {
         public static GameMode selectedMode = GameMode.None;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            selectedMode = GameMode.None;
+        }
         
         // IP por defecto (localhost)
         private string ipAddress = "127.0.0.1";

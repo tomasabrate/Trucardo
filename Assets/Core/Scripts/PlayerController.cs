@@ -143,7 +143,11 @@ namespace Trucardo.Core
 
                 foreach (var mesh in localMeshesToHide)
                 {
-                    if (mesh != null) mesh.GetComponent<MeshRenderer>().enabled = false;
+                    if (mesh != null)
+                    {
+                        var rend = mesh.GetComponent<Renderer>();
+                        if (rend != null) rend.enabled = false;
+                    }
                 }
                 
                 if (cameraTransform != null)
