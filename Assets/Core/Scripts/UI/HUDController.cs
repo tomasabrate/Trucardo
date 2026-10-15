@@ -40,6 +40,17 @@ namespace Trucardo.Core.UI
         private bool canCallEnvido;
         private bool canCallRealEnvido;
         private bool canCallFaltaEnvido;
+        private bool matchFinished;
+        private bool localPlayerWon;
+        private bool postGameOpen;
+        private Canvas endGameCanvas;
+        private GameObject victoryPanelRoot;
+        private GameObject defeatPanelRoot;
+        private GameObject postGamePanelRoot;
+        private Button victoryNextButton;
+        private Button defeatNextButton;
+        private Button rematchButton;
+        private Button leaveTableButton;
         private GameObject[] playerMalasMarks;
         private GameObject[] playerBuenasMarks;
         private GameObject[] opponentMalasMarks;
@@ -57,6 +68,7 @@ namespace Trucardo.Core.UI
             }
 
             instance = this;
+            BindEndGameUI();
             RegisterButtonActions();
             ValidateReferences();
             playerMalasMarks = BuildTallyMarks(playerMalasTally, 1);
@@ -86,6 +98,8 @@ namespace Trucardo.Core.UI
             isSeated = false;
             interfaceMode = false;
             envidoPanelOpen = false;
+            matchFinished = false;
+            postGameOpen = false;
             UpdateVisibility();
         }
 
@@ -98,6 +112,9 @@ namespace Trucardo.Core.UI
             isSeated = false;
             interfaceMode = false;
             envidoPanelOpen = false;
+            matchFinished = false;
+            localPlayerWon = false;
+            postGameOpen = false;
             UpdateVisibility();
         }
 
@@ -130,7 +147,9 @@ namespace Trucardo.Core.UI
             bool responseRequired,
             bool allowEnvido,
             bool allowRealEnvido,
-            bool allowFaltaEnvido)
+            bool allowFaltaEnvido,
+            bool gameFinished,
+            bool playerWon)
         {
             if (turnText != null)
                 turnText.text = turnMessage;
@@ -143,7 +162,55 @@ namespace Trucardo.Core.UI
             canCallEnvido = allowEnvido;
             canCallRealEnvido = allowRealEnvido;
             canCallFaltaEnvido = allowFaltaEnvido;
+            if (gameFinished && !matchFinished)
+                postGameOpen = false;
+            matchFinished = gameFinished;
+            localPlayerWon = playerWon;
             UpdateVisibility();
+        }
+
+        private void BindEndGameUI()
+        {
+            GameObject canvasObject = GameObject.Find("CanvasEndGame");
+            Transform canvasTransform = canvasObject != null ? canvasObject.transform : null;
+            if (canvasTransform != null)
+            {
+                endGameCanvas = canvasObject.GetComponent<Canvas>();
+                victoryPanelRoot = FindChild(canvasTransform, "EndGameVictoryUI");
+                defeatPanelRoot = FindChild(canvasTransform, "EndGameDefeatUI");
+                postGamePanelRoot = FindChild(canvasTransform, "EndGamePostGame");
+                victoryNextButton = FindButton(canvasTransform, "EndGameVictoryUI/ButtonSiguiente");
+                defeatNextButton = FindButton(canvasTransform, "EndGameDefeatUI/ButtonSiguiente");
+                rematchButton = FindButton(canvasTransform, "EndGamePostGame/ButtonRevancha");
+                leaveTableButton = FindButton(canvasTransform, "EndGamePostGame/ButtonSalirDeMesa");
+            }
+
+            if (endGameCanvas == null || victoryPanelRoot == null || defeatPanelRoot == null
+                || postGamePanelRoot == null || victoryNextButton == null || defeatNextButton == null
+                || rematchButton == null || leaveTableButton == null)
+            {
+                Debug.LogError("CanvasEndGame no tiene la estructura o los botones requeridos.", this);
+                return;
+            }
+
+            endGameCanvas.overrideSorting = true;
+            endGameCanvas.sortingOrder = Mathf.Max(endGameCanvas.sortingOrder, 100);
+            endGameCanvas.enabled = false;
+            victoryPanelRoot.SetActive(false);
+            defeatPanelRoot.SetActive(false);
+            postGamePanelRoot.SetActive(false);
+        }
+
+        private static GameObject FindChild(Transform root, string path)
+        {
+            Transform child = root != null ? root.Find(path) : null;
+            return child != null ? child.gameObject : null;
+        }
+
+        private static Button FindButton(Transform root, string path)
+        {
+            Transform child = root != null ? root.Find(path) : null;
+            return child != null ? child.GetComponent<Button>() : null;
         }
 
         private void RegisterButtonActions()
@@ -156,6 +223,10 @@ namespace Trucardo.Core.UI
             if (volverButton != null) volverButton.onClick.AddListener(CloseEnvidoPanel);
             if (quieroButton != null) quieroButton.onClick.AddListener(AcceptCall);
             if (noQuieroButton != null) noQuieroButton.onClick.AddListener(DeclineCall);
+            if (victoryNextButton != null) victoryNextButton.onClick.AddListener(OpenPostGame);
+            if (defeatNextButton != null) defeatNextButton.onClick.AddListener(OpenPostGame);
+            if (rematchButton != null) rematchButton.onClick.AddListener(RestartMatch);
+            if (leaveTableButton != null) leaveTableButton.onClick.AddListener(LeaveTable);
         }
 
         private void UnregisterButtonActions()
@@ -168,6 +239,10 @@ namespace Trucardo.Core.UI
             if (volverButton != null) volverButton.onClick.RemoveListener(CloseEnvidoPanel);
             if (quieroButton != null) quieroButton.onClick.RemoveListener(AcceptCall);
             if (noQuieroButton != null) noQuieroButton.onClick.RemoveListener(DeclineCall);
+            if (victoryNextButton != null) victoryNextButton.onClick.RemoveListener(OpenPostGame);
+            if (defeatNextButton != null) defeatNextButton.onClick.RemoveListener(OpenPostGame);
+            if (rematchButton != null) rematchButton.onClick.RemoveListener(RestartMatch);
+            if (leaveTableButton != null) leaveTableButton.onClick.RemoveListener(LeaveTable);
         }
 
         private void ValidateReferences()
@@ -255,16 +330,22 @@ namespace Trucardo.Core.UI
         private void UpdateVisibility()
         {
             if (hudCanvas != null)
-                hudCanvas.enabled = isSeated;
+                hudCanvas.enabled = isSeated && !matchFinished;
+            if (endGameCanvas != null)
+                endGameCanvas.enabled = isSeated && matchFinished;
 
             bool showInterface = isSeated && interfaceMode;
             bool showEnvidoOptions = showInterface && envidoPanelOpen;
             bool showResponse = showInterface && needsResponse && !envidoPanelOpen;
-            bool showActionBar = showInterface;
+            bool showActionBar = showInterface && !matchFinished;
+            bool showEndGame = isSeated && matchFinished;
 
             if (actionBarRoot != null) actionBarRoot.SetActive(showActionBar);
             if (envidoPanelRoot != null) envidoPanelRoot.SetActive(showEnvidoOptions);
             if (responsePanelRoot != null) responsePanelRoot.SetActive(showResponse);
+            if (victoryPanelRoot != null) victoryPanelRoot.SetActive(showEndGame && localPlayerWon && !postGameOpen);
+            if (defeatPanelRoot != null) defeatPanelRoot.SetActive(showEndGame && !localPlayerWon && !postGameOpen);
+            if (postGamePanelRoot != null) postGamePanelRoot.SetActive(showEndGame && postGameOpen);
             if (trucoButton != null)
             {
                 trucoButton.gameObject.SetActive(true);
@@ -273,16 +354,16 @@ namespace Trucardo.Core.UI
             if (envidoButton != null)
             {
                 envidoButton.gameObject.SetActive(true);
-                envidoButton.interactable = canCallEnvido || canCallRealEnvido || canCallFaltaEnvido;
+                envidoButton.interactable = true;
             }
             if (salirDelMazoButton != null)
             {
                 salirDelMazoButton.gameObject.SetActive(true);
                 salirDelMazoButton.interactable = false;
             }
-            if (cantarEnvidoButton != null) cantarEnvidoButton.gameObject.SetActive(showEnvidoOptions && canCallEnvido);
-            if (realEnvidoButton != null) realEnvidoButton.gameObject.SetActive(showEnvidoOptions && canCallRealEnvido);
-            if (faltaEnvidoButton != null) faltaEnvidoButton.gameObject.SetActive(showEnvidoOptions && canCallFaltaEnvido);
+            if (cantarEnvidoButton != null) cantarEnvidoButton.gameObject.SetActive(showEnvidoOptions);
+            if (realEnvidoButton != null) realEnvidoButton.gameObject.SetActive(showEnvidoOptions);
+            if (faltaEnvidoButton != null) faltaEnvidoButton.gameObject.SetActive(showEnvidoOptions);
             if (volverButton != null) volverButton.gameObject.SetActive(showEnvidoOptions);
             if (quieroButton != null) quieroButton.gameObject.SetActive(showResponse);
             if (noQuieroButton != null) noQuieroButton.gameObject.SetActive(showResponse);
@@ -296,16 +377,20 @@ namespace Trucardo.Core.UI
 
         private void OpenEnvidoPanel()
         {
-            if (!canCallEnvido && !canCallRealEnvido && !canCallFaltaEnvido)
-                return;
-
             envidoPanelOpen = true;
             UpdateVisibility();
         }
 
         private void CallEnvido(EnvidoCall call)
         {
-            if (localPlayer == null)
+            bool canCall = call switch
+            {
+                EnvidoCall.Envido => canCallEnvido,
+                EnvidoCall.RealEnvido => canCallRealEnvido,
+                EnvidoCall.FaltaEnvido => canCallFaltaEnvido,
+                _ => false
+            };
+            if (!canCall || localPlayer == null)
                 return;
 
             localPlayer.CallEnvidoFromHud(call);
@@ -323,6 +408,27 @@ namespace Trucardo.Core.UI
         {
             if (localPlayer != null)
                 localPlayer.RespondToCallFromHud(accept);
+        }
+
+        private void OpenPostGame()
+        {
+            if (!matchFinished)
+                return;
+
+            postGameOpen = true;
+            UpdateVisibility();
+        }
+
+        private void RestartMatch()
+        {
+            if (localPlayer != null && matchFinished)
+                localPlayer.RestartMatchFromHud();
+        }
+
+        private void LeaveTable()
+        {
+            if (localPlayer != null && matchFinished)
+                localPlayer.StandUpFromEndGameHud();
         }
 
         private void CallEnvidoOption() => CallEnvido(EnvidoCall.Envido);

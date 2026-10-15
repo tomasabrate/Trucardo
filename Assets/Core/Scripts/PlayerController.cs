@@ -51,6 +51,7 @@ namespace Trucardo.Core
         // Estado local para la UI
         private GameState localGameState;
         private ulong localTurnId;
+        private int localCurrentRoundIndex;
         private int localP1Score;
         private int localP2Score;
         private TipoCanto localCantoPendiente;
@@ -61,6 +62,7 @@ namespace Trucardo.Core
         private GameServer serverInstance;
         private HUDController hudController;
         private bool interfaceMode;
+        private bool gameOverUIActive;
 
         private Camera firstPersonCamera;
         private Camera thirdPersonCamera;
@@ -434,7 +436,7 @@ namespace Trucardo.Core
             }
             else if (IsOwner)
             {
-                if (isSeated && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+                if (isSeated && !gameOverUIActive && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
                     SetInterfaceMode(!interfaceMode);
 
                 if (UnityEngine.InputSystem.Keyboard.current.digit0Key.wasPressedThisFrame)
@@ -653,7 +655,7 @@ namespace Trucardo.Core
 
         private void HandleInputs()
         {
-            if (!isSeated) return;
+            if (!isSeated || localGameState == GameState.PartidaTerminada) return;
 
             if (!interfaceMode && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             {
@@ -722,10 +724,19 @@ namespace Trucardo.Core
                 private void StandUp()
         {
             if (!isSeated) return;
-                    SetInterfaceMode(false);
+                    gameOverUIActive = false;
                     isSeated = false;
+                    localGameState = GameState.EsperandoJugadores;
+                    localTurnId = ulong.MaxValue;
+                    localCurrentRoundIndex = 0;
+                    localP1Score = 0;
+                    localP2Score = 0;
+                    localCantoPendiente = TipoCanto.Ninguno;
+                    localEstadoTruco = NivelTruco.Ninguno;
+                    localEstadoEnvido = EstadoEnvido.Ninguno;
                     if (hudController != null)
                         hudController.SetPlayerSeated(false);
+                    SetInterfaceMode(false);
             
             if (currentSeatInteractable != null)
             {
@@ -783,18 +794,41 @@ namespace Trucardo.Core
             CallAction(accept ? "Accept" : "Decline");
         }
 
+        public void RestartMatchFromHud()
+        {
+            if (!IsOwner || !isSeated || !gameOverUIActive)
+                return;
+
+            if (serverInstance == null)
+                serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null)
+            {
+                Debug.LogError("No se encontró GameServer para reiniciar la partida.", this);
+                return;
+            }
+
+            serverInstance.RestartMatchServerRpc();
+        }
+
+        public void StandUpFromEndGameHud()
+        {
+            if (!IsOwner || !isSeated || !gameOverUIActive)
+                return;
+
+            StandUp();
+        }
+
         private bool CanCallEnvidoLocally(EnvidoCall call)
         {
             int playedCardCount = 0;
             for (int i = 0; i < myCards.Length; i++)
                 if (myCards[i] == -1) playedCardCount++;
-            int inferredRoundIndex = playedCardCount == 0 ? 0 : 1;
             return EnvidoRules.CanCallFromContext(
                 localGameState,
                 localCantoPendiente,
                 localLastCallerId,
                 NetworkManager.Singleton.LocalClientId,
-                inferredRoundIndex,
+                localCurrentRoundIndex,
                 playedCardCount,
                 localEstadoTruco,
                 localEstadoEnvido,
@@ -997,6 +1031,7 @@ namespace Trucardo.Core
         public void UpdateUIState(
             GameState state,
             ulong turnId,
+            int currentRoundIndex,
             int p1Score,
             int p2Score,
             TipoCanto canto,
@@ -1009,6 +1044,7 @@ namespace Trucardo.Core
         {
             localGameState = state;
             localTurnId = turnId;
+            localCurrentRoundIndex = currentRoundIndex;
             localP1Score = p1Score;
             localP2Score = p2Score;
             localCantoPendiente = canto;
@@ -1035,6 +1071,20 @@ namespace Trucardo.Core
         {
             if (!IsOwner || hudController == null)
                 return;
+
+            bool matchFinished = localGameState == GameState.PartidaTerminada;
+            if (matchFinished && isSeated && !gameOverUIActive)
+            {
+                gameOverUIActive = true;
+                interfaceMode = true;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                hudController.SetInterfaceMode(true);
+            }
+            else if (!matchFinished)
+            {
+                gameOverUIActive = false;
+            }
 
             ulong localClientId = NetworkManager.Singleton != null
                 ? NetworkManager.Singleton.LocalClientId
@@ -1066,7 +1116,9 @@ namespace Trucardo.Core
                 responseRequired,
                 canCallEnvido,
                 canCallRealEnvido,
-                canCallFaltaEnvido);
+                canCallFaltaEnvido,
+                matchFinished,
+                myScore >= 30);
         }
 
         private void OnGUI()
