@@ -46,6 +46,8 @@ GameObject:
   - component: {fileID: 7451429091479346753}
   - component: {fileID: 2304619592341760542}
   - component: {fileID: 1219646372323801380}
+  - component: {fileID: 9000000000002000}
+  - component: {fileID: 9000000000002001}
   m_Layer: 0
   m_Name: PlayerPrefab
   m_TagString: Untagged
@@ -370,3 +372,122 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ef8322edc0b21c0468061721f90a0cb0, type: 3}
   m_PrefabInstance: {fileID: 3625892718526172715}
   m_PrefabAsset: {fileID: 0}
+--- !u!82 &9000000000002000
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2738086458709411812}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 0
+  m_Pitch: 1
+  Loop: 1
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 1
+  MaxDistance: 20
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.9971962
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.57177734
+      value: 0.10630798
+      inSlope: -4.0542855
+      outSlope: -4.0542855
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.2832653
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0.047618866
+      value: 1.0055962
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &9000000000002001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2738086458709411812}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6573c2b080a448fe855bfb667a968963, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PlayerFootstepsController
+  woodSteps: {fileID: 8300000, guid: 6fe64172ef80f4445b0ce527eef171cd, type: 3}
+  grassSteps: {fileID: 8300000, guid: 0c622a24c28f5214684ebfef7d5d1b22, type: 3}
+  woodSurfaceMaterials:
+  - {fileID: 2100000, guid: 8f8cef53a295ffc43ab293ac1fe320c5, type: 2}
+  - {fileID: 2100000, guid: 0276269a3aae402458db3a269f305350, type: 2}
+  - {fileID: 2100000, guid: a33c2c0cab39661439daf43d19fa4a29, type: 2}
+  grassSurfaceMaterials:
+  - {fileID: 2100000, guid: e821618d0714b434794cb62aa0629842, type: 2}
+  maximumVolume: 0.35
+  fadeDuration: 0.08
