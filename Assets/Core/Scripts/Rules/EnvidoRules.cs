@@ -28,10 +28,10 @@ namespace Trucardo.Core.Rules
             bool interruptingInitialTruco = gameState == GameState.EsperandoRespuestaCanto
                 && pendingCall == TipoCanto.Truco
                 && lastCallerId != actorId;
-            return envidoState == EstadoEnvido.Ninguno
-                && currentRoundIndex == 0
-                && actorPlayedCardCount == 0
-                && (normalWindow || interruptingInitialTruco);
+            if (envidoState != EstadoEnvido.Ninguno || currentRoundIndex != 0)
+                return false;
+
+            return interruptingInitialTruco || (normalWindow && actorPlayedCardCount == 0);
         }
 
         public static bool CanCall(EstadoEnvido state, EnvidoCall call)

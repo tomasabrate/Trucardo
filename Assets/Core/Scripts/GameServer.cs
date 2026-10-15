@@ -324,6 +324,32 @@ namespace Trucardo.Core
         }
 
         [ServerRpc(RequireOwnership = false)]
+        public void RestartMatchServerRpc(ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            TableSession session = GetSessionByPlayer(sender);
+            if (!CanStartGameSession(session)
+                || session.GameModel.CurrentState != GameState.PartidaTerminada)
+            {
+                Debug.LogWarning($"El jugador {sender} intentó reiniciar una partida que no terminó o no está disponible.");
+                return;
+            }
+
+            CancelPendingBotAction(session);
+            CancelPendingStartRound(session);
+            ClearTableCards(session);
+            session.GameModel = new GameModel(masterDeck)
+            {
+                Player1Id = session.Player1Id,
+                Player2Id = session.Player2Id
+            };
+            session.IsStartingRound = false;
+
+            Debug.Log($"Reiniciando la partida en {session.TableId} por solicitud del jugador {sender}.");
+            StartRound(session);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
         public void PlayerSitDownServerRpc(string tableId, ServerRpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
@@ -1081,6 +1107,7 @@ namespace Trucardo.Core
         private void UpdateClientStateClientRpc(
             GameState state,
             ulong turnId,
+            int currentRoundIndex,
             int p1Score,
             int p2Score,
             TipoCanto canto,
@@ -1098,6 +1125,7 @@ namespace Trucardo.Core
                 if (pc != null) pc.UpdateUIState(
                     state,
                     turnId,
+                    currentRoundIndex,
                     p1Score,
                     p2Score,
                     canto,
@@ -1124,6 +1152,7 @@ namespace Trucardo.Core
             UpdateClientStateClientRpc(
                 session.GameModel.CurrentState,
                 session.GameModel.CurrentTurnId,
+                session.GameModel.CurrentRoundIndex,
                 session.GameModel.ScoreTeam1,
                 session.GameModel.ScoreTeam2,
                 session.GameModel.CantoPendiente,
@@ -1140,8 +1169,6 @@ namespace Trucardo.Core
         }
     }
 }
-
-
 
 
 
