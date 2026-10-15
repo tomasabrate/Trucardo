@@ -84,6 +84,12 @@ namespace Trucardo.Core
 
         private void SpawnVisualBots()
         {
+            if (botPrefab == null)
+            {
+#if UNITY_EDITOR
+                botPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Core/Prefabs/BotPrefab.prefab");
+#endif
+            }
             var tables = TableDefinition.FindAll();
             foreach (var table in tables)
             {
