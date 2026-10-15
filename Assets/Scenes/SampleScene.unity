@@ -18313,7 +18313,7 @@ MonoBehaviour:
     threads: 2
     eventLifetime: 8
   masterDeck: {fileID: 11400000, guid: cc227df05a03ae14b8de9ba37cc0f098, type: 2}
-  autoFillPlayer2WithBot: 1
+  autoFillPlayer2WithBot: 0
   botActionDelaySeconds: 0.75
   defaultBotDifficulty: 1
   defaultBotPersonality: 0
@@ -40581,7 +40581,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.18737793, y: -56}
+  m_AnchoredPosition: {x: 0.18725586, y: -56}
   m_SizeDelta: {x: -1820, y: -980}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1351321808
@@ -42224,7 +42224,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.18737793, y: -56}
+  m_AnchoredPosition: {x: 0.18725586, y: -56}
   m_SizeDelta: {x: -1820, y: -980}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1001 &1406064743
