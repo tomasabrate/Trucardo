@@ -3,6 +3,7 @@ using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 using Trucardo.Core.Rules;
+using Trucardo.Core.UI;
 
 namespace Trucardo.Core
 {
@@ -58,6 +59,8 @@ namespace Trucardo.Core
         private int localPendingEnvidoPoints;
         private ulong localLastCallerId;
         private GameServer serverInstance;
+        private HUDController hudController;
+        private bool interfaceMode;
 
         private Camera firstPersonCamera;
         private Camera thirdPersonCamera;
@@ -179,7 +182,21 @@ namespace Trucardo.Core
                 {
                     thirdPersonCamera.enabled = false;
                 }
+
+                hudController = HUDController.Instance;
+                if (hudController != null)
+                    hudController.AttachPlayer(this);
             }
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (!IsOwner)
+                return;
+
+            SetInterfaceMode(false);
+            if (hudController != null)
+                hudController.DetachPlayer(this);
         }
 
         private void SetupLocalPlayerVisuals()
@@ -417,6 +434,9 @@ namespace Trucardo.Core
             }
             else if (IsOwner)
             {
+                if (isSeated && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+                    SetInterfaceMode(!interfaceMode);
+
                 if (UnityEngine.InputSystem.Keyboard.current.digit0Key.wasPressedThisFrame)
                 {
                     if (firstPersonCamera == null && cameraTransform != null) firstPersonCamera = cameraTransform.GetComponent<Camera>();
@@ -463,7 +483,8 @@ namespace Trucardo.Core
                     netSpeed.Value = 0f;
                 }
 
-                HandleLook();
+                if (!interfaceMode)
+                    HandleLook();
                 if (!isSeated) 
                 {
                     HandleMovement();
@@ -552,6 +573,7 @@ namespace Trucardo.Core
 
         private void HandleLook()
         {
+            if (isSeated && interfaceMode) return;
             if (Mouse.current == null) return;
             Vector2 mouseDelta = Mouse.current.delta.ReadValue();
 
@@ -633,7 +655,7 @@ namespace Trucardo.Core
         {
             if (!isSeated) return;
 
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            if (!interfaceMode && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             {
                 Ray ray = new Ray(headTransform.position, headTransform.forward);
                                 if (Physics.Raycast(ray, out RaycastHit hit, 5f))
@@ -700,7 +722,10 @@ namespace Trucardo.Core
                 private void StandUp()
         {
             if (!isSeated) return;
-            isSeated = false;
+                    SetInterfaceMode(false);
+                    isSeated = false;
+                    if (hudController != null)
+                        hudController.SetPlayerSeated(false);
             
             if (currentSeatInteractable != null)
             {
@@ -738,6 +763,24 @@ namespace Trucardo.Core
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
             if (serverInstance == null || !CanCallEnvidoLocally(call)) return;
             serverInstance.CallEnvidoServerRpc(call);
+        }
+
+        public void CallTrucoFromHud()
+        {
+            if (!IsOwner || !isSeated || !interfaceMode) return;
+            CallAction("Truco");
+        }
+
+        public void CallEnvidoFromHud(EnvidoCall call)
+        {
+            if (!IsOwner || !isSeated || !interfaceMode) return;
+            CallEnvido(call);
+        }
+
+        public void RespondToCallFromHud(bool accept)
+        {
+            if (!IsOwner || !isSeated || !interfaceMode) return;
+            CallAction(accept ? "Accept" : "Decline");
         }
 
         private bool CanCallEnvidoLocally(EnvidoCall call)
@@ -910,6 +953,9 @@ namespace Trucardo.Core
                 }
 
                 isSeated = true;
+                if (hudController != null)
+                    hudController.SetPlayerSeated(true);
+                SetInterfaceMode(false);
 
                 if (handVisualizer != null)
                 {
@@ -972,97 +1018,69 @@ namespace Trucardo.Core
             localEnvidoAcceptedPoints = envidoAcceptedPoints;
             localPendingEnvidoPoints = pendingEnvidoPoints;
             amIPlayer1 = (NetworkManager.Singleton.LocalClientId == p1Id);
+            RefreshHUD();
         }
 
-        private void DrawTrucoBox(Rect rect, int points)
+        private void SetInterfaceMode(bool enabled)
         {
-            if (points <= 0) return;
-            
-            Texture2D tex = Texture2D.whiteTexture;
-            int thickness = 2;
-            
-            // 1 punto: L�nea vertical izquierda
-            if (points >= 1) GUI.DrawTexture(new Rect(rect.x, rect.y, thickness, rect.height), tex);
-            // 2 puntos: L�nea horizontal superior
-            if (points >= 2) GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, thickness), tex);
-            // 3 puntos: L�nea vertical derecha
-            if (points >= 3) GUI.DrawTexture(new Rect(rect.x + rect.width - thickness, rect.y, thickness, rect.height), tex);
-            // 4 puntos: L�nea horizontal inferior
-            if (points >= 4) GUI.DrawTexture(new Rect(rect.x, rect.y + rect.height - thickness, rect.width, thickness), tex);
-            // 5 puntos: Diagonal
-            if (points >= 5) 
-            {
-                Vector2 pivot = new Vector2(rect.x + rect.width / 2, rect.y + rect.height / 2);
-                GUIUtility.RotateAroundPivot(-45f, pivot);
-                // Dibujar una l�nea horizontal pero rotada parecer� una diagonal
-                GUI.DrawTexture(new Rect(rect.x - 2, rect.y + rect.height / 2 - 1, rect.width + 4, thickness), tex);
-                GUIUtility.RotateAroundPivot(45f, pivot); // Restaurar matriz
-            }
+            interfaceMode = isSeated && enabled;
+            Cursor.lockState = interfaceMode ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = interfaceMode;
+            if (hudController != null)
+                hudController.SetInterfaceMode(interfaceMode);
+            RefreshHUD();
         }
-        
-        private void DrawScoreRow(float x, float y, string label, int totalPoints)
+
+        private void RefreshHUD()
         {
-            GUI.Label(new Rect(x, y, 100, 30), label);
-            
-            int limit = Mathf.Min(totalPoints, 15);
-            float currentX = x + 80;
-            
-            while (limit > 0)
-            {
-                int p = Mathf.Min(limit, 5);
-                DrawTrucoBox(new Rect(currentX, y + 5, 30, 30), p);
-                currentX += 40;
-                limit -= p;
-            }
+            if (!IsOwner || hudController == null)
+                return;
+
+            ulong localClientId = NetworkManager.Singleton != null
+                ? NetworkManager.Singleton.LocalClientId
+                : ulong.MaxValue;
+            bool localTurn = localGameState == GameState.TurnoJugador && localTurnId == localClientId;
+            bool responseRequired = localGameState == GameState.EsperandoRespuestaCanto
+                && localLastCallerId != localClientId;
+            string turnMessage = "";
+
+            if (localGameState == GameState.TurnoJugador)
+                turnMessage = localTurn ? "¡ES TU TURNO!" : "¡TURNO DEL RIVAL!";
+            else if (localGameState == GameState.EsperandoRespuestaCanto)
+                turnMessage = responseRequired ? "¡ES TU TURNO!" : "¡TURNO DEL RIVAL!";
+            else if (localGameState == GameState.RondaTerminada || localGameState == GameState.Repartiendo)
+                turnMessage = "REPARTIENDO...";
+
+            bool hasNetwork = NetworkManager.Singleton != null;
+            bool canCallEnvido = hasNetwork && CanCallEnvidoLocally(EnvidoCall.Envido);
+            bool canCallRealEnvido = hasNetwork && CanCallEnvidoLocally(EnvidoCall.RealEnvido);
+            bool canCallFaltaEnvido = hasNetwork && CanCallEnvidoLocally(EnvidoCall.FaltaEnvido);
+            int myScore = amIPlayer1 ? localP1Score : localP2Score;
+            int opponentScore = amIPlayer1 ? localP2Score : localP1Score;
+
+            hudController.Refresh(
+                turnMessage,
+                myScore,
+                opponentScore,
+                localTurn,
+                responseRequired,
+                canCallEnvido,
+                canCallRealEnvido,
+                canCallFaltaEnvido);
         }
 
         private void OnGUI()
         {
             if (!IsOwner || !isSeated) return;
 
-            // Puntuaci�n tipo Fosforos a la derecha
-            GUI.skin.label.fontSize = 20;
-            GUI.skin.label.alignment = TextAnchor.UpperLeft; // Left align text for the rows
-            GUI.contentColor = Color.white;
-            
-            float scoreX = Screen.width - 250;
-            
-            int myScore = amIPlayer1 ? localP1Score : localP2Score;
-            int theirScore = amIPlayer1 ? localP2Score : localP1Score;
-            
-            GUI.Label(new Rect(scoreX, 20, 230, 30), "--- YO ---");
-            DrawScoreRow(scoreX, 50, "Malas:", myScore);
-            DrawScoreRow(scoreX, 90, "Buenas:", Mathf.Max(0, myScore - 15));
-            GUI.Label(new Rect(scoreX, 130, 230, 30), $"Total: {myScore}");
-            
-            GUI.Label(new Rect(scoreX, 180, 230, 30), "--- EL ---");
-            DrawScoreRow(scoreX, 210, "Malas:", theirScore);
-            DrawScoreRow(scoreX, 250, "Buenas:", Mathf.Max(0, theirScore - 15));
-            GUI.Label(new Rect(scoreX, 290, 230, 30), $"Total: {theirScore}");
-
             // Indicador de nivel de Truco
+            GUI.skin.label.fontSize = 20;
             GUI.skin.label.alignment = TextAnchor.UpperCenter;
             int trucoPts = (localEstadoTruco == NivelTruco.Ninguno) ? 1 : (int)localEstadoTruco;
             GUI.contentColor = new Color(0.8f, 0.8f, 1f);
             GUI.Label(new Rect(0, 10, Screen.width, 30), $"Mano en Juego: {trucoPts} punto(s) ({(localEstadoTruco == NivelTruco.Ninguno ? "Simple" : localEstadoTruco.ToString())})");
 
-            // Estado del Turno
-            GUI.skin.label.fontSize = 32;
-            
-            if (localGameState == GameState.TurnoJugador)
-            {
-                if (localTurnId == NetworkManager.Singleton.LocalClientId)
-                {
-                    GUI.contentColor = Color.green;
-                    GUI.Label(new Rect(0, 50, Screen.width, 50), "¡ES TU TURNO!");
-                }
-                else
-                {
-                    GUI.contentColor = Color.red;
-                    GUI.Label(new Rect(0, 50, Screen.width, 50), "Esperando al rival...");
-                }
-            }
-            else if (localGameState == GameState.EsperandoRespuestaCanto)
+            if (localGameState == GameState.EsperandoRespuestaCanto)
             {
                 GUI.contentColor = Color.yellow;
                 GUI.skin.label.fontSize = 24; // Mas chico
@@ -1088,16 +1106,11 @@ namespace Trucardo.Core
                     GUI.Label(new Rect(0, 80, Screen.width, 50), $"Esperando que el rival responda tu {pendingName}...");
                 }
             }
-            else if (localGameState == GameState.RondaTerminada)
-            {
-                GUI.contentColor = Color.cyan;
-                GUI.Label(new Rect(0, 50, Screen.width, 50), "¡Mano terminada! Repartiendo...");
-            }
             
             GUI.contentColor = Color.white;
             GUI.skin.label.fontSize = 18;
             GUI.skin.label.alignment = TextAnchor.LowerLeft;
-            GUI.Label(new Rect(20, Screen.height - 145, 500, 125), "Controles:\n[1, 2, 3] Jugar Carta\n[E] Envido - [R] Real Envido - [F] Falta Envido\n[Q] Truco - [A] Quiero - [N] No Quiero");
+            GUI.Label(new Rect(20, Screen.height - 145, 500, 145), "Controles:\n[1, 2, 3] Jugar Carta\n[E] Envido - [R] Real Envido - [F] Falta Envido\n[Q] Truco - [A] Quiero - [N] No Quiero\n[Tab] Alternar cámara / interfaz");
 
             // Crosshair
             GUI.skin.label.fontSize = 20; // Mas chico a pedido del jugador
