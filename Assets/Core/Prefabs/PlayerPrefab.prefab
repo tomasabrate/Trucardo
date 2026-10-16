@@ -337,7 +337,8 @@ MonoBehaviour:
   - {fileID: 2100000, guid: a33c2c0cab39661439daf43d19fa4a29, type: 2}
   grassSurfaceMaterials:
   - {fileID: 2100000, guid: e821618d0714b434794cb62aa0629842, type: 2}
-  maximumVolume: 0.35
+  maximumVolume: 0.2
+  grassVolumeMultiplier: 0.4
   fadeDuration: 0.08
 --- !u!1 &7413701881565000637
 GameObject:

@@ -11,6 +11,7 @@ namespace Trucardo.Core
         [SerializeField] private Material[] woodSurfaceMaterials;
         [SerializeField] private Material[] grassSurfaceMaterials;
         [SerializeField, Range(0f, 1f)] private float maximumVolume = 0.35f;
+        [SerializeField, Range(0f, 1f)] private float grassVolumeMultiplier = 1f;
         [SerializeField, Min(0f)] private float fadeDuration = 0.08f;
 
         private PlayerController player;
@@ -76,7 +77,9 @@ namespace Trucardo.Core
             float targetBlend = desiredClip != null && desiredClip == stepsSource.clip ? 1f : 0f;
             blend = fadeDuration <= 0f ? targetBlend
                 : Mathf.MoveTowards(blend, targetBlend, Time.unscaledDeltaTime / fadeDuration);
-            stepsSource.volume = blend * Mathf.Clamp01(maximumVolume);
+            float surfaceVolumeMultiplier = grassSteps != null && stepsSource.clip == grassSteps
+                ? Mathf.Clamp01(grassVolumeMultiplier) : 1f;
+            stepsSource.volume = blend * Mathf.Clamp01(maximumVolume) * surfaceVolumeMultiplier;
             if (blend == 0f && stepsSource.isPlaying)
                 stepsSource.Stop();
         }
