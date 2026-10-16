@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,6 +11,9 @@ namespace Trucardo.Core.Interaction
     {
         [Tooltip("Input handlers to suspend while open, e.g. the pause component.")]
         [SerializeField] private Behaviour[] suspendWhileOpen;
+        [Tooltip("Audio sources to mute only while this modal is open.")]
+        [SerializeField] private AudioSource[] muteWhileOpen = System.Array.Empty<AudioSource>();
+        private readonly Dictionary<AudioSource, bool> previousMuteStates = new Dictionary<AudioSource, bool>();
         private CanvasGroup group;
         private PlayerController player;
         private bool previousBlock;
@@ -44,6 +48,15 @@ namespace Trucardo.Core.Interaction
                 if (behaviour != null) behaviour.enabled = false;
             }
             open = true;
+            if (muteWhileOpen != null)
+            {
+                foreach (AudioSource source in muteWhileOpen)
+                {
+                    if (source == null || previousMuteStates.ContainsKey(source)) continue;
+                    previousMuteStates.Add(source, source.mute);
+                    source.mute = true;
+                }
+            }
             player.ModalInputBlocked = true;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
@@ -60,6 +73,9 @@ namespace Trucardo.Core.Interaction
         {
             if (!open) return;
             open = false;
+            foreach (var state in previousMuteStates)
+                if (state.Key != null) state.Key.mute = state.Value;
+            previousMuteStates.Clear();
             SetVisible(false);
             if (player != null)
             {

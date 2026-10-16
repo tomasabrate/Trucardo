@@ -20,6 +20,8 @@ public class book : MonoBehaviour
     bool rotate = false;
     [SerializeField] GameObject backButton;
     [SerializeField] GameObject forwardButton;
+    [SerializeField] AudioSource pageTurnSource;
+    [SerializeField] AudioClip pageTurnClip;
 
     private void Start()
     {
@@ -77,12 +79,13 @@ public class book : MonoBehaviour
 
     public void RotateForward()
     {
-        if (rotate == true) { return; }
+        if (rotate || pages == null || index + 1 >= pages.Count) { return; }
         index++;
         float angle = 180; //in order to rotate the page forward, you need to set the rotation by 180 degrees around the y axis
         ForwardButtonActions();
         pages[index].SetAsLastSibling();
         KeepNavigationButtonsOnTop();
+        PlayPageTurnSound();
         StartCoroutine(Rotate(angle, true));
 
     }
@@ -101,12 +104,19 @@ public class book : MonoBehaviour
 
     public void RotateBack()
     {
-        if (rotate == true) { return; }
+        if (rotate || pages == null || index < 0 || index >= pages.Count) { return; }
         float angle = 0; //in order to rotate the page back, you need to set the rotation to 0 degrees around the y axis
         pages[index].SetAsLastSibling();
         KeepNavigationButtonsOnTop();
         BackButtonActions();
+        PlayPageTurnSound();
         StartCoroutine(Rotate(angle, false));
+    }
+
+    void PlayPageTurnSound()
+    {
+        if (pageTurnSource != null && pageTurnSource.isActiveAndEnabled && pageTurnClip != null)
+            pageTurnSource.PlayOneShot(pageTurnClip);
     }
 
     public void BackButtonActions()
