@@ -50,30 +50,39 @@ namespace Trucardo.Core
         {
             if (seat == null) return null;
 
-            TableDefinition nearestTable = FindAll()
-                .Where(table => table != null)
-                .OrderBy(table => HorizontalDistance(table.transform.position, seat.position))
-                .FirstOrDefault();
-            if (nearestTable != null)
-            {
-                return nearestTable;
-            }
-
+            // 1. Si el asiento tiene una TableDefinition en sus ancestros
             Transform current = seat;
             while (current != null)
             {
                 TableDefinition definition = current.GetComponent<TableDefinition>();
-                if (definition != null && definition.OwnsSeat(seat))
+                if (definition != null && (definition.OwnsSeat(seat) || seat.IsChildOf(definition.transform)))
                     return definition;
                 current = current.parent;
             }
 
+            // 2. Buscar en todas las mesas activas cuál es la dueña explícita de este asiento
+            TableDefinition[] all = FindAll();
+            foreach (var table in all)
+            {
+                if (table != null && table.OwnsSeat(seat))
+                    return table;
+            }
+
+            // 3. Buscar en la lista estática registrada
             for (int i = 0; i < allTables.Count; i++)
             {
                 if (allTables[i] != null && allTables[i].OwnsSeat(seat))
                     return allTables[i];
             }
 
+            // 4. Si el asiento es hijo directo o indirecto de la mesa y está a distancia válida de juego (<= 2m)
+            foreach (var table in all)
+            {
+                if (table != null && seat.IsChildOf(table.transform) && HorizontalDistance(table.transform.position, seat.position) <= 2.0f)
+                    return table;
+            }
+
+            // Si es un banco de la barra, banco de afuera, o cualquier asiento no vinculado a una mesa de juego:
             return null;
         }
 

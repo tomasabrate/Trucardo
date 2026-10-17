@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 namespace Trucardo.Core
@@ -15,6 +15,11 @@ namespace Trucardo.Core
         public float tiltAngle = -35f;
         public bool isOpponent = false;
         public Transform tableCenter; // Keep for height reference if needed, but not required
+        [HideInInspector] public CardVisual revealedCard = null;
+        [HideInInspector] public Quaternion revealedRotation;
+        [HideInInspector] public CardVisual elevatedCard = null;
+        public float elevatedYOffset = 0.08f;
+        public float elevatedForwardOffset = 0.05f;
 
         public void AddCardToHand(CardVisual card)
         {
@@ -77,10 +82,17 @@ namespace Trucardo.Core
                     : playerPos + towardTable * forwardDistance + tableRight * finalSpread;
 
                 targetPos.y = GetTableSurfaceHeight(playerPos.y + heightOffset);
+                if (cardsInHand[i] == elevatedCard)
+                {
+                    targetPos.y += elevatedYOffset;
+                    targetPos += towardTable * elevatedForwardOffset;
+                }
 
                 float yRot = Mathf.Atan2(towardTable.x, towardTable.z) * Mathf.Rad2Deg;
                 float playerTilt = isOpponent ? -tiltAngle : tiltAngle;
-                Quaternion targetRot = Quaternion.Euler(playerTilt, yRot, 0f);
+                Quaternion targetRot = (cardsInHand[i] == revealedCard)
+                    ? revealedRotation
+                    : Quaternion.Euler(playerTilt, yRot, 0f);
 
                 cardsInHand[i].AnimateTo(targetPos, targetRot, 0.4f, false);
             }

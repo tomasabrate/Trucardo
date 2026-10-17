@@ -210,7 +210,7 @@ MonoBehaviour:
       MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
   cardPrefab: {fileID: 3859907829133868045, guid: 5f965c41b76ff8046b13df9bf16e8ed1, type: 3}
-  powerCatalog: {fileID: 0}
+  powerCatalog: {fileID: 11400000, guid: 73e4ba316995a5d42befba8c9f735bc5, type: 2}
   isFirstPersonView: 1
 --- !u!81 &1219646372323801380
 AudioListener:

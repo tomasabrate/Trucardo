@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_Facon
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: facon
+  DisplayName: "Fac\xC3\xB3n"
+  Rarity: 0
+  ObjectConcept: "Cuchillo criollo gaucho / Fac\xC3\xB3n tradicional con mango de alpaca/asta y vaina de cuero."
+  ModelStatus: Provisorio
+  ShortDescription: "Romp\xC3\xA9 una carta a elecci\xC3\xB3n del rival (con clic); se revela y se le repone otra del mazo."
+  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante el turno del jugador antes de tirar su carta.\nMec\xC3\xA1nica: Hac\xC3\xA9 clic sobre la carta del rival que quieras destruir. Se revelar\xC3\xA1 brevemente cu\xC3\xA1l era antes de descartarla, y el rival recibir\xC3\xA1 una nueva carta aleatoria del mazo."
+  Description: "Romp\xC3\xA9 una carta a elecci\xC3\xB3n del rival (con clic); se revela y se le repone otra del mazo."
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: 606f8a58e469459e9f0edff1e8ad6872, type: 3}
+  Effect: {fileID: 11400000, guid: 015838b78e3e4e8fb1a985b6ec299c10, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

@@ -75,7 +75,7 @@ namespace Trucardo.Core
         public ulong CurrentTurnId { get; set; }
         public ulong Player1Id { get; set; }
         public ulong Player2Id { get; set; }
-        public ulong ManoPlayerId { get; private set; }
+        public ulong ManoPlayerId { get; set; }
         private bool hasStartedHand;
 
         // Cartas en Mano de cada jugador (índices en el mazo maestro)

@@ -73,7 +73,10 @@ namespace Trucardo.Core
             TableDefinition table = TableDefinition.FindForSeat(transform);
             if (table != null && table.Seats != null && table.Seats.Count >= 2 && table.Seats[1] == this)
             {
-                if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer || allBots.Length > 0)
+                bool isMultiplayer = Trucardo.Core.NetworkUI.selectedMode == GameMode.Host 
+                    || Trucardo.Core.NetworkUI.selectedMode == GameMode.Client;
+
+                if (!isMultiplayer && (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer || allBots.Length > 0))
                 {
                     return true;
                 }

@@ -153,7 +153,11 @@ namespace Trucardo.Core.Interaction
                 !targetComponent.isActiveAndEnabled || targetCollider == null || !targetCollider.enabled ||
                 !targetCollider.gameObject.activeInHierarchy || !target.CanInteract(player.gameObject))
                 ClearTarget();
-            else if (promptUI != null) promptUI.Show(bindingLabel, target.PromptText);
+            else if (promptUI != null)
+            {
+                string displayBinding = (target is PowerVisual pv && pv.isOpponentPower) ? "" : (target is PowerVisual ? "Clic" : bindingLabel);
+                promptUI.Show(displayBinding, target.PromptText);
+            }
         }
     }
 }

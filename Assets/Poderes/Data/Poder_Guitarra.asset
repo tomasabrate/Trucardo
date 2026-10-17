@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_Guitarra
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: guitarra
+  DisplayName: Guitarra
+  Rarity: 0
+  ObjectConcept: "Guitarra criolla cl\xC3\xA1sica de madera con roseta y cuerdas de nylon."
+  ModelStatus: Provisorio
+  ShortDescription: "Intercambi\xC3\xA1 una de tus cartas por una del rival seleccion\xC3\xA1ndolas con clic."
+  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante el turno del jugador antes de tirar su carta.\nMec\xC3\xA1nica: Hac\xC3\xA9 clic en una carta de tu mano (se elevar\xC3\xA1) y luego clic en una del rival para cambiarlas (a ciegas o memorizando el Mate)."
+  Description: "Intercambi\xC3\xA1 una de tus cartas por una del rival seleccion\xC3\xA1ndolas con clic."
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: 82c9d6fb5dc44391b1d742ec52e17489, type: 3}
+  Effect: {fileID: 11400000, guid: e43d19d4a2bf463bb9c4df986b8eddfd, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

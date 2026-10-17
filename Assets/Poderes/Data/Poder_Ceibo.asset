@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_Ceibo
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: ceibo
+  DisplayName: Ceibo
+  Rarity: 1
+  ObjectConcept: "Ramillete florecido del Ceibo (Flor Nacional Argentina) con p\xC3\xA9talos carmes\xC3\xAD."
+  ModelStatus: Provisorio
+  ShortDescription: Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado).
+  DetailedDescription: "Momento de activaci\xC3\xB3n: En cualquier momento antes de jugar todas las cartas (ideal antes de cantar Envido).\nMec\xC3\xA1nica: Transforma el palo de todas tus cartas al mismo palo manteniendo sus n\xC3\xBAmeros, garantizando un Envido legendario."
+  Description: Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado).
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: 1859b038425c4b32a338bbd60c7fe2d9, type: 3}
+  Effect: {fileID: 11400000, guid: 773d51d129964c398cbd1075a114647e, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

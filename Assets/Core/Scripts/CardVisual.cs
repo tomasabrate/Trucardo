@@ -96,13 +96,48 @@ namespace Trucardo.Core
             }
         }
 
+        private CardData currentCardData;
+        private bool isBlanked = false;
+
         public void SetCardData(CardData data)
         {
+            currentCardData = data;
             if (data != null)
             {
                 if (iconImage != null && data.CardSprite != null)
                 {
-                    iconImage.sprite = data.CardSprite;
+                    if (isBlanked)
+                    {
+                        iconImage.sprite = null;
+                        iconImage.color = new Color(0.95f, 0.95f, 0.95f, 0.95f);
+                    }
+                    else
+                    {
+                        iconImage.sprite = data.CardSprite;
+                        iconImage.color = Color.white;
+                    }
+                }
+            }
+        }
+
+        public void SetBlanked(bool blanked)
+        {
+            isBlanked = blanked;
+            EnsureVisualReferences();
+            if (iconImage != null)
+            {
+                if (blanked)
+                {
+                    iconImage.sprite = null;
+                    iconImage.color = new Color(0.95f, 0.95f, 0.95f, 0.95f);
+                }
+                else
+                {
+                    iconImage.color = Color.white;
+                    if (currentCardData != null && currentCardData.CardSprite != null)
+                    {
+                        iconImage.sprite = currentCardData.CardSprite;
+                    }
                 }
             }
         }
@@ -110,17 +145,21 @@ namespace Trucardo.Core
         // Método para jugar la carta hacia el centro de la mesa (con efecto de voltereta)
         public void PlayToTable(Vector3 targetPosition, Quaternion targetRotation, float duration = 0.5f)
         {
+            if (isBlanked)
+            {
+                SetBlanked(false);
+            }
             AnimateTo(targetPosition, targetRotation, duration, true);
         }
 
         // Método general para animar posiciones (ej. robar carta hacia la mano)
-        public void AnimateTo(Vector3 endPos, Quaternion endRot, float duration, bool isFlipping)
+        public void AnimateTo(Vector3 endPos, Quaternion endRot, float duration, bool isFlipping, float arcHeight = 0.2f)
         {
             if (currentAnimation != null) StopCoroutine(currentAnimation);
-            currentAnimation = StartCoroutine(AnimateCardCoroutine(endPos, endRot, duration, isFlipping));
+            currentAnimation = StartCoroutine(AnimateCardCoroutine(endPos, endRot, duration, isFlipping, arcHeight));
         }
 
-        private IEnumerator AnimateCardCoroutine(Vector3 endPos, Quaternion endRot, float duration, bool isFlipping)
+        private IEnumerator AnimateCardCoroutine(Vector3 endPos, Quaternion endRot, float duration, bool isFlipping, float arcHeight)
         {
             Vector3 startPos = transform.position;
             Quaternion startRot = transform.rotation;
@@ -133,8 +172,8 @@ namespace Trucardo.Core
                 float easeT = Mathf.SmoothStep(0, 1, t); // EaseInOut suave
                 
                 // Altura de la parábola matemática usando función Seno
-                // Si la está lanzando a la mesa salta más (0.4f), si roba a la mano salta menos (0.2f)
-                float height = isFlipping ? Mathf.Sin(t * Mathf.PI) * 0.4f : Mathf.Sin(t * Mathf.PI) * 0.2f;
+                // Si la está lanzando a la mesa salta más (0.4f), si roba a la mano salta menos (arcHeight)
+                float height = isFlipping ? Mathf.Sin(t * Mathf.PI) * 0.4f : Mathf.Sin(t * Mathf.PI) * arcHeight;
                 
                 transform.position = Vector3.Lerp(startPos, endPos, easeT) + (Vector3.up * height);
                 

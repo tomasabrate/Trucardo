@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
+using System.Collections;
 using System.Collections.Generic;
 using Trucardo.Core.Rules;
 using Trucardo.Core.UI;
@@ -45,8 +46,10 @@ namespace Trucardo.Core
         private HandVisualizer handVisualizer;
         private HandVisualizer opponentHandVisualizer;
         private PowerHandVisualizer powerHandVisualizer;
+        private PowerHandVisualizer opponentPowerVisualizer;
         private PowerSystem powerSystem;
         private readonly List<GameObject> localPowerInstances = new List<GameObject>();
+        private readonly List<GameObject> opponentPowerInstances = new List<GameObject>();
         
         // Estado local para la UI
         private GameState localGameState;
@@ -59,6 +62,17 @@ namespace Trucardo.Core
         private int localEnvidoAcceptedPoints;
         private int localPendingEnvidoPoints;
         private ulong localLastCallerId;
+        private bool isBastonPresidencialActiveOnMe = false;
+        private bool isPavaCalienteActive = false;
+        private bool isLuzMalaActiveOnMe = false;
+        private bool isFaconTargeting = false;
+        private PowerVisual activeFaconVisual = null;
+        private bool isGuitarraTargeting = false;
+        private int guitarraStep = 0;
+        private int selectedGuitarraMyCardSlot = -1;
+        private PowerVisual activeGuitarraVisual = null;
+        private bool isGuampasTargeting = false;
+        private int guampasDrawnCardIndex = -1;
         private GameServer serverInstance;
         private HUDController hudController;
         private bool interfaceMode;
@@ -80,7 +94,11 @@ namespace Trucardo.Core
         public void HandleContextualInteract()
         {
             if (!IsOwner || !IsSpawned || GameplayInputBlocked || Time.timeScale <= 0f) return;
-            if (isSeated) CallEnvido(EnvidoCall.Envido);
+            if (isSeated)
+            {
+                if (currentTableDefinition == null) StandUp();
+                else CallEnvido(EnvidoCall.Envido);
+            }
             else TrySitDown();
         }
 
@@ -269,6 +287,7 @@ namespace Trucardo.Core
             {
                 if (localCardInstances[i] != null) Destroy(localCardInstances[i]);
             }
+            HideRevealedOpponentCard();
             if (opponentHandVisualizer != null)
             {
                 foreach (var card in opponentHandVisualizer.cardsInHand)
@@ -380,16 +399,33 @@ namespace Trucardo.Core
             }
         }
 
-        private void SetupPowerVisuals()
+        public void SetupPowerVisuals()
         {
-            foreach (GameObject powerObject in localPowerInstances)
+            // Limpiar referencias nulas de poderes usados en rondas anteriores
+            localPowerInstances.RemoveAll(p => p == null);
+            opponentPowerInstances.RemoveAll(p => p == null);
+            if (powerHandVisualizer != null)
             {
-                if (powerObject != null) Destroy(powerObject);
+                powerHandVisualizer.powersOnTable.RemoveAll(p => p == null);
             }
-            localPowerInstances.Clear();
+            if (opponentPowerVisualizer != null)
+            {
+                opponentPowerVisualizer.powersOnTable.RemoveAll(p => p == null);
+            }
 
-            if (powerCatalog == null || powerCatalog.AvailablePowers == null
-                || powerCatalog.AvailablePowers.Count == 0)
+            // Limpiar la línea de tiempo de la UI para la nueva ronda
+            CancelInteractivePowerTargeting();
+            if (hudController != null)
+            {
+                hudController.ClearRoundPowers();
+            }
+
+            if (powerCatalog == null)
+            {
+                powerCatalog = Resources.Load<PowerCatalog>("PowerCatalog");
+            }
+
+            if (powerCatalog == null || powerCatalog.AvailablePowers == null || powerCatalog.AvailablePowers.Count == 0)
             {
                 return;
             }
@@ -398,33 +434,530 @@ namespace Trucardo.Core
             {
                 powerHandVisualizer = gameObject.AddComponent<PowerHandVisualizer>();
             }
-
             powerHandVisualizer.tableCenter = currentTable;
-            powerHandVisualizer.powersOnTable.Clear();
+            powerHandVisualizer.isOpponent = false;
+
+            if (opponentPowerVisualizer == null)
+            {
+                opponentPowerVisualizer = gameObject.AddComponent<PowerHandVisualizer>();
+            }
+            opponentPowerVisualizer.tableCenter = currentTable;
+            opponentPowerVisualizer.isOpponent = true;
 
             if (powerSystem == null)
             {
                 powerSystem = gameObject.AddComponent<PowerSystem>();
             }
 
-            foreach (PowerData power in powerCatalog.AvailablePowers)
+            // Seleccionar 1 poder para el jugador local si tiene menos de 4 acumulados y no está boleado
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            TableSession currentSession = null;
+            if (serverInstance != null && NetworkManager.Singleton != null)
             {
-                if (power == null || !power.IsValid()) continue;
+                currentSession = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+            }
 
-                GameObject powerObject = power.WorldPrefab != null
-                    ? Instantiate(power.WorldPrefab, transform.position, transform.rotation)
-                    : GameObject.CreatePrimitive(PrimitiveType.Cube);
-                PowerVisual visual = powerObject.GetComponent<PowerVisual>();
-                if (visual == null) visual = powerObject.AddComponent<PowerVisual>();
-
-                if (power.WorldPrefab == null)
+            bool localBoleado = false;
+            bool opponentBoleado = false;
+            if (currentSession != null)
+            {
+                localBoleado = amIPlayer1 ? currentSession.P1Boleado : currentSession.P2Boleado;
+                if (localBoleado)
                 {
-                    powerObject.transform.localScale = new Vector3(0.45f, 0.08f, 0.7f);
+                    if (amIPlayer1) currentSession.P1Boleado = false;
+                    else currentSession.P2Boleado = false;
                 }
 
-                visual.SetPowerData(power);
-                powerHandVisualizer.AddPower(visual);
-                localPowerInstances.Add(powerObject);
+                opponentBoleado = amIPlayer1 ? currentSession.P2Boleado : currentSession.P1Boleado;
+                if (opponentBoleado)
+                {
+                    if (amIPlayer1) currentSession.P2Boleado = false;
+                    else currentSession.P1Boleado = false;
+                }
+            }
+
+            if (localBoleado)
+            {
+                Debug.Log("<color=#795548><b>[Poder Boleadoras]</b></color> ¡Estás boleado! No recibes poder esta ronda.");
+            }
+            else if (localPowerInstances.Count < 4)
+            {
+                PowerData selectedPower = null;
+                if (PowerAdminController.Instance != null && PowerAdminController.Instance.HasAdminPowerOverride)
+                {
+                    selectedPower = PowerAdminController.Instance.ConsumeAdminPowerOverride();
+                }
+                if (selectedPower == null)
+                {
+                    selectedPower = powerCatalog.GetRandomPower();
+                }
+
+                if (selectedPower != null && selectedPower.IsValid())
+                {
+                    SpawnPowerOnTable(selectedPower);
+                }
+            }
+
+            // Seleccionar 1 poder para el rival si tiene menos de 4 acumulados y no está boleado
+            if (opponentBoleado)
+            {
+                Debug.Log("<color=#795548><b>[Poder Boleadoras]</b></color> El oponente está boleado. No recibe poder esta ronda.");
+            }
+            else if (opponentPowerInstances.Count < 4)
+            {
+                PowerData opponentPower = powerCatalog.GetRandomPower();
+                if (opponentPower != null && opponentPower.IsValid())
+                {
+                    SpawnOpponentPowerOnTable(opponentPower);
+                }
+            }
+
+            // Refrescar acomodo de cuadrícula en mesa
+            if (powerHandVisualizer != null) powerHandVisualizer.RefreshLayout();
+            if (opponentPowerVisualizer != null) opponentPowerVisualizer.RefreshLayout();
+        }
+
+        public void SpawnPowerOnTable(PowerData power)
+        {
+            if (power == null) return;
+
+            if (powerHandVisualizer == null)
+            {
+                powerHandVisualizer = gameObject.AddComponent<PowerHandVisualizer>();
+                powerHandVisualizer.isOpponent = false;
+            }
+            powerHandVisualizer.tableCenter = currentTable;
+
+            if (powerSystem == null)
+            {
+                powerSystem = gameObject.AddComponent<PowerSystem>();
+            }
+
+            GameObject powerObject = power.WorldPrefab != null
+                ? Instantiate(power.WorldPrefab, transform.position, transform.rotation)
+                : GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+
+            PowerVisual visual = powerObject.GetComponent<PowerVisual>();
+            if (visual == null) visual = powerObject.AddComponent<PowerVisual>();
+
+            visual.isOpponentPower = false;
+            visual.SetPowerData(power);
+
+            if (power.WorldPrefab == null)
+            {
+                powerObject.transform.localScale = new Vector3(0.08f, 0.045f, 0.08f);
+            }
+
+            powerHandVisualizer.AddPower(visual);
+            localPowerInstances.Add(powerObject);
+        }
+
+        public void SpawnOpponentPowerOnTable(PowerData power)
+        {
+            if (power == null) return;
+
+            if (opponentPowerVisualizer == null)
+            {
+                opponentPowerVisualizer = gameObject.AddComponent<PowerHandVisualizer>();
+                opponentPowerVisualizer.isOpponent = true;
+            }
+            opponentPowerVisualizer.tableCenter = currentTable;
+
+            GameObject powerObject = power.WorldPrefab != null
+                ? Instantiate(power.WorldPrefab, transform.position, transform.rotation)
+                : GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+
+            PowerVisual visual = powerObject.GetComponent<PowerVisual>();
+            if (visual == null) visual = powerObject.AddComponent<PowerVisual>();
+
+            visual.isOpponentPower = true;
+            visual.SetPowerData(power);
+
+            if (power.WorldPrefab == null)
+            {
+                powerObject.transform.localScale = new Vector3(0.08f, 0.045f, 0.08f);
+            }
+
+            opponentPowerVisualizer.AddPower(visual);
+            opponentPowerInstances.Add(powerObject);
+        }
+
+        private Coroutine activeCardRevealCoroutine = null;
+        private CardVisual currentlyRevealedCard = null;
+
+        public void RevealOpponentCard(int cardIndex, CardData data)
+        {
+            if (opponentHandVisualizer == null || opponentHandVisualizer.cardsInHand == null || data == null) return;
+
+            HideRevealedOpponentCard();
+
+            foreach (var card in opponentHandVisualizer.cardsInHand)
+            {
+                if (card == null) continue;
+                if (card.iconImage == null || !card.iconImage.enabled || card.iconImage.sprite == null)
+                {
+                    currentlyRevealedCard = card;
+                    activeCardRevealCoroutine = StartCoroutine(RevealAndHideOpponentCardCoroutine(card, data));
+                    break;
+                }
+            }
+        }
+
+        private IEnumerator RevealAndHideOpponentCardCoroutine(CardVisual card, CardData data)
+        {
+            if (card == null || data == null) yield break;
+
+            Vector3 toTable = currentTable != null ? (currentTable.position - transform.position) : transform.forward;
+            toTable.y = 0f;
+            if (toTable.sqrMagnitude < 0.001f) toTable = transform.forward;
+            toTable.Normalize();
+            float yRot = Mathf.Atan2(toTable.x, toTable.z) * Mathf.Rad2Deg;
+
+            Quaternion revealedRot = Quaternion.Euler(-35f, yRot, 0f);
+            Quaternion hiddenRot = Quaternion.Euler(35f, yRot, 0f);
+
+            if (opponentHandVisualizer != null)
+            {
+                opponentHandVisualizer.revealedCard = card;
+                opponentHandVisualizer.revealedRotation = revealedRot;
+            }
+
+            card.SetCardData(data);
+            if (card.iconImage != null) card.iconImage.enabled = true;
+            if (card.textNumber != null && data.Number > 0) card.textNumber.text = data.Number.ToString();
+            if (card.textNumberBottom != null && data.Number > 0) card.textNumberBottom.text = data.Number.ToString();
+
+            card.AnimateTo(card.transform.position, revealedRot, 0.35f, false, 0.05f);
+
+            int startRoundIndex = localCurrentRoundIndex;
+            float timer = 5.0f;
+            while (timer > 0f)
+            {
+                if (card == null) yield break;
+                if (localCurrentRoundIndex != startRoundIndex || 
+                    localGameState == GameState.RondaTerminada || 
+                    localGameState == GameState.Repartiendo || 
+                    localGameState == GameState.PartidaTerminada)
+                {
+                    break;
+                }
+                timer -= Time.deltaTime;
+                yield return null;
+            }
+
+            if (card != null)
+            {
+                if (opponentHandVisualizer != null && opponentHandVisualizer.revealedCard == card)
+                {
+                    opponentHandVisualizer.revealedCard = null;
+                }
+
+                card.AnimateTo(card.transform.position, hiddenRot, 0.35f, false, 0.05f);
+                yield return new WaitForSeconds(0.35f);
+                if (card != null)
+                {
+                    if (card.iconImage != null) card.iconImage.enabled = false;
+                    if (card.textNumber != null) card.textNumber.text = "";
+                    if (card.textNumberBottom != null) card.textNumberBottom.text = "";
+                }
+            }
+
+            if (currentlyRevealedCard == card) currentlyRevealedCard = null;
+            activeCardRevealCoroutine = null;
+        }
+
+        public void HideRevealedOpponentCard()
+        {
+            if (activeCardRevealCoroutine != null)
+            {
+                StopCoroutine(activeCardRevealCoroutine);
+                activeCardRevealCoroutine = null;
+            }
+
+            if (opponentHandVisualizer != null)
+            {
+                opponentHandVisualizer.revealedCard = null;
+            }
+
+            if (currentlyRevealedCard != null)
+            {
+                Vector3 toTable = currentTable != null ? (currentTable.position - transform.position) : transform.forward;
+                toTable.y = 0f;
+                if (toTable.sqrMagnitude < 0.001f) toTable = transform.forward;
+                toTable.Normalize();
+                float yRot = Mathf.Atan2(toTable.x, toTable.z) * Mathf.Rad2Deg;
+                Quaternion hiddenRot = Quaternion.Euler(35f, yRot, 0f);
+
+                currentlyRevealedCard.transform.rotation = hiddenRot;
+                if (currentlyRevealedCard.iconImage != null) currentlyRevealedCard.iconImage.enabled = false;
+                if (currentlyRevealedCard.textNumber != null) currentlyRevealedCard.textNumber.text = "";
+                if (currentlyRevealedCard.textNumberBottom != null) currentlyRevealedCard.textNumberBottom.text = "";
+                currentlyRevealedCard = null;
+            }
+        }
+
+        public int[] GetCurrentCards()
+        {
+            return myCards != null ? (int[])myCards.Clone() : new int[0];
+        }
+
+        public void AdminSetCards(int[] cards)
+        {
+            if (cards == null || cards.Length < 3) return;
+            ReceiveCards(cards);
+
+            if (serverInstance != null)
+            {
+                var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+                if (session != null && session.GameModel != null)
+                {
+                    List<int> hand = amIPlayer1 ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+                    hand.Clear();
+                    hand.AddRange(cards);
+                }
+            }
+        }
+
+        public void AdminSetSlotCard(int slot, int cardIndex)
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null || serverInstance.masterDeck == null) return;
+            if (cardIndex < 0 || cardIndex >= serverInstance.masterDeck.AvailableCards.Count) return;
+            if (slot < 0 || slot >= 3) return;
+
+            if (myCards == null || myCards.Length < 3)
+            {
+                myCards = new int[3] { -1, -1, -1 };
+            }
+            if (localCardInstances == null || localCardInstances.Length < 3)
+            {
+                localCardInstances = new GameObject[3];
+            }
+
+            myCards[slot] = cardIndex;
+
+            // Sincronizar en el GameModel del servidor si existe
+            var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+            if (session != null && session.GameModel != null)
+            {
+                List<int> hand = amIPlayer1 ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+                while (hand.Count <= slot)
+                {
+                    hand.Add(-1);
+                }
+                hand[slot] = cardIndex;
+            }
+
+            // Actualizar representación visual 3D
+            if (localCardInstances[slot] != null)
+            {
+                CardVisual visual = localCardInstances[slot].GetComponent<CardVisual>();
+                if (visual != null)
+                {
+                    visual.SetCardData(serverInstance.masterDeck.AvailableCards[cardIndex]);
+                    if (handVisualizer != null) handVisualizer.RefreshLayout();
+                }
+            }
+            else if (cardPrefab != null)
+            {
+                GameObject c = Instantiate(cardPrefab, transform.position, transform.rotation);
+                Destroy(c.GetComponent<Unity.Netcode.NetworkObject>());
+                Destroy(c.GetComponent<Unity.Netcode.Components.NetworkTransform>());
+
+                CardVisual visual = c.GetComponent<CardVisual>();
+                if (visual != null)
+                {
+                    visual.SetCardData(serverInstance.masterDeck.AvailableCards[cardIndex]);
+                    if (handVisualizer != null) handVisualizer.AddCardToHand(visual);
+                }
+                localCardInstances[slot] = c;
+            }
+        }
+
+        public List<int> AdminGetOpponentCards()
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null) return new List<int>();
+
+            var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+            if (session != null && session.GameModel != null)
+            {
+                List<int> oppHand = amIPlayer1 ? session.GameModel.P2Hand : session.GameModel.P1Hand;
+                return oppHand != null ? new List<int>(oppHand) : new List<int>();
+            }
+            return new List<int>();
+        }
+
+        public void AdminSetOpponentCards(int[] cards)
+        {
+            if (cards == null || cards.Length == 0) return;
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null) return;
+
+            var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+            if (session != null && session.GameModel != null)
+            {
+                List<int> oppHand = amIPlayer1 ? session.GameModel.P2Hand : session.GameModel.P1Hand;
+                oppHand.Clear();
+                oppHand.AddRange(cards);
+            }
+        }
+
+        public (int p1Score, int p2Score) AdminGetScores()
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance != null)
+            {
+                var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+                if (session != null && session.GameModel != null)
+                {
+                    return (session.GameModel.ScoreTeam1, session.GameModel.ScoreTeam2);
+                }
+            }
+            return (localP1Score, localP2Score);
+        }
+
+        public void AdminSetScores(int p1, int p2)
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance != null)
+            {
+                var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+                if (session != null && session.GameModel != null)
+                {
+                    session.GameModel.ResetGame();
+                    if (p1 > 0) session.GameModel.AddPoints(1, p1);
+                    if (p2 > 0) session.GameModel.AddPoints(2, p2);
+                    serverInstance.SyncClientState(session);
+                }
+            }
+        }
+
+        public void AddCardToPlayerHand(int cardIndex)
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null || serverInstance.masterDeck == null) return;
+            if (cardIndex < 0 || cardIndex >= serverInstance.masterDeck.AvailableCards.Count) return;
+
+            int targetSlot = -1;
+            for (int i = 0; i < myCards.Length; i++)
+            {
+                if (myCards[i] == -1)
+                {
+                    targetSlot = i;
+                    break;
+                }
+            }
+
+            if (targetSlot == -1)
+            {
+                int oldLen = myCards.Length;
+                System.Array.Resize(ref myCards, oldLen + 1);
+                System.Array.Resize(ref localCardInstances, oldLen + 1);
+                targetSlot = oldLen;
+            }
+
+            myCards[targetSlot] = cardIndex;
+
+            if (cardPrefab != null)
+            {
+                GameObject c = Instantiate(cardPrefab, transform.position, transform.rotation);
+                Destroy(c.GetComponent<Unity.Netcode.NetworkObject>());
+                Destroy(c.GetComponent<Unity.Netcode.Components.NetworkTransform>());
+
+                CardVisual visual = c.GetComponent<CardVisual>();
+                if (visual != null)
+                {
+                    visual.SetCardData(serverInstance.masterDeck.AvailableCards[cardIndex]);
+                    if (handVisualizer != null) handVisualizer.AddCardToHand(visual);
+                }
+                localCardInstances[targetSlot] = c;
+            }
+        }
+
+        public void ReplaceCardInPlayerHand(int oldCardIndex, int newCardIndex)
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null || serverInstance.masterDeck == null) return;
+
+            int slot = -1;
+            for (int i = 0; i < myCards.Length; i++)
+            {
+                if (myCards[i] == oldCardIndex)
+                {
+                    slot = i;
+                    break;
+                }
+            }
+            if (slot == -1) return;
+
+            myCards[slot] = newCardIndex;
+
+            if (localCardInstances[slot] != null)
+            {
+                if (handVisualizer != null)
+                {
+                    CardVisual oldVisual = localCardInstances[slot].GetComponent<CardVisual>();
+                    if (oldVisual != null) handVisualizer.RemoveCardFromHand(oldVisual);
+                }
+                Destroy(localCardInstances[slot]);
+            }
+
+            if (cardPrefab != null)
+            {
+                GameObject c = Instantiate(cardPrefab, transform.position, transform.rotation);
+                Destroy(c.GetComponent<Unity.Netcode.NetworkObject>());
+                Destroy(c.GetComponent<Unity.Netcode.Components.NetworkTransform>());
+
+                CardVisual visual = c.GetComponent<CardVisual>();
+                if (visual != null)
+                {
+                    visual.SetCardData(serverInstance.masterDeck.AvailableCards[newCardIndex]);
+                    if (handVisualizer != null) handVisualizer.AddCardToHand(visual);
+                }
+                localCardInstances[slot] = c;
+            }
+        }
+
+        public void ReplaceAllHandCards(int[] newCardIndices)
+        {
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null || serverInstance.masterDeck == null) return;
+
+            for (int i = 0; i < localCardInstances.Length; i++)
+            {
+                if (localCardInstances[i] != null)
+                {
+                    if (handVisualizer != null)
+                    {
+                        CardVisual visual = localCardInstances[i].GetComponent<CardVisual>();
+                        if (visual != null) handVisualizer.RemoveCardFromHand(visual);
+                    }
+                    Destroy(localCardInstances[i]);
+                }
+            }
+
+            myCards = new int[newCardIndices.Length];
+            localCardInstances = new GameObject[newCardIndices.Length];
+
+            for (int i = 0; i < newCardIndices.Length; i++)
+            {
+                myCards[i] = newCardIndices[i];
+                GameObject c = Instantiate(cardPrefab, transform.position, transform.rotation);
+                Destroy(c.GetComponent<Unity.Netcode.NetworkObject>());
+                Destroy(c.GetComponent<Unity.Netcode.Components.NetworkTransform>());
+
+                CardVisual visual = c.GetComponent<CardVisual>();
+                if (visual != null)
+                {
+                    visual.SetCardData(serverInstance.masterDeck.AvailableCards[newCardIndices[i]]);
+                    if (isLuzMalaActiveOnMe)
+                    {
+                        visual.SetBlanked(true);
+                    }
+                    if (handVisualizer != null) handVisualizer.AddCardToHand(visual);
+                }
+                localCardInstances[i] = c;
             }
         }
 
@@ -657,49 +1190,188 @@ namespace Trucardo.Core
         {
             if (!isSeated || localGameState == GameState.PartidaTerminada) return;
 
-            if (!interfaceMode && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            if (!interfaceMode && Mouse.current != null)
             {
-                Ray ray = new Ray(headTransform.position, headTransform.forward);
-                                if (Physics.Raycast(ray, out RaycastHit hit, 5f))
+                if (Mouse.current.rightButton.wasPressedThisFrame)
                 {
-                                    PowerVisual powerVisual = hit.collider.GetComponent<PowerVisual>();
-                                    if (powerVisual == null) powerVisual = hit.collider.GetComponentInParent<PowerVisual>();
+                    CancelInteractivePowerTargeting();
+                }
 
-                                    if (powerVisual != null && powerHandVisualizer != null
-                                        && powerHandVisualizer.powersOnTable.Contains(powerVisual))
+                if (Mouse.current.leftButton.wasPressedThisFrame)
+                {
+                    Ray ray = new Ray(headTransform.position, headTransform.forward);
+                    if (Physics.Raycast(ray, out RaycastHit hit, 5f))
+                    {
+                        // 0. Si estamos en modo selección interactiva para Guampas
+                        if (isGuampasTargeting)
+                        {
+                            CardVisual myCard = hit.collider.GetComponent<CardVisual>();
+                            if (myCard == null) myCard = hit.collider.GetComponentInParent<CardVisual>();
+                            if (myCard != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(myCard))
+                            {
+                                int slot = handVisualizer.cardsInHand.IndexOf(myCard);
+                                if (slot >= 0 && slot < myCards.Length)
+                                {
+                                    int cardToReplace = myCards[slot];
+                                    isGuampasTargeting = false;
+                                    guampasDrawnCardIndex = -1;
+                                    if (handVisualizer != null)
                                     {
-                                        PlayPower(powerVisual);
+                                        handVisualizer.elevatedCard = null;
+                                        handVisualizer.RefreshLayout();
+                                    }
+                                    if (hudController != null) hudController.HidePowerPrompt();
+                                    AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                                    if (sound != null) AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
+                                    if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+                                    if (serverInstance != null) serverInstance.SubmitGuampasChoiceServerRpc(cardToReplace);
+                                    return;
+                                }
+                            }
+                            return;
+                        }
+
+                        // 1. Si estamos en modo selección de objetivo para Facón
+                        if (isFaconTargeting)
+                        {
+                            CardVisual oppCard = hit.collider.GetComponent<CardVisual>();
+                            if (oppCard == null) oppCard = hit.collider.GetComponentInParent<CardVisual>();
+                            if (oppCard != null && opponentHandVisualizer != null && opponentHandVisualizer.cardsInHand.Contains(oppCard))
+                            {
+                                int oppSlot = opponentHandVisualizer.cardsInHand.IndexOf(oppCard);
+                                if (oppSlot >= 0)
+                                {
+                                    isFaconTargeting = false;
+                                    if (hudController != null) hudController.HidePowerPrompt();
+                                    if (activeFaconVisual != null)
+                                    {
+                                        if (powerHandVisualizer != null) powerHandVisualizer.RemovePower(activeFaconVisual);
+                                        localPowerInstances.Remove(activeFaconVisual.gameObject);
+                                        Destroy(activeFaconVisual.gameObject);
+                                        activeFaconVisual = null;
+                                    }
+                                    AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                                    if (sound != null) AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
+                                    if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+                                    if (serverInstance != null) serverInstance.PlayFaconWithTargetServerRpc(oppSlot);
+                                    return;
+                                }
+                            }
+                            return;
+                        }
+
+                        // 2. Si estamos en modo selección interactiva para Guitarra
+                        if (isGuitarraTargeting)
+                        {
+                            if (guitarraStep == 1)
+                            {
+                                CardVisual myCard = hit.collider.GetComponent<CardVisual>();
+                                if (myCard == null) myCard = hit.collider.GetComponentInParent<CardVisual>();
+                                if (myCard != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(myCard))
+                                {
+                                    int slot = handVisualizer.cardsInHand.IndexOf(myCard);
+                                    if (slot >= 0)
+                                    {
+                                        selectedGuitarraMyCardSlot = slot;
+                                        handVisualizer.elevatedCard = myCard;
+                                        handVisualizer.RefreshLayout();
+                                        guitarraStep = 2;
+                                        if (hudController != null) hudController.ShowPowerPrompt("🎸 ¡PODER GUITARRA!", "2. Seleccioná una del rival para intercambiar\n<size=11>(Clic derecho para cancelar)</size>");
                                         return;
                                     }
-
-                                    CardVisual visual = hit.collider.GetComponent<CardVisual>();
-                    if (visual == null) visual = hit.collider.GetComponentInParent<CardVisual>();
-                    
-                    if (visual != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(visual))
-                    {
-                        int originalIndex = -1;
-                        for (int i = 0; i < 3; i++)
-                        {
-                            if (localCardInstances[i] != null && localCardInstances[i].GetComponent<CardVisual>() == visual)
+                                }
+                                return;
+                            }
+                            else if (guitarraStep == 2)
                             {
-                                originalIndex = i;
-                                break;
+                                CardVisual cardCandidate = hit.collider.GetComponent<CardVisual>();
+                                if (cardCandidate == null) cardCandidate = hit.collider.GetComponentInParent<CardVisual>();
+
+                                if (cardCandidate != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(cardCandidate))
+                                {
+                                    int slot = handVisualizer.cardsInHand.IndexOf(cardCandidate);
+                                    if (slot >= 0)
+                                    {
+                                        selectedGuitarraMyCardSlot = slot;
+                                        handVisualizer.elevatedCard = cardCandidate;
+                                        handVisualizer.RefreshLayout();
+                                        return;
+                                    }
+                                }
+
+                                if (cardCandidate != null && opponentHandVisualizer != null && opponentHandVisualizer.cardsInHand.Contains(cardCandidate))
+                                {
+                                    int oppSlot = opponentHandVisualizer.cardsInHand.IndexOf(cardCandidate);
+                                    if (oppSlot >= 0 && selectedGuitarraMyCardSlot >= 0 && selectedGuitarraMyCardSlot < myCards.Length)
+                                    {
+                                        int myCardIndex = myCards[selectedGuitarraMyCardSlot];
+                                        isGuitarraTargeting = false;
+                                        guitarraStep = 0;
+                                        if (handVisualizer != null)
+                                        {
+                                            handVisualizer.elevatedCard = null;
+                                            handVisualizer.RefreshLayout();
+                                        }
+                                        if (hudController != null) hudController.HidePowerPrompt();
+                                        if (activeGuitarraVisual != null)
+                                        {
+                                            if (powerHandVisualizer != null) powerHandVisualizer.RemovePower(activeGuitarraVisual);
+                                            localPowerInstances.Remove(activeGuitarraVisual.gameObject);
+                                            Destroy(activeGuitarraVisual.gameObject);
+                                            activeGuitarraVisual = null;
+                                        }
+                                        AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                                        if (sound != null) AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
+                                        if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+                                        if (serverInstance != null) serverInstance.PlayGuitarraWithTargetServerRpc(myCardIndex, oppSlot);
+                                        return;
+                                    }
+                                }
+                                return;
                             }
                         }
-                        
-                        if (originalIndex != -1)
+
+                        // 3. Clic normal en poder propio sobre la mesa
+                        PowerVisual powerVisual = hit.collider.GetComponent<PowerVisual>();
+                        if (powerVisual == null) powerVisual = hit.collider.GetComponentInParent<PowerVisual>();
+
+                        if (powerVisual != null && powerHandVisualizer != null
+                            && powerHandVisualizer.powersOnTable.Contains(powerVisual))
                         {
-                            PlayCard(originalIndex);
+                            PlayPower(powerVisual);
+                            return;
                         }
-                    }
-                    else
-                    {
-                        for (int i = 0; i < 3; i++)
+
+                        // 4. Clic normal en carta propia para jugar a la mesa
+                        CardVisual visual = hit.collider.GetComponent<CardVisual>();
+                        if (visual == null) visual = hit.collider.GetComponentInParent<CardVisual>();
+                        
+                        if (visual != null && handVisualizer != null && handVisualizer.cardsInHand.Contains(visual))
                         {
-                            if (localCardInstances[i] != null && hit.collider.transform.IsChildOf(localCardInstances[i].transform))
+                            int originalIndex = -1;
+                            for (int i = 0; i < localCardInstances.Length; i++)
                             {
-                                PlayCard(i);
-                                break;
+                                if (localCardInstances[i] != null && localCardInstances[i].GetComponent<CardVisual>() == visual)
+                                {
+                                    originalIndex = i;
+                                    break;
+                                }
+                            }
+                            
+                            if (originalIndex != -1)
+                            {
+                                PlayCard(originalIndex);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < localCardInstances.Length; i++)
+                            {
+                                if (localCardInstances[i] != null && hit.collider.transform.IsChildOf(localCardInstances[i].transform))
+                                {
+                                    PlayCard(i);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -711,12 +1383,23 @@ namespace Trucardo.Core
                 if (Keyboard.current.digit1Key.wasPressedThisFrame) PlayCard(0);
                 if (Keyboard.current.digit2Key.wasPressedThisFrame) PlayCard(1);
                 if (Keyboard.current.digit3Key.wasPressedThisFrame) PlayCard(2);
+                if (Keyboard.current.digit4Key.wasPressedThisFrame && myCards.Length > 3) PlayCard(3);
 
                 if (Keyboard.current.rKey.wasPressedThisFrame) CallEnvido(EnvidoCall.RealEnvido);
                 if (Keyboard.current.fKey.wasPressedThisFrame) CallEnvido(EnvidoCall.FaltaEnvido);
                 if (Keyboard.current.qKey.wasPressedThisFrame) CallAction("Truco");
                 if (Keyboard.current.aKey.wasPressedThisFrame) CallAction("Accept");
-                if (Keyboard.current.nKey.wasPressedThisFrame) CallAction("Decline");
+                if (Keyboard.current.nKey.wasPressedThisFrame)
+                {
+                    if (isBastonPresidencialActiveOnMe)
+                    {
+                        if (hudController != null) hudController.ShowToast("BASTÓN PRESIDENCIAL", "¡No puedes rechazar bajo la orden del Bastón Presidencial!");
+                    }
+                    else
+                    {
+                        CallAction("Decline");
+                    }
+                }
                 if (Keyboard.current.pKey.wasPressedThisFrame) StandUp();
             }
         }
@@ -724,8 +1407,19 @@ namespace Trucardo.Core
                 private void StandUp()
         {
             if (!isSeated) return;
-                    gameOverUIActive = false;
-                    isSeated = false;
+            CancelInteractivePowerTargeting();
+            DismissGuampasChoice();
+            DismissGuitarraChoice();
+            HideRevealedOpponentCard();
+            if (powerHandVisualizer != null) powerHandVisualizer.ClearPowers();
+            if (opponentPowerVisualizer != null) opponentPowerVisualizer.ClearPowers();
+            foreach (var p in localPowerInstances) if (p != null) Destroy(p);
+            foreach (var p in opponentPowerInstances) if (p != null) Destroy(p);
+            localPowerInstances.Clear();
+            opponentPowerInstances.Clear();
+
+            gameOverUIActive = false;
+            isSeated = false;
                     localGameState = GameState.EsperandoJugadores;
                     localTurnId = ulong.MaxValue;
                     localCurrentRoundIndex = 0;
@@ -748,7 +1442,9 @@ namespace Trucardo.Core
             }
 
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
-            if (serverInstance != null) serverInstance.PlayerStandUpServerRpc();
+            if (serverInstance != null && currentTableDefinition != null) serverInstance.PlayerStandUpServerRpc();
+            currentTableDefinition = null;
+            currentTable = null;
 
             // Moverse apenas hacia atr�s (0.5m) para salir de la colision de la silla
             if (characterController != null) characterController.enabled = false;
@@ -791,6 +1487,11 @@ namespace Trucardo.Core
         public void RespondToCallFromHud(bool accept)
         {
             if (!IsOwner || !isSeated || !interfaceMode) return;
+            if (!accept && isBastonPresidencialActiveOnMe)
+            {
+                if (hudController != null) hudController.ShowToast("BASTÓN PRESIDENCIAL", "¡No puedes rechazar bajo la orden del Bastón Presidencial!");
+                return;
+            }
             CallAction(accept ? "Accept" : "Decline");
         }
 
@@ -863,20 +1564,151 @@ namespace Trucardo.Core
             }
         }
 
+        public void OnPowerClicked(PowerVisual visual)
+        {
+            PlayPower(visual);
+        }
+
         private void PlayPower(PowerVisual visual)
         {
-            if (visual == null || visual.Data == null || powerSystem == null) return;
+            if (visual == null || visual.Data == null) return;
 
-            bool executed = powerSystem.TryExecute(
-                visual.Data,
-                NetworkManager.Singleton.LocalClientId,
-                amIPlayer1 ? 1 : 2,
-                gameObject);
-            if (!executed) return;
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance == null) return;
 
-            powerHandVisualizer.RemovePower(visual);
+            var session = serverInstance.GetSessionByPlayer(NetworkManager.Singleton.LocalClientId);
+
+            if (visual.Data.Effect != null)
+            {
+                PowerContext context = new PowerContext(
+                    NetworkManager.Singleton.LocalClientId,
+                    amIPlayer1 ? 1 : 2,
+                    gameObject,
+                    null,
+                    session != null ? session.GameModel : null);
+
+                if (!visual.Data.Effect.CanExecute(context, out string failReason))
+                {
+                    if (hudController != null)
+                    {
+                        hudController.ShowToast(visual.Data.DisplayName.ToUpper(), failReason);
+                    }
+                    Debug.LogWarning($"[Power] No se puede ejecutar {visual.Data.DisplayName}: {failReason}");
+                    return;
+                }
+            }
+
+            // Flujo táctil 3D para Facón
+            if (visual.Data.PowerId == "facon")
+            {
+                CancelInteractivePowerTargeting();
+                isFaconTargeting = true;
+                activeFaconVisual = visual;
+                if (hudController != null)
+                {
+                    hudController.ShowPowerPrompt("🔪 ¡PODER FACÓN!", "Seleccioná una carta del rival para destrozarla\n<size=11>(Clic derecho para cancelar)</size>");
+                }
+                return;
+            }
+
+            // Flujo táctil 3D para Guitarra
+            if (visual.Data.PowerId == "guitarra")
+            {
+                CancelInteractivePowerTargeting();
+                isGuitarraTargeting = true;
+                guitarraStep = 1;
+                selectedGuitarraMyCardSlot = -1;
+                activeGuitarraVisual = visual;
+                if (hudController != null)
+                {
+                    hudController.ShowPowerPrompt("🎸 ¡PODER GUITARRA!", "1. Seleccioná una de tus cartas para cambiar\n<size=11>(Clic derecho para cancelar)</size>");
+                }
+                return;
+            }
+
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            {
+                serverInstance.PlayPowerServerRpc(visual.Data.PowerId);
+            }
+
+            AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+            if (sound != null)
+            {
+                AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
+            }
+
+            if (powerHandVisualizer != null)
+            {
+                powerHandVisualizer.RemovePower(visual);
+            }
             localPowerInstances.Remove(visual.gameObject);
             Destroy(visual.gameObject);
+        }
+
+        public void OnPowerActivatedNotification(ulong actorId, string powerId)
+        {
+            if (powerCatalog == null)
+            {
+                powerCatalog = Resources.Load<PowerCatalog>("PowerCatalog");
+            }
+
+            PowerData powerData = (powerCatalog != null && powerCatalog.AvailablePowers != null)
+                ? powerCatalog.AvailablePowers.Find(p => p != null && p.PowerId == powerId)
+                : null;
+
+            if (powerData == null) return;
+
+            bool isLocal = (NetworkManager.Singleton != null && actorId == NetworkManager.Singleton.LocalClientId);
+
+            // Registrar cronológicamente en la línea de tiempo de la ronda
+            if (hudController != null)
+            {
+                hudController.AddPowerToRoundTimeline(powerData, isLocal);
+            }
+
+            if (isLocal)
+            {
+                Debug.Log($"<color=#4CAF50><b>[Poder Propio]</b></color> ¡Activaste <b>{powerData.DisplayName}</b>!");
+            }
+            else
+            {
+                // Remover el objeto 3D del poder rival de la mesa
+                if (opponentPowerVisualizer != null && opponentPowerInstances.Count > 0)
+                {
+                    GameObject toRemove = opponentPowerInstances[0];
+                    opponentPowerInstances.RemoveAt(0);
+                    if (toRemove != null)
+                    {
+                        PowerVisual pv = toRemove.GetComponent<PowerVisual>();
+                        if (pv != null) opponentPowerVisualizer.RemovePower(pv);
+                        Destroy(toRemove);
+                    }
+                }
+
+                AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                if (sound != null)
+                {
+                    AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
+                }
+
+                Debug.Log($"<color=#FF5722><b>[Poder Rival]</b></color> ¡El oponente activó <b>{powerData.DisplayName}</b>!");
+            }
+        }
+
+        public void AdminTestActivatePower(PowerData power, bool isLocal)
+        {
+            if (power == null) return;
+            if (hudController == null) hudController = HUDController.Instance;
+            if (hudController == null) return;
+
+            if (isLocal)
+            {
+                hudController.SetLocalPlayerActivePower(power);
+            }
+            else
+            {
+                hudController.SetOpponentActivePower(power);
+            }
         }
 
                 private void TrySitDown()
@@ -937,9 +1769,12 @@ namespace Trucardo.Core
 
                 if (isOccupied) continue;
 
-                // En modo individual o si hay bots en la escena, Banco B siempre está reservado para el bot
-                if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer 
-                    || FindObjectsByType<BotMarker>(FindObjectsSortMode.None).Length > 0)
+                // En modo individual o si hay bots en la escena (y NO en multijugador), Banco B siempre está reservado para el bot
+                bool isMultiplayer = Trucardo.Core.NetworkUI.selectedMode == GameMode.Host 
+                    || Trucardo.Core.NetworkUI.selectedMode == GameMode.Client;
+
+                if (!isMultiplayer && (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer 
+                    || FindObjectsByType<BotMarker>(FindObjectsSortMode.None).Length > 0))
                 {
                     TableDefinition table = TableDefinition.FindForSeat(obj.transform);
                     if (table != null && table.Seats != null && table.Seats.Count >= 2 && table.Seats[1] != null 
@@ -963,18 +1798,9 @@ namespace Trucardo.Core
             {
                 Transform seatTransform = closestObject.transform;
                 currentTableDefinition = TableDefinition.FindForSeat(seatTransform);
-                if (currentTableDefinition == null)
-                {
-                    Debug.LogError($"El banco {seatTransform.name} no está vinculado a ninguna mesa. Verificá que esté dentro de Mesas_y_Sillas.");
-                    return;
-                }
-                currentTable = currentTableDefinition.transform;
 
                 if (characterController != null) characterController.enabled = false;
 
-                Vector3 toTable = currentTable.position - seatTransform.position;
-                toTable.y = 0;
-                transform.rotation = toTable.sqrMagnitude > 0.001f ? Quaternion.LookRotation(toTable) : Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
                 float seatHeight = closestInteractable != null
                     ? closestInteractable.GetTopHeight() - 0.45f
                     : 0f;
@@ -987,26 +1813,63 @@ namespace Trucardo.Core
                 }
 
                 isSeated = true;
-                if (hudController != null)
-                    hudController.SetPlayerSeated(true);
                 SetInterfaceMode(false);
 
-                if (handVisualizer != null)
+                if (currentTableDefinition != null)
                 {
-                    handVisualizer.tableCenter = currentTable;
-                    handVisualizer.RefreshLayout();
-                }
+                    // Asiento de mesa de juego (Truco)
+                    currentTable = currentTableDefinition.transform;
 
-                if (opponentHandVisualizer != null)
+                    Vector3 toTable = currentTable.position - seatTransform.position;
+                    toTable.y = 0;
+                    transform.rotation = toTable.sqrMagnitude > 0.001f 
+                        ? Quaternion.LookRotation(toTable) 
+                        : Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
+
+                    if (hudController != null)
+                        hudController.SetPlayerSeated(true);
+
+                    if (handVisualizer != null)
+                    {
+                        handVisualizer.tableCenter = currentTable;
+                        handVisualizer.RefreshLayout();
+                    }
+
+                    if (opponentHandVisualizer != null)
+                    {
+                        opponentHandVisualizer.tableCenter = currentTable;
+                        opponentHandVisualizer.RefreshLayout();
+                    }
+
+                    if (powerHandVisualizer != null)
+                    {
+                        powerHandVisualizer.tableCenter = currentTable;
+                        powerHandVisualizer.RefreshLayout();
+                    }
+
+                    if (opponentPowerVisualizer != null)
+                    {
+                        opponentPowerVisualizer.tableCenter = currentTable;
+                        opponentPowerVisualizer.RefreshLayout();
+                    }
+
+                    if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+                    if (serverInstance != null) serverInstance.PlayerSitDownServerRpc(currentTableDefinition.TableId);
+
+                    Debug.Log($"Te has sentado en la mesa {currentTableDefinition.TableId}.");
+                }
+                else
                 {
-                    opponentHandVisualizer.tableCenter = currentTable;
-                    opponentHandVisualizer.RefreshLayout();
+                    // Asiento especial / decorativo (barra, afuera, etc.)
+                    // Permite sentarse normalmente pero NO inicia partida ni conecta a ninguna mesa.
+                    currentTable = null;
+                    transform.rotation = Quaternion.Euler(0, seatTransform.eulerAngles.y, 0);
+
+                    if (hudController != null)
+                        hudController.SetPlayerSeated(false);
+
+                    Debug.Log($"Te has sentado en el banco {seatTransform.name} (asiento de descanso, no inicia partida).");
                 }
-
-                if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
-                if (serverInstance != null) serverInstance.PlayerSitDownServerRpc(currentTableDefinition.TableId);
-
-                Debug.Log("Te has sentado en una silla.");
             }
             else
             {
@@ -1021,6 +1884,10 @@ namespace Trucardo.Core
             if (opponentHandVisualizer != null && opponentHandVisualizer.cardsInHand.Count > 0)
             {
                 CardVisual cardToRemove = opponentHandVisualizer.cardsInHand[0];
+                if (cardToRemove == currentlyRevealedCard)
+                {
+                    HideRevealedOpponentCard();
+                }
                 opponentHandVisualizer.RemoveCardFromHand(cardToRemove);
                 Destroy(cardToRemove.gameObject);
             }
@@ -1042,6 +1909,14 @@ namespace Trucardo.Core
             int pendingEnvidoPoints,
             ulong p1Id)
         {
+            if (currentRoundIndex != localCurrentRoundIndex ||
+                state == GameState.RondaTerminada ||
+                state == GameState.Repartiendo ||
+                state == GameState.PartidaTerminada)
+            {
+                HideRevealedOpponentCard();
+            }
+
             localGameState = state;
             localTurnId = turnId;
             localCurrentRoundIndex = currentRoundIndex;
@@ -1055,6 +1930,40 @@ namespace Trucardo.Core
             localPendingEnvidoPoints = pendingEnvidoPoints;
             amIPlayer1 = (NetworkManager.Singleton.LocalClientId == p1Id);
             RefreshHUD();
+        }
+
+        public void SyncPowerStates(bool pavaCaliente, bool forcedAccept, ulong forcedCallerId, bool p1Luz, bool p2Luz)
+        {
+            isPavaCalienteActive = pavaCaliente;
+            isBastonPresidencialActiveOnMe = forcedAccept && (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId != forcedCallerId);
+            bool newLuzMala = amIPlayer1 ? p1Luz : p2Luz;
+
+            if (hudController != null)
+            {
+                hudController.SetPavaCaliente(pavaCaliente);
+                hudController.SetBastonPresidencial(isBastonPresidencialActiveOnMe);
+            }
+
+            if (newLuzMala != isLuzMalaActiveOnMe)
+            {
+                isLuzMalaActiveOnMe = newLuzMala;
+                ApplyLuzMalaVisuals(isLuzMalaActiveOnMe);
+            }
+        }
+
+        private void ApplyLuzMalaVisuals(bool active)
+        {
+            for (int i = 0; i < localCardInstances.Length; i++)
+            {
+                if (localCardInstances[i] != null)
+                {
+                    CardVisual visual = localCardInstances[i].GetComponent<CardVisual>();
+                    if (visual != null)
+                    {
+                        visual.SetBlanked(active);
+                    }
+                }
+            }
         }
 
         private void SetInterfaceMode(bool enabled)
@@ -1123,7 +2032,7 @@ namespace Trucardo.Core
 
         private void OnGUI()
         {
-            if (!IsOwner || !isSeated) return;
+            if (!IsOwner || !isSeated || currentTableDefinition == null) return;
 
             // Indicador de nivel de Truco
             GUI.skin.label.fontSize = 20;
@@ -1168,6 +2077,147 @@ namespace Trucardo.Core
             GUI.skin.label.fontSize = 20; // Mas chico a pedido del jugador
             GUI.skin.label.alignment = TextAnchor.MiddleCenter;
             GUI.Label(new Rect(Screen.width / 2f - 25f, Screen.height / 2f - 25f, 50f, 50f), "•");
+        }
+
+        public void PromptGuampasChoice(int drawnCardIndex, int[] handIndices)
+        {
+            isGuampasTargeting = true;
+            guampasDrawnCardIndex = drawnCardIndex;
+
+            string cardName = $"Carta #{drawnCardIndex}";
+            int rank = 0;
+            int envido = 0;
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance != null && serverInstance.masterDeck != null && drawnCardIndex >= 0 && drawnCardIndex < serverInstance.masterDeck.AvailableCards.Count)
+            {
+                CardData c = serverInstance.masterDeck.AvailableCards[drawnCardIndex];
+                cardName = $"{c.Number} de {c.Suit}";
+                rank = c.TrucoRank;
+                envido = c.EnvidoValue;
+            }
+
+            if (hudController != null)
+            {
+                hudController.ShowPowerPrompt(
+                    "🐃 ¡PODER GUAMPAS!",
+                    $"Robaste: <b>{cardName}</b> (Fuerza Truco: {rank} | Envido: {envido})\n• <b>Clic en una carta tuya</b> para reemplazarla  • <b>Clic derecho</b> para conservar tu mano"
+                );
+            }
+        }
+
+        public void DismissGuampasChoice()
+        {
+            isGuampasTargeting = false;
+            guampasDrawnCardIndex = -1;
+            if (handVisualizer != null)
+            {
+                handVisualizer.elevatedCard = null;
+                handVisualizer.RefreshLayout();
+            }
+            if (hudController != null)
+            {
+                hudController.HidePowerPrompt();
+            }
+        }
+
+        public void PromptGuitarraChoice(int[] myHandCards, int[] opponentSlots)
+        {
+            // La Guitarra se opera de forma táctil e interactiva en 3D directamente sobre las cartas.
+        }
+
+        public void DismissGuitarraChoice()
+        {
+            CancelInteractivePowerTargeting();
+        }
+
+        public void CancelInteractivePowerTargeting()
+        {
+            if (isGuampasTargeting)
+            {
+                isGuampasTargeting = false;
+                guampasDrawnCardIndex = -1;
+                if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+                if (serverInstance != null)
+                {
+                    serverInstance.SubmitGuampasChoiceServerRpc(-1);
+                }
+            }
+
+            isFaconTargeting = false;
+            activeFaconVisual = null;
+            isGuitarraTargeting = false;
+            guitarraStep = 0;
+            selectedGuitarraMyCardSlot = -1;
+            activeGuitarraVisual = null;
+            if (handVisualizer != null)
+            {
+                handVisualizer.elevatedCard = null;
+                handVisualizer.RefreshLayout();
+            }
+            if (hudController != null)
+            {
+                hudController.HidePowerPrompt();
+            }
+        }
+
+        public void RevealAndBreakOpponentCard(int slotIndex, int destroyedCardIndex, int newCardIndex)
+        {
+            StartCoroutine(RevealAndBreakOpponentCardRoutine(slotIndex, destroyedCardIndex, newCardIndex));
+        }
+
+        private IEnumerator RevealAndBreakOpponentCardRoutine(int slotIndex, int destroyedCardIndex, int newCardIndex)
+        {
+            if (opponentHandVisualizer == null || opponentHandVisualizer.cardsInHand == null) yield break;
+            if (slotIndex < 0 || slotIndex >= opponentHandVisualizer.cardsInHand.Count) yield break;
+
+            CardVisual card = opponentHandVisualizer.cardsInHand[slotIndex];
+            if (card == null) yield break;
+
+            if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
+            if (serverInstance != null && serverInstance.masterDeck != null && destroyedCardIndex >= 0 && destroyedCardIndex < serverInstance.masterDeck.AvailableCards.Count)
+            {
+                CardData destroyedData = serverInstance.masterDeck.AvailableCards[destroyedCardIndex];
+
+                Vector3 toTable = currentTable != null ? (currentTable.position - transform.position) : transform.forward;
+                toTable.y = 0f;
+                if (toTable.sqrMagnitude < 0.001f) toTable = transform.forward;
+                toTable.Normalize();
+                float yRot = Mathf.Atan2(toTable.x, toTable.z) * Mathf.Rad2Deg;
+
+                Quaternion revealedRot = Quaternion.Euler(-35f, yRot, 0f);
+                card.SetCardData(destroyedData);
+                if (card.iconImage != null) card.iconImage.enabled = true;
+                if (card.textNumber != null && destroyedData.Number > 0) card.textNumber.text = destroyedData.Number.ToString();
+                if (card.textNumberBottom != null && destroyedData.Number > 0) card.textNumberBottom.text = destroyedData.Number.ToString();
+
+                card.AnimateTo(card.transform.position, revealedRot, 0.3f, false, 0.05f);
+                yield return new WaitForSeconds(1.2f);
+            }
+
+            if (card != null)
+            {
+                opponentHandVisualizer.RemoveCardFromHand(card);
+                Destroy(card.gameObject);
+            }
+
+            // Si recibió una nueva carta, reponer dorso blanco en la mano del rival
+            if (newCardIndex != -1 && cardPrefab != null)
+            {
+                GameObject oc = Instantiate(cardPrefab, Vector3.zero, Quaternion.identity);
+                Destroy(oc.GetComponent<Unity.Netcode.NetworkObject>());
+                Destroy(oc.GetComponent<Unity.Netcode.Components.NetworkTransform>());
+
+                CardVisual oppVisual = oc.GetComponent<CardVisual>();
+                if (oppVisual != null)
+                {
+                    if (oppVisual.textNumber != null) oppVisual.textNumber.text = "";
+                    if (oppVisual.textNumberBottom != null) oppVisual.textNumberBottom.text = "";
+                    if (oppVisual.iconImage != null) oppVisual.iconImage.enabled = false;
+                    opponentHandVisualizer.AddCardToHand(oppVisual);
+                }
+            }
+
+            if (opponentHandVisualizer != null) opponentHandVisualizer.RefreshLayout();
         }
     }
 }

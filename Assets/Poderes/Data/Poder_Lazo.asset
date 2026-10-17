@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_Lazo
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: lazo
+  DisplayName: Lazo
+  Rarity: 0
+  ObjectConcept: Lazo gaucho trenzado de cuero crudo en rollo con argolla.
+  ModelStatus: Provisorio
+  ShortDescription: 'Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas.'
+  DetailedDescription: "Momento de activaci\xC3\xB3n: \xC3\u0161nicamente durante la primera mano (baza 0), antes de haber jugado ninguna carta.\nMec\xC3\xA1nica: Descarta las 3 cartas iniciales completas al mazo y recibe 3 cartas nuevas extra\xC3\xADdas del mazo."
+  Description: 'Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas.'
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: e2a2f6dfa24044f58daa64921f2ae189, type: 3}
+  Effect: {fileID: 11400000, guid: c846185a713045fe9c6291ae669f20b1, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

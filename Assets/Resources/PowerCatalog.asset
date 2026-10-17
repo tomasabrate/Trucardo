@@ -1,0 +1,27 @@
+﻿%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bad712f830fec2448f1e2a39d95a6dc, type: 3}
+  m_Name: PowerCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerCatalog
+  AvailablePowers:
+  - {fileID: 11400000, guid: 82c93f077dfb42618b2a037abfa48e7c, type: 2}
+  - {fileID: 11400000, guid: ca368195377c486a9298d4ae144f07e0, type: 2}
+  - {fileID: 11400000, guid: c97b28f6ba2d47ed8ef8c7a3347ab93c, type: 2}
+  - {fileID: 11400000, guid: 5fc6eb2cb670488091f0fa9a172d8114, type: 2}
+  - {fileID: 11400000, guid: 4a12bce510314fc4b2b8ea7c7f12c498, type: 2}
+  - {fileID: 11400000, guid: 4d2679caa9d54c8ea6b8b6b2a579998f, type: 2}
+  - {fileID: 11400000, guid: 06e8ec2df1ec4cf3a883ea00bf0db3e9, type: 2}
+  - {fileID: 11400000, guid: 43e5a3f59aec40e5b947500c4faa4365, type: 2}
+  - {fileID: 11400000, guid: 21258d531d454b3fabb904aed9e154a8, type: 2}
+  - {fileID: 11400000, guid: f2487c39a6a74cfea0251aa6ac5d1a04, type: 2}
+  - {fileID: 11400000, guid: c79f714a04db45028f16f915728015b4, type: 2}
+

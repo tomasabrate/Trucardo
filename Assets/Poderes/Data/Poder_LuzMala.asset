@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_LuzMala
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: luz_mala
+  DisplayName: Luz Mala
+  Rarity: 1
+  ObjectConcept: Fuego fatuo espectral / candil antiguo con resplandor verdoso fantasmal.
+  ModelStatus: Provisorio
+  ShortDescription: "Vuelve blancas y mezcla las cartas del rival: no sabr\xC3\xA1 cu\xC3\xA1l es cu\xC3\xA1l al jugar."
+  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante el turno del jugador antes de que el rival juegue sus cartas clave.\nMec\xC3\xA1nica: Envuelve las cartas del oponente en un halo espectral blanco, forz\xC3\xA1ndolo a jugar a ciegas."
+  Description: "Vuelve blancas y mezcla las cartas del rival: no sabr\xC3\xA1 cu\xC3\xA1l es cu\xC3\xA1l al jugar."
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: 1d58e879c8864f14898b22f2d1248411, type: 3}
+  Effect: {fileID: 11400000, guid: 116e72c28bad4e79955df729f661d58f, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

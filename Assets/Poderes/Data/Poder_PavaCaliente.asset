@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_PavaCaliente
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: pava_caliente
+  DisplayName: Pava Caliente
+  Rarity: 0
+  ObjectConcept: "Pava de campo tiznada de chapa enlozada negra para fuego a le\xC3\xB1a."
+  ModelStatus: Provisorio
+  ShortDescription: "El rival tiene solo 5 segundos por turno durante toda la mano, o jugar\xC3\xA1 al azar."
+  DetailedDescription: "Momento de activaci\xC3\xB3n: En cualquier momento durante la ronda.\nMec\xC3\xA1nica: Aplica un temporizador de presi\xC3\xB3n extrema: el rival dispone de \xC3\xBAnicamente 5 segundos por cada decisi\xC3\xB3n de juego."
+  Description: "El rival tiene solo 5 segundos por turno durante toda la mano, o jugar\xC3\xA1 al azar."
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: 939da1bcbada4edca6f0b9e37b628577, type: 3}
+  Effect: {fileID: 11400000, guid: d1810f431f26447b835f52f216a2ba69, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

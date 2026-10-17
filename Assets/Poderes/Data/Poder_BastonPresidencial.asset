@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27603073ba89ded4db0e4b61686bc9c7, type: 3}
+  m_Name: Poder_BastonPresidencial
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
+  PowerId: baston_presidencial
+  DisplayName: "Bast\xC3\xB3n Presidencial"
+  Rarity: 1
+  ObjectConcept: "Bast\xC3\xB3n de mando presidencial de madera de urunday con empu\xC3\xB1adura y regat\xC3\xB3n de plata cincelada."
+  ModelStatus: Provisorio
+  ShortDescription: "Obliga al rival a aceptar (decir '\xC2\xA1Quiero!') a tu pr\xC3\xB3ximo canto."
+  DetailedDescription: "Momento de activaci\xC3\xB3n: Justo antes de efectuar un canto (Envido o Truco).\nMec\xC3\xA1nica: Impone autoridad absoluta sobre la voluntad del oponente: bloquea la opci\xC3\xB3n 'No Quiero' y fuerza la respuesta '\xC2\xA1Quiero!'."
+  Description: "Obliga al rival a aceptar (decir '\xC2\xA1Quiero!') a tu pr\xC3\xB3ximo canto."
+  SelectionImage: {fileID: 0}
+  WorldPrefab: {fileID: 1000000000000001, guid: 8f801efaf4d246f1bfaa097b5387deb3, type: 3}
+  Effect: {fileID: 11400000, guid: 73ea625c31ec4aff9edd45cd6d20a914, type: 2}
+  Cooldown: 0
+  RequiredCost: 0

@@ -35,6 +35,25 @@ namespace Trucardo.Core
         public Coroutine PendingStartRoundCoroutine;
         public List<GameObject> TableCards = new List<GameObject>();
         public bool IsStartingRound = false;
+
+        // Estados de Poderes en la Mesa
+        public bool ForcedAcceptNextCanto = false;
+        public ulong ForcedAcceptCallerId = 0;
+        public bool PavaCalienteActive = false;
+        public ulong PavaCalienteCasterId = 0;
+        public Coroutine PavaTurnTimeoutCoroutine = null;
+        public bool P1Boleado = false;
+        public bool P2Boleado = false;
+        public bool P1LuzMalaActive = false;
+        public bool P2LuzMalaActive = false;
+        public string P1ActivePowerId = null;
+        public string P2ActivePowerId = null;
+        public bool BotPowerUsedThisRound = false;
+        public ulong GuampasPendingPlayerId = 0;
+        public int GuampasDrawnCardIndex = -1;
+        public HashSet<int> P1RevealedOpponentCards = new HashSet<int>();
+        public HashSet<int> P2RevealedOpponentCards = new HashSet<int>();
+        public ulong GuitarraPendingPlayerId = 0;
     }
 
     public partial class GameServer : NetworkBehaviour
@@ -43,7 +62,7 @@ namespace Trucardo.Core
 
         [Header("Datos Generales")]
         public DeckData masterDeck;
-        [SerializeField] private bool autoFillPlayer2WithBot = false;
+        [SerializeField] private bool autoFillPlayer2WithBot = true;
         [SerializeField, Min(0f)] private float botActionDelaySeconds = 0.75f;
         [SerializeField] private BotDifficulty defaultBotDifficulty = BotDifficulty.Normal;
         [SerializeField] private BotPersonality defaultBotPersonality = BotPersonality.Balanced;
@@ -73,8 +92,7 @@ namespace Trucardo.Core
             Debug.Log("Servidor de Trucardo Iniciado. Soportando múltiples mesas.");
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
 
-            bool isSingleplayer = Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer
-                || (Trucardo.Core.NetworkUI.selectedMode == GameMode.None && autoFillPlayer2WithBot);
+            bool isSingleplayer = ShouldAutoFillBot();
 
             if (isSingleplayer && botPrefab != null)
             {
@@ -254,7 +272,7 @@ namespace Trucardo.Core
             return session != null && session.Player1Id == clientId;
         }
 
-        private TableSession GetSessionByPlayer(ulong clientId)
+        public TableSession GetSessionByPlayer(ulong clientId)
         {
             return sessions.FirstOrDefault(s => s.Player1Id == clientId || s.Player2Id == clientId);
         }
@@ -282,6 +300,11 @@ namespace Trucardo.Core
 
             CancelPendingBotAction(session);
             CancelPendingStartRound(session);
+            CancelPavaCalienteTimer(session);
+            CancelGuampasChoice(session);
+            CancelGuitarraChoice(session);
+            if (session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Clear();
+            if (session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Clear();
 
             if (session.Player1Id == departingPlayerId)
             {
@@ -397,9 +420,29 @@ namespace Trucardo.Core
             CheckStartGame(session);
         }
 
+        public bool ShouldAutoFillBot()
+        {
+            // En multijugador (Host o Cliente), NUNCA se usan bots ni se autocompleta la mesa con bots.
+            // La partida únicamente debe comenzar cuando dos jugadores humanos reales se sienten en la misma mesa.
+            if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Host 
+                || Trucardo.Core.NetworkUI.selectedMode == GameMode.Client)
+            {
+                return false;
+            }
+
+            // En Modo Individual (Singleplayer), SIEMPRE está activado para jugar con bots.
+            if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer)
+            {
+                return true;
+            }
+
+            // En el editor directo sin pasar por el menú (GameMode.None), depende de autoFillPlayer2WithBot (por defecto true)
+            return autoFillPlayer2WithBot;
+        }
+
         private void TryAutoFillPlayer2WithBot(TableSession session)
         {
-            if (!autoFillPlayer2WithBot) return;
+            if (!ShouldAutoFillBot()) return;
             if (session.Player1Type != ParticipantType.Human || !session.Player1Seated) return;
             if (session.Player2Id != ulong.MaxValue || session.Player2Seated || session.Player2Type != ParticipantType.None) return;
 
@@ -464,7 +507,7 @@ namespace Trucardo.Core
             session.Player2Type = ParticipantType.None;
         }
 
-        private void TryScheduleBotAction(TableSession session)
+        public void TryScheduleBotAction(TableSession session)
         {
             if (session != null && session.GameModel.CurrentState == GameState.PartidaTerminada)
             {
@@ -481,7 +524,8 @@ namespace Trucardo.Core
 
         private IEnumerator ProcessBotTurnDelayed(TableSession session, ulong botId)
         {
-            yield return new WaitForSeconds(botActionDelaySeconds);
+            float waitSeconds = session.PavaCalienteActive ? Mathf.Min(botActionDelaySeconds, 0.25f) : botActionDelaySeconds;
+            yield return new WaitForSeconds(waitSeconds);
             session.PendingBotActionCoroutine = null;
 
             if (!CanPlayer2BotTakeAction(session, botId)) yield break;
@@ -492,6 +536,37 @@ namespace Trucardo.Core
                 Debug.Log(session.Player2BotController.LastEvaluationSummary);
 
             if (decision == null) yield break;
+
+            // Activación opcional de poder por parte del Bot
+            if (!session.BotPowerUsedThisRound && !session.P2Boleado && session.GameModel.CurrentState == GameState.TurnoJugador)
+            {
+                if (UnityEngine.Random.value < 0.35f)
+                {
+                    PowerCatalog catalog = Resources.Load<PowerCatalog>("PowerCatalog");
+                    if (catalog != null && catalog.AvailablePowers != null && catalog.AvailablePowers.Count > 0)
+                    {
+                        PowerData botPower = catalog.GetRandomPower();
+                        if (botPower != null && botPower.IsValid())
+                        {
+                            session.BotPowerUsedThisRound = true;
+                            ProcessPlayPower(botId, botPower.PowerId);
+                        }
+                    }
+                }
+            }
+
+            // Luz Mala: Si el bot está bajo efecto de Luz Mala y va a jugar carta, juega una al azar
+            if (session.P2LuzMalaActive && decision.Type == BotDecisionType.PlayCard && session.GameModel.P2Hand.Count > 0)
+            {
+                int randomCard = session.GameModel.P2Hand[UnityEngine.Random.Range(0, session.GameModel.P2Hand.Count)];
+                decision = BotDecision.PlayCard(randomCard);
+            }
+
+            // Bastón Presidencial: Si debe responder a un canto del rival que usó el bastón, fuerza aceptación
+            if (session.ForcedAcceptNextCanto && decision.Type == BotDecisionType.Respond && botId != session.ForcedAcceptCallerId)
+            {
+                decision = BotDecision.Respond(true);
+            }
 
             if (decision.Type == BotDecisionType.Respond && CanPlayer2BotRespond(session, botId))
             {
@@ -734,6 +809,7 @@ namespace Trucardo.Core
             
             SyncClientState(session);
             TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
         }
 
         private void SpawnCardOnTable(TableSession session, ulong playerId, int cardIndex)
@@ -918,6 +994,7 @@ namespace Trucardo.Core
             AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, ToDialogueCall(call));
             SyncClientState(session);
             TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -939,6 +1016,7 @@ namespace Trucardo.Core
             AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, PendingTrucoName(dialogueBefore.Truco));
             SyncClientState(session);
             TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -954,6 +1032,14 @@ namespace Trucardo.Core
             if (session == null) return;
             if (actorId != session.Player1Id && actorId != session.Player2Id) return;
 
+            if (session.ForcedAcceptNextCanto && actorId != session.ForcedAcceptCallerId)
+            {
+                accepts = true;
+                session.ForcedAcceptNextCanto = false;
+                session.ForcedAcceptCallerId = 0;
+                Debug.Log("<color=#FFD700><b>[Bastón Presidencial]</b></color> ¡El canto ha sido aceptado por orden presidencial!");
+            }
+
             var dialogueBefore = CaptureDialogue(session);
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.RespondCommand(session.GameModel, actorId, accepts));
             session.GameModel.actionQueue.ProcessNext();
@@ -961,10 +1047,76 @@ namespace Trucardo.Core
 
             if (session.GameModel.CurrentState == GameState.RondaTerminada)
             {
+                CancelPavaCalienteTimer(session);
                 ScheduleStartRound(session, 3f);
             }
             SyncClientState(session);
             TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void PlayPowerServerRpc(string powerId, ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            ProcessPlayPower(sender, powerId);
+        }
+
+        public void ProcessPlayPower(ulong actorId, string powerId)
+        {
+            if (string.IsNullOrEmpty(powerId)) return;
+            var session = GetSessionByPlayer(actorId);
+            if (session == null) return;
+            if (actorId != session.Player1Id && actorId != session.Player2Id) return;
+
+            int team = (actorId == session.Player1Id) ? 1 : 2;
+
+            PowerCatalog catalog = Resources.Load<PowerCatalog>("PowerCatalog");
+            PowerData powerData = (catalog != null && catalog.AvailablePowers != null)
+                ? catalog.AvailablePowers.Find(p => p != null && p.PowerId == powerId)
+                : null;
+
+            if (powerData != null && powerData.Effect != null)
+            {
+                PowerContext context = new PowerContext(actorId, team, null, null, session.GameModel);
+                if (!powerData.Effect.CanExecute(context, out string reason))
+                {
+                    Debug.LogWarning($"[Power] No se puede ejecutar {powerData.DisplayName}: {reason}");
+                    SendPowerToast(session, actorId, powerData.DisplayName.ToUpper(), reason);
+                    return;
+                }
+
+                bool executed = powerData.Effect.Execute(context);
+                if (!executed)
+                {
+                    return;
+                }
+            }
+
+            if (team == 1) session.P1ActivePowerId = powerId;
+            else session.P2ActivePowerId = powerId;
+
+            NotifyPowerActivatedClientRpc(actorId, powerId);
+            SyncClientState(session);
+            TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
+        }
+
+        [ClientRpc]
+        private void NotifyPowerActivatedClientRpc(ulong actorId, string powerId)
+        {
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.SpawnManager != null)
+            {
+                var playerObj = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
+                if (playerObj != null)
+                {
+                    PlayerController pc = playerObj.GetComponent<PlayerController>();
+                    if (pc != null)
+                    {
+                        pc.OnPowerActivatedNotification(actorId, powerId);
+                    }
+                }
+            }
         }
 
         private void CheckStartGame(TableSession session)
@@ -1013,11 +1165,46 @@ namespace Trucardo.Core
             StartRound(session);
         }
 
+        public int GetUnusedCard(TableSession session)
+        {
+            if (session == null || session.GameModel == null || masterDeck == null || masterDeck.AvailableCards == null) return -1;
+
+            HashSet<int> used = new HashSet<int>();
+            if (session.GameModel.P1Hand != null) foreach (int c in session.GameModel.P1Hand) used.Add(c);
+            if (session.GameModel.P2Hand != null) foreach (int c in session.GameModel.P2Hand) used.Add(c);
+            if (session.GameModel.P1PlayedCards != null) foreach (int c in session.GameModel.P1PlayedCards) used.Add(c);
+            if (session.GameModel.P2PlayedCards != null) foreach (int c in session.GameModel.P2PlayedCards) used.Add(c);
+            if (session.GuampasDrawnCardIndex != -1) used.Add(session.GuampasDrawnCardIndex);
+
+            List<int> available = new List<int>();
+            for (int i = 0; i < masterDeck.AvailableCards.Count; i++)
+            {
+                if (!used.Contains(i)) available.Add(i);
+            }
+            if (available.Count == 0) return -1;
+            return available[UnityEngine.Random.Range(0, available.Count)];
+        }
+
         private void StartRound(TableSession session)
         {
             if (!CanStartGameSession(session) || session.GameModel.CurrentState == GameState.PartidaTerminada) return;
             session.GameModel.ResetHand();
             ClearTableCards(session);
+
+            session.PavaCalienteActive = false;
+            session.PavaCalienteCasterId = 0;
+            CancelPavaCalienteTimer(session);
+            CancelGuampasChoice(session);
+            CancelGuitarraChoice(session);
+            if (session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Clear();
+            if (session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Clear();
+            session.P1LuzMalaActive = false;
+            session.P2LuzMalaActive = false;
+            session.ForcedAcceptNextCanto = false;
+            session.ForcedAcceptCallerId = 0;
+            session.P1ActivePowerId = null;
+            session.P2ActivePowerId = null;
+            session.BotPowerUsedThisRound = false;
 
             List<int> deckIndices = new List<int>();
             for (int i = 0; i < 40; i++) deckIndices.Add(i);
@@ -1060,6 +1247,7 @@ namespace Trucardo.Core
             
             SyncClientState(session);
             TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
         }
 
         private void ClearTableCards(TableSession session)
@@ -1138,7 +1326,185 @@ namespace Trucardo.Core
             }
         }
 
-        private void SyncClientState(TableSession session)
+        [ClientRpc]
+        public void SyncPlayerHandClientRpc(ulong targetClientId, int[] cardIndices, ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null) pc.ReplaceAllHandCards(cardIndices);
+            }
+        }
+
+        public void SyncPlayerHand(TableSession session, ulong targetClientId)
+        {
+            if (session == null || session.GameModel == null) return;
+            int team = (targetClientId == session.Player1Id) ? 1 : 2;
+            List<int> hand = (team == 1) ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+            if (hand == null) return;
+
+            int[] cards = hand.ToArray();
+            ClientRpcParams rpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
+            };
+            SyncPlayerHandClientRpc(targetClientId, cards, rpcParams);
+        }
+
+        [ClientRpc]
+        public void RevealOpponentCardClientRpc(ulong targetClientId, int cardIndex, ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null && masterDeck != null && cardIndex >= 0 && cardIndex < masterDeck.AvailableCards.Count)
+                {
+                    pc.RevealOpponentCard(cardIndex, masterDeck.AvailableCards[cardIndex]);
+                }
+            }
+        }
+
+        public void RevealOpponentCardToPlayer(TableSession session, ulong targetClientId, int cardIndex)
+        {
+            ClientRpcParams rpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
+            };
+            RevealOpponentCardClientRpc(targetClientId, cardIndex, rpcParams);
+        }
+
+        [ClientRpc]
+        public void ShowPowerToastClientRpc(string title, string message, ClientRpcParams clientRpcParams = default)
+        {
+            if (Trucardo.Core.UI.HUDController.Instance != null)
+            {
+                Trucardo.Core.UI.HUDController.Instance.ShowToast(title, message);
+            }
+        }
+
+        public void SendPowerToast(TableSession session, ulong targetClientId, string title, string message)
+        {
+            ClientRpcParams clientRpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
+            };
+            ShowPowerToastClientRpc(title, message, clientRpcParams);
+        }
+
+        public void BroadcastPowerToast(TableSession session, string title, string message)
+        {
+            List<ulong> seatedHumans = new List<ulong>();
+            if (session.Player1Seated && session.Player1Type == ParticipantType.Human) seatedHumans.Add(session.Player1Id);
+            if (session.Player2Seated && session.Player2Type == ParticipantType.Human) seatedHumans.Add(session.Player2Id);
+            if (seatedHumans.Count == 0) return;
+
+            ClientRpcParams clientRpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = seatedHumans.ToArray() }
+            };
+            ShowPowerToastClientRpc(title, message, clientRpcParams);
+        }
+
+        [ClientRpc]
+        public void SyncPowerStatesClientRpc(
+            bool pavaCalienteActive,
+            bool forcedAcceptNextCanto,
+            ulong forcedAcceptCallerId,
+            bool p1LuzMala,
+            bool p2LuzMala,
+            ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.SyncPowerStates(pavaCalienteActive, forcedAcceptNextCanto, forcedAcceptCallerId, p1LuzMala, p2LuzMala);
+                }
+            }
+        }
+
+        public void CheckStartPavaCalienteTimer(TableSession session)
+        {
+            if (session == null) return;
+
+            CancelPavaCalienteTimer(session);
+
+            if (!session.PavaCalienteActive || session.GameModel == null) return;
+
+            if (session.GameModel.CurrentState != GameState.TurnoJugador && session.GameModel.CurrentState != GameState.EsperandoRespuestaCanto)
+            {
+                return;
+            }
+
+            ulong waitingPlayerId = ulong.MaxValue;
+            if (session.GameModel.CurrentState == GameState.TurnoJugador)
+            {
+                waitingPlayerId = session.GameModel.CurrentTurnId;
+            }
+            else if (session.GameModel.CurrentState == GameState.EsperandoRespuestaCanto)
+            {
+                waitingPlayerId = (session.GameModel.LastCallerId == session.Player1Id) ? session.Player2Id : session.Player1Id;
+            }
+
+            if (waitingPlayerId == ulong.MaxValue) return;
+
+            session.PavaTurnTimeoutCoroutine = StartCoroutine(PavaTurnTimeoutRoutine(session, waitingPlayerId, session.GameModel.CurrentState, session.GameModel.CurrentRoundIndex));
+        }
+
+        public void CancelPavaCalienteTimer(TableSession session)
+        {
+            if (session == null || session.PavaTurnTimeoutCoroutine == null) return;
+            StopCoroutine(session.PavaTurnTimeoutCoroutine);
+            session.PavaTurnTimeoutCoroutine = null;
+        }
+
+        private IEnumerator PavaTurnTimeoutRoutine(TableSession session, ulong targetPlayerId, GameState expectedState, int expectedRound)
+        {
+            yield return new WaitForSeconds(5.2f);
+
+            if (session == null || !session.PavaCalienteActive || session.GameModel == null) yield break;
+            if (session.GameModel.CurrentRoundIndex != expectedRound) yield break;
+
+            if (session.GuampasPendingPlayerId == targetPlayerId)
+            {
+                CancelGuampasChoice(session);
+            }
+            if (session.GuitarraPendingPlayerId == targetPlayerId)
+            {
+                CancelGuitarraChoice(session);
+            }
+
+            if (session.GameModel.CurrentState == GameState.TurnoJugador && expectedState == GameState.TurnoJugador && session.GameModel.CurrentTurnId == targetPlayerId)
+            {
+                List<int> hand = (targetPlayerId == session.Player1Id) ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+                if (hand != null && hand.Count > 0)
+                {
+                    int cardToPlay = hand[0];
+                    SendPowerToast(session, targetPlayerId, "¡PAVA CALIENTE!", "¡Tiempo agotado (5s)! Se jugó tu carta automáticamente.");
+                    ProcessPlayCard(targetPlayerId, cardToPlay);
+                }
+            }
+            else if (session.GameModel.CurrentState == GameState.EsperandoRespuestaCanto && expectedState == GameState.EsperandoRespuestaCanto)
+            {
+                ulong responderId = (session.GameModel.LastCallerId == session.Player1Id) ? session.Player2Id : session.Player1Id;
+                if (responderId == targetPlayerId)
+                {
+                    bool forced = session.ForcedAcceptNextCanto && targetPlayerId != session.ForcedAcceptCallerId;
+                    bool accepts = forced ? true : false;
+                    SendPowerToast(session, targetPlayerId, "¡PAVA CALIENTE!", forced 
+                        ? "¡Tiempo agotado (5s)! Aceptado por mandato presidencial." 
+                        : "¡Tiempo agotado (5s)! Se rechazó el canto automáticamente.");
+                    ProcessResponse(targetPlayerId, accepts);
+                }
+            }
+        }
+
+        public void SyncClientState(TableSession session)
         {
             List<ulong> seatedPlayers = new List<ulong>();
             if (session.Player1Seated && session.Player1Type == ParticipantType.Human) seatedPlayers.Add(session.Player1Id);
@@ -1166,6 +1532,356 @@ namespace Trucardo.Core
                     session.GameModel.ScoreTeam2),
                 session.Player1Id,
                 clientRpcParams);
+
+            SyncPowerStatesClientRpc(
+                session.PavaCalienteActive,
+                session.ForcedAcceptNextCanto,
+                session.ForcedAcceptCallerId,
+                session.P1LuzMalaActive,
+                session.P2LuzMalaActive,
+                clientRpcParams);
+        }
+
+        public void PromptGuampasChoice(TableSession session, ulong targetClientId, int drawnCardIndex)
+        {
+            if (session == null || session.GameModel == null || masterDeck == null) return;
+            int team = (targetClientId == session.Player1Id) ? 1 : 2;
+            List<int> hand = (team == 1) ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+            if (hand == null || hand.Count == 0) return;
+
+            if (drawnCardIndex < 0 || drawnCardIndex >= masterDeck.AvailableCards.Count) return;
+
+            int[] handIndices = hand.ToArray();
+
+            ClientRpcParams rpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
+            };
+            PromptGuampasChoiceClientRpc(targetClientId, drawnCardIndex, handIndices, rpcParams);
+
+            ulong opponentId = (targetClientId == session.Player1Id) ? session.Player2Id : session.Player1Id;
+            if (opponentId != ulong.MaxValue && opponentId != targetClientId)
+            {
+                SendPowerToast(session, opponentId, "GUAMPAS", "Tu rival activó Guampas y está decidiendo si cambiar una carta.");
+            }
+        }
+
+        [ClientRpc]
+        public void PromptGuampasChoiceClientRpc(
+            ulong targetClientId,
+            int drawnCardIndex,
+            int[] handIndices,
+            ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager != null && NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.PromptGuampasChoice(drawnCardIndex, handIndices);
+                }
+            }
+        }
+
+        public void CancelGuampasChoice(TableSession session)
+        {
+            if (session == null || session.GuampasPendingPlayerId == 0) return;
+            ulong pendingId = session.GuampasPendingPlayerId;
+            session.GuampasPendingPlayerId = 0;
+            session.GuampasDrawnCardIndex = -1;
+
+            ClientRpcParams rpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { pendingId } }
+            };
+            DismissGuampasChoiceClientRpc(pendingId, rpcParams);
+        }
+
+        [ClientRpc]
+        public void DismissGuampasChoiceClientRpc(ulong targetClientId, ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager != null && NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.DismissGuampasChoice();
+                }
+            }
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SubmitGuampasChoiceServerRpc(int cardToReplaceIndex, ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            var session = GetSessionByPlayer(sender);
+            if (session == null || session.GuampasPendingPlayerId != sender) return;
+
+            int drawnCard = session.GuampasDrawnCardIndex;
+            session.GuampasPendingPlayerId = 0;
+            session.GuampasDrawnCardIndex = -1;
+
+            if (drawnCard < 0 || masterDeck == null || drawnCard >= masterDeck.AvailableCards.Count) return;
+
+            List<int> hand = (sender == session.Player1Id) ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+            if (hand == null) return;
+
+            CardData drawnData = masterDeck.AvailableCards[drawnCard];
+            ulong opponentId = (sender == session.Player1Id) ? session.Player2Id : session.Player1Id;
+
+            if (cardToReplaceIndex >= 0 && hand.Contains(cardToReplaceIndex))
+            {
+                CardData replacedData = masterDeck.AvailableCards[cardToReplaceIndex];
+                int slot = hand.IndexOf(cardToReplaceIndex);
+                hand[slot] = drawnCard;
+                SyncPlayerHand(session, sender);
+                SendPowerToast(session, sender, "GUAMPAS", $"¡Reemplazaste tu {replacedData.Number} de {replacedData.Suit} por el {drawnData.Number} de {drawnData.Suit}!");
+                if (opponentId != ulong.MaxValue && opponentId != sender)
+                {
+                    SendPowerToast(session, opponentId, "GUAMPAS", "El rival cambió una de sus cartas con Guampas.");
+                }
+            }
+            else
+            {
+                SendPowerToast(session, sender, "GUAMPAS", $"Descartaste el {drawnData.Number} de {drawnData.Suit}. Conservás tu mano.");
+                if (opponentId != ulong.MaxValue && opponentId != sender)
+                {
+                    SendPowerToast(session, opponentId, "GUAMPAS", "El rival decidió no cambiar y conservó su mano.");
+                }
+            }
+
+            SyncClientState(session);
+            TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
+        }
+
+        public void PromptGuitarraChoice(TableSession session, ulong targetClientId)
+        {
+            if (session == null || session.GameModel == null) return;
+            int team = (targetClientId == session.Player1Id) ? 1 : 2;
+            List<int> myHand = (team == 1) ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+            List<int> oppHand = (team == 1) ? session.GameModel.P2Hand : session.GameModel.P1Hand;
+            ulong opponentId = (team == 1) ? session.Player2Id : session.Player1Id;
+
+            if (myHand == null || myHand.Count == 0 || oppHand == null || oppHand.Count == 0) return;
+
+            session.GuitarraPendingPlayerId = targetClientId;
+
+            int[] myCardsArray = myHand.ToArray();
+            int[] oppSlotsArray = new int[oppHand.Count];
+            var revealedSet = (team == 1) ? session.P1RevealedOpponentCards : session.P2RevealedOpponentCards;
+
+            for (int i = 0; i < oppHand.Count; i++)
+            {
+                int cardIdx = oppHand[i];
+                oppSlotsArray[i] = (revealedSet != null && revealedSet.Contains(cardIdx)) ? cardIdx : -1;
+            }
+
+            ClientRpcParams rpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
+            };
+            PromptGuitarraChoiceClientRpc(targetClientId, myCardsArray, oppSlotsArray, rpcParams);
+
+            if (opponentId != ulong.MaxValue && opponentId != targetClientId)
+            {
+                SendPowerToast(session, opponentId, "GUITARRA", "Tu rival activó la Guitarra y está eligiendo las cartas a intercambiar...");
+            }
+        }
+
+        [ClientRpc]
+        public void PromptGuitarraChoiceClientRpc(
+            ulong targetClientId,
+            int[] myHandCards,
+            int[] opponentSlots,
+            ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager != null && NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.PromptGuitarraChoice(myHandCards, opponentSlots);
+                }
+            }
+        }
+
+        public void CancelGuitarraChoice(TableSession session)
+        {
+            if (session == null || session.GuitarraPendingPlayerId == 0) return;
+            ulong pendingId = session.GuitarraPendingPlayerId;
+            session.GuitarraPendingPlayerId = 0;
+
+            ClientRpcParams rpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { pendingId } }
+            };
+            DismissGuitarraChoiceClientRpc(pendingId, rpcParams);
+        }
+
+        [ClientRpc]
+        public void DismissGuitarraChoiceClientRpc(ulong targetClientId, ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager != null && NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.DismissGuitarraChoice();
+                }
+            }
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void PlayFaconWithTargetServerRpc(int targetOpponentSlot, ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            var session = GetSessionByPlayer(sender);
+            if (session == null || session.GameModel == null) return;
+            if (masterDeck == null) return;
+
+            int team = (sender == session.Player1Id) ? 1 : 2;
+            List<int> opponentHand = (team == 1) ? session.GameModel.P2Hand : session.GameModel.P1Hand;
+            ulong opponentId = (team == 1) ? session.Player2Id : session.Player1Id;
+
+            if (opponentHand == null || targetOpponentSlot < 0 || targetOpponentSlot >= opponentHand.Count) return;
+
+            NotifyPowerActivatedClientRpc(sender, "facon");
+
+            int destroyedCardIndex = opponentHand[targetOpponentSlot];
+            CardData destroyedCard = masterDeck.AvailableCards[destroyedCardIndex];
+
+            // 1. Descartar la carta de la mano del rival
+            opponentHand.RemoveAt(targetOpponentSlot);
+
+            // 2. Darle una carta aleatoria nueva del mazo no repartido al rival
+            int newCardIndex = GetUnusedCard(session);
+            if (newCardIndex != -1)
+            {
+                opponentHand.Add(newCardIndex);
+            }
+
+            // Si estaba en reveladas, removerla
+            if (team == 1 && session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Remove(destroyedCardIndex);
+            if (team == 2 && session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Remove(destroyedCardIndex);
+
+            // Notificar al atacante para que vea la carta que rompió antes de que se descarte
+            ClientRpcParams rpcParamsSender = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { sender } }
+            };
+            RevealAndBreakOpponentCardClientRpc(sender, targetOpponentSlot, destroyedCardIndex, newCardIndex, rpcParamsSender);
+
+            // Sincronizar manos
+            SyncPlayerHand(session, sender);
+            SyncPlayerHand(session, opponentId);
+
+            SendPowerToast(session, sender, "FACÓN", 
+                $"¡Le rompiste el {destroyedCard.Number} de {destroyedCard.Suit} al rival! Robó una nueva carta del mazo.");
+
+            if (opponentId != ulong.MaxValue && opponentId != sender)
+            {
+                SendPowerToast(session, opponentId, "FACÓN", 
+                    $"¡El rival usó el Facón y destrozó tu {destroyedCard.Number} de {destroyedCard.Suit}! Robaste una nueva carta del mazo.");
+            }
+
+            SyncClientState(session);
+            TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
+        }
+
+        [ClientRpc]
+        public void RevealAndBreakOpponentCardClientRpc(
+            ulong targetClientId,
+            int slotIndex,
+            int destroyedCardIndex,
+            int newCardIndex,
+            ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != targetClientId) return;
+
+            if (NetworkManager.Singleton.SpawnManager != null && NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.RevealAndBreakOpponentCard(slotIndex, destroyedCardIndex, newCardIndex);
+                }
+            }
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void PlayGuitarraWithTargetServerRpc(int myCardIndex, int targetOpponentSlot, ServerRpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            var session = GetSessionByPlayer(sender);
+            if (session == null || session.GameModel == null) return;
+            if (masterDeck == null) return;
+
+            int team = (sender == session.Player1Id) ? 1 : 2;
+            List<int> playerHand = (team == 1) ? session.GameModel.P1Hand : session.GameModel.P2Hand;
+            List<int> opponentHand = (team == 1) ? session.GameModel.P2Hand : session.GameModel.P1Hand;
+            ulong opponentId = (team == 1) ? session.Player2Id : session.Player1Id;
+
+            if (playerHand == null || opponentHand == null) return;
+            if (!playerHand.Contains(myCardIndex)) return;
+            if (targetOpponentSlot < 0 || targetOpponentSlot >= opponentHand.Count) return;
+
+            NotifyPowerActivatedClientRpc(sender, "guitarra");
+
+            int oppCardIndex = opponentHand[targetOpponentSlot];
+
+            // Intercambiar cartas
+            playerHand.Remove(myCardIndex);
+            playerHand.Add(oppCardIndex);
+
+            opponentHand.RemoveAt(targetOpponentSlot);
+            opponentHand.Add(myCardIndex);
+
+            // Actualizar conjuntos de cartas reveladas
+            if (team == 1)
+            {
+                if (session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Remove(oppCardIndex);
+                if (session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Remove(myCardIndex);
+            }
+            else
+            {
+                if (session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Remove(oppCardIndex);
+                if (session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Remove(myCardIndex);
+            }
+
+            SyncPlayerHand(session, sender);
+            SyncPlayerHand(session, opponentId);
+
+            CardData givenCard = masterDeck.AvailableCards[myCardIndex];
+            CardData receivedCard = masterDeck.AvailableCards[oppCardIndex];
+
+            SendPowerToast(session, sender, "GUITARRA", 
+                $"¡Intercambio realizado! Diste tu {givenCard.Number} de {givenCard.Suit} y te quedaste con el {receivedCard.Number} de {receivedCard.Suit} del rival.");
+
+            if (opponentId != ulong.MaxValue && opponentId != sender)
+            {
+                SendPowerToast(session, opponentId, "GUITARRA", 
+                    $"¡Guitarreada rival! El rival te quitó una carta y te dio un {givenCard.Number} de {givenCard.Suit}.");
+            }
+
+            SyncClientState(session);
+            TryScheduleBotAction(session);
+            CheckStartPavaCalienteTimer(session);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SubmitGuitarraChoiceServerRpc(int myCardIndex, int targetOpponentSlot, ServerRpcParams rpcParams = default)
+        {
+            PlayGuitarraWithTargetServerRpc(myCardIndex, targetOpponentSlot, rpcParams);
         }
     }
 }
