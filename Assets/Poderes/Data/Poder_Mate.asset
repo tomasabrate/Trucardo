@@ -15,7 +15,11 @@ MonoBehaviour:
   PowerId: mate
   DisplayName: Mate
   Rarity: 0
-  Description: Revela una carta oculta del oponente.
+  ObjectConcept: Mate de calabaza curada con virola labrada y bombilla de alpaca.
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Revela una carta de la mano del rival durante 5 segundos (ambos saben cu\xE1l es)."
+  DetailedDescription: "Momento de activaci\xF3n: En cualquier momento durante el turno del jugador mientras el oponente conserve cartas en mano.\nMec\xE1nica: Revela una carta oculta de la mano del rival durante 5 segundos hacia el jugador local, avis\xE1ndole al rival cu\xE1l carta le fue vista."
+  Description: "Revela una carta de la mano del rival durante 5 segundos (ambos saben cu\xE1l es)."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 3c8e993c81ad4c98bf54861211c92bb3, type: 3}
   Effect: {fileID: 11400000, guid: 47c11d43cccf498e8e8a5c5b8c492f0d, type: 2}

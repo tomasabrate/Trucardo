@@ -15,12 +15,12 @@ namespace Trucardo.Core
 
         [Header("Configuración de Cuadrícula en Mesa")]
         public float baseLateralOffset = -0.48f; // Sector izquierdo de la mesa (respecto al jugador)
-        public float colSpacing = 0.11f;         // Separación entre columnas
-        public float rowSpacing = 0.12f;         // Separación entre filas
+        public float colSpacing = 0.15f;         // Separación entre columnas (ampliada a 15cm para mejor aprovechamiento del espacio)
+        public float rowSpacing = 0.15f;         // Separación entre filas (ampliada a 15cm)
         public float playerBaseDepth = -0.42f;   // Profundidad en el lado del jugador (frente a sus cartas)
         public float opponentBaseDepth = 0.42f;  // Profundidad en el lado del oponente (frente a las cartas rivales)
         public float heightOffset = 0.82f;
-        public float modelCenterHeight = 0.045f; // Altura del centro del modelo sobre el tablero (~9cm modelo)
+        public float modelCenterHeight = 0.005f; // Base del modelo apoyada directamente sobre la superficie de la mesa (5mm anti z-fighting)
 
         public void AddPower(PowerVisual power)
         {

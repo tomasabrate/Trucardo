@@ -15,11 +15,11 @@ MonoBehaviour:
   PowerId: guitarra
   DisplayName: Guitarra
   Rarity: 0
-  ObjectConcept: "Guitarra criolla cl\xC3\xA1sica de madera con roseta y cuerdas de nylon."
-  ModelStatus: Provisorio
-  ShortDescription: "Intercambi\xC3\xA1 una de tus cartas por una del rival seleccion\xC3\xA1ndolas con clic."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante el turno del jugador antes de tirar su carta.\nMec\xC3\xA1nica: Hac\xC3\xA9 clic en una carta de tu mano (se elevar\xC3\xA1) y luego clic en una del rival para cambiarlas (a ciegas o memorizando el Mate)."
-  Description: "Intercambi\xC3\xA1 una de tus cartas por una del rival seleccion\xC3\xA1ndolas con clic."
+  ObjectConcept: "Guitarra criolla cl\xE1sica de madera con roseta y cuerdas de nylon."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: Intercambia una de tus cartas por una del rival eligiendo ambas cartas con clic directo en 3D.
+  DetailedDescription: "Momento de activaci\xF3n: Durante el turno del jugador antes de tirar su carta.\nMec\xE1nica: El jugador hace clic en una carta propia (se eleva como confirmaci\xF3n) y luego hace clic en la carta rival deseada a ciegas para intercambiarlas."
+  Description: Intercambia una de tus cartas por una del rival eligiendo ambas cartas con clic directo en 3D.
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 82c9d6fb5dc44391b1d742ec52e17489, type: 3}
   Effect: {fileID: 11400000, guid: e43d19d4a2bf463bb9c4df986b8eddfd, type: 2}

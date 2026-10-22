@@ -16,10 +16,10 @@ MonoBehaviour:
   DisplayName: Luz Mala
   Rarity: 1
   ObjectConcept: Fuego fatuo espectral / candil antiguo con resplandor verdoso fantasmal.
-  ModelStatus: Provisorio
-  ShortDescription: "Vuelve blancas y mezcla las cartas del rival: no sabr\xC3\xA1 cu\xC3\xA1l es cu\xC3\xA1l al jugar."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante el turno del jugador antes de que el rival juegue sus cartas clave.\nMec\xC3\xA1nica: Envuelve las cartas del oponente en un halo espectral blanco, forz\xC3\xA1ndolo a jugar a ciegas."
-  Description: "Vuelve blancas y mezcla las cartas del rival: no sabr\xC3\xA1 cu\xC3\xA1l es cu\xC3\xA1l al jugar."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Vuelve blancas y mezcla las cartas del rival: no sabr\xE1 cu\xE1l es cu\xE1l al jugar."
+  DetailedDescription: "Momento de activaci\xF3n: Durante el turno del jugador antes de que el rival juegue sus cartas clave.\nMec\xE1nica: Envuelve las cartas del oponente en un halo espectral blanco, forz\xE1ndolo a jugar a ciegas."
+  Description: "Vuelve blancas y mezcla las cartas del rival: no sabr\xE1 cu\xE1l es cu\xE1l al jugar."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 1d58e879c8864f14898b22f2d1248411, type: 3}
   Effect: {fileID: 11400000, guid: 116e72c28bad4e79955df729f661d58f, type: 2}

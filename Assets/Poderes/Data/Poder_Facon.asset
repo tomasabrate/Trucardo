@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: Poder_Facon
   m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
   PowerId: facon
-  DisplayName: "Fac\xC3\xB3n"
+  DisplayName: "Fac\xF3n"
   Rarity: 0
-  ObjectConcept: "Cuchillo criollo gaucho / Fac\xC3\xB3n tradicional con mango de alpaca/asta y vaina de cuero."
-  ModelStatus: Provisorio
-  ShortDescription: "Romp\xC3\xA9 una carta a elecci\xC3\xB3n del rival (con clic); se revela y se le repone otra del mazo."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante el turno del jugador antes de tirar su carta.\nMec\xC3\xA1nica: Hac\xC3\xA9 clic sobre la carta del rival que quieras destruir. Se revelar\xC3\xA1 brevemente cu\xC3\xA1l era antes de descartarla, y el rival recibir\xC3\xA1 una nueva carta aleatoria del mazo."
-  Description: "Romp\xC3\xA9 una carta a elecci\xC3\xB3n del rival (con clic); se revela y se le repone otra del mazo."
+  ObjectConcept: "Cuchillo criollo gaucho / Fac\xF3n tradicional con mango de alpaca/asta y vaina de cuero."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Romp\xE9 una carta a elecci\xF3n del rival (con clic); se revela y se le repone otra del mazo."
+  DetailedDescription: "Momento de activaci\xF3n: Durante el turno del jugador antes de tirar una carta a la mesa.\nMec\xE1nica: Hac\xE9 clic sobre la carta del rival que quieras destruir. Se revelar\xE1 brevemente cu\xE1l era antes de descartarla, y el rival recibir\xE1 una nueva carta aleatoria del mazo."
+  Description: "Romp\xE9 una carta a elecci\xF3n del rival (con clic); se revela y se le repone otra del mazo."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 606f8a58e469459e9f0edff1e8ad6872, type: 3}
   Effect: {fileID: 11400000, guid: 015838b78e3e4e8fb1a985b6ec299c10, type: 2}

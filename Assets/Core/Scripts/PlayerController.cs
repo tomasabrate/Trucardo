@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
@@ -498,18 +498,10 @@ namespace Trucardo.Core
                 }
             }
 
-            // Seleccionar 1 poder para el rival si tiene menos de 4 acumulados y no está boleado
+            // Si el oponente está boleado o recibe poderes, el servidor autoritativo sincroniza via SyncOpponentPowers.
             if (opponentBoleado)
             {
                 Debug.Log("<color=#795548><b>[Poder Boleadoras]</b></color> El oponente está boleado. No recibe poder esta ronda.");
-            }
-            else if (opponentPowerInstances.Count < 4)
-            {
-                PowerData opponentPower = powerCatalog.GetRandomPower();
-                if (opponentPower != null && opponentPower.IsValid())
-                {
-                    SpawnOpponentPowerOnTable(opponentPower);
-                }
             }
 
             // Refrescar acomodo de cuadrícula en mesa
@@ -580,6 +572,62 @@ namespace Trucardo.Core
 
             opponentPowerVisualizer.AddPower(visual);
             opponentPowerInstances.Add(powerObject);
+        }
+
+        public void SyncOpponentPowers(string[] botPowerIds)
+        {
+            if (botPowerIds == null) return;
+            if (powerCatalog == null)
+            {
+                powerCatalog = Resources.Load<PowerCatalog>("PowerCatalog");
+            }
+            if (powerCatalog == null || powerCatalog.AvailablePowers == null) return;
+
+            if (opponentPowerVisualizer == null)
+            {
+                opponentPowerVisualizer = gameObject.AddComponent<PowerHandVisualizer>();
+                opponentPowerVisualizer.isOpponent = true;
+            }
+            opponentPowerVisualizer.tableCenter = currentTable;
+
+            opponentPowerInstances.RemoveAll(p => p == null);
+
+            var currentIds = new System.Collections.Generic.List<string>();
+            foreach (var inst in opponentPowerInstances)
+            {
+                PowerVisual pv = inst.GetComponent<PowerVisual>();
+                currentIds.Add(pv != null && pv.Data != null ? pv.Data.PowerId : "");
+            }
+
+            bool matches = currentIds.Count == botPowerIds.Length;
+            if (matches)
+            {
+                for (int i = 0; i < botPowerIds.Length; i++)
+                {
+                    if (currentIds[i] != botPowerIds[i])
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+            }
+
+            if (matches) return;
+
+            if (opponentPowerVisualizer != null) opponentPowerVisualizer.ClearPowers();
+            foreach (var p in opponentPowerInstances) if (p != null) Destroy(p);
+            opponentPowerInstances.Clear();
+
+            foreach (string pid in botPowerIds)
+            {
+                PowerData pData = powerCatalog.AvailablePowers.Find(p => p != null && p.PowerId == pid);
+                if (pData != null && pData.IsValid())
+                {
+                    SpawnOpponentPowerOnTable(pData);
+                }
+            }
+
+            if (opponentPowerVisualizer != null) opponentPowerVisualizer.RefreshLayout();
         }
 
         private Coroutine activeCardRevealCoroutine = null;
@@ -1672,17 +1720,29 @@ namespace Trucardo.Core
             }
             else
             {
-                // Remover el objeto 3D del poder rival de la mesa
+                // Remover el objeto 3D del poder rival específico de la mesa
                 if (opponentPowerVisualizer != null && opponentPowerInstances.Count > 0)
                 {
-                    GameObject toRemove = opponentPowerInstances[0];
-                    opponentPowerInstances.RemoveAt(0);
+                    GameObject toRemove = opponentPowerInstances.Find(go => {
+                        if (go == null) return false;
+                        PowerVisual pv = go.GetComponent<PowerVisual>();
+                        return pv != null && pv.Data != null && pv.Data.PowerId == powerId;
+                    });
+
+                    if (toRemove == null)
+                    {
+                        toRemove = opponentPowerInstances[0];
+                    }
+
                     if (toRemove != null)
                     {
+                        opponentPowerInstances.Remove(toRemove);
                         PowerVisual pv = toRemove.GetComponent<PowerVisual>();
                         if (pv != null) opponentPowerVisualizer.RemovePower(pv);
                         Destroy(toRemove);
                     }
+
+                    opponentPowerVisualizer.RefreshLayout();
                 }
 
                 AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");

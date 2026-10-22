@@ -15,10 +15,10 @@ MonoBehaviour:
   PowerId: ceibo
   DisplayName: Ceibo
   Rarity: 1
-  ObjectConcept: "Ramillete florecido del Ceibo (Flor Nacional Argentina) con p\xC3\xA9talos carmes\xC3\xAD."
-  ModelStatus: Provisorio
+  ObjectConcept: "Ramillete florecido del Ceibo (Flor Nacional Argentina) con p\xE9talos carmes\xED."
+  ModelStatus: Modelo 3D Final Low-Poly
   ShortDescription: Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado).
-  DetailedDescription: "Momento de activaci\xC3\xB3n: En cualquier momento antes de jugar todas las cartas (ideal antes de cantar Envido).\nMec\xC3\xA1nica: Transforma el palo de todas tus cartas al mismo palo manteniendo sus n\xC3\xBAmeros, garantizando un Envido legendario."
+  DetailedDescription: "Momento de activaci\xF3n: En cualquier momento antes de jugar todas las cartas (ideal antes de cantar Envido).\nMec\xE1nica: Transforma el palo de todas tus cartas al mismo palo manteniendo sus n\xFAmeros, garantizando un Envido legendario."
   Description: Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado).
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 1859b038425c4b32a338bbd60c7fe2d9, type: 3}

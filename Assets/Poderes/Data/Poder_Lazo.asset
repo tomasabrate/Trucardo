@@ -16,9 +16,9 @@ MonoBehaviour:
   DisplayName: Lazo
   Rarity: 0
   ObjectConcept: Lazo gaucho trenzado de cuero crudo en rollo con argolla.
-  ModelStatus: Provisorio
+  ModelStatus: Modelo 3D Final Low-Poly
   ShortDescription: 'Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas.'
-  DetailedDescription: "Momento de activaci\xC3\xB3n: \xC3\u0161nicamente durante la primera mano (baza 0), antes de haber jugado ninguna carta.\nMec\xC3\xA1nica: Descarta las 3 cartas iniciales completas al mazo y recibe 3 cartas nuevas extra\xC3\xADdas del mazo."
+  DetailedDescription: "Momento de activaci\xF3n: \xDAnicamente durante la primera mano (baza 0), antes de haber jugado ninguna carta.\nMec\xE1nica: Descarta las 3 cartas iniciales completas al mazo y recibe 3 cartas nuevas extra\xEDdas del mazo."
   Description: 'Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas.'
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: e2a2f6dfa24044f58daa64921f2ae189, type: 3}

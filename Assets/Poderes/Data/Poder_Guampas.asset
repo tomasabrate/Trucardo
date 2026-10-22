@@ -16,10 +16,10 @@ MonoBehaviour:
   DisplayName: Guampas
   Rarity: 0
   ObjectConcept: Par de cuernos de buey / guampas criollas pulidas.
-  ModelStatus: Provisorio
-  ShortDescription: "Rob\xC3\xA1 del mazo; hac\xC3\xA9 clic en una de tus cartas para cambiarla o clic derecho para descartarla."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: En el turno del jugador antes de tirar una carta a la mesa.\nMec\xC3\xA1nica: Roba una carta del mazo y muestra su valor. Hac\xC3\xA9 clic sobre una de tus cartas para reemplazarla, o clic derecho/Escape para conservarla."
-  Description: "Rob\xC3\xA1 del mazo; hac\xC3\xA9 clic en una de tus cartas para cambiarla o clic derecho para descartarla."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Roba una carta del mazo; eleg\xED con clic izquierdo por cu\xE1l cambiarla, o clic derecho para descartarla."
+  DetailedDescription: "Momento de activaci\xF3n: En el turno del jugador antes de tirar una carta a la mesa.\nMec\xE1nica: Toma una carta del mazo y permite al jugador elegir en 3D si reemplazar una carta de su mano o descartarla conservando su mano original."
+  Description: "Roba una carta del mazo; eleg\xED con clic izquierdo por cu\xE1l cambiarla, o clic derecho para descartarla."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 583f0f22c0b449878d1b9f58057476c4, type: 3}
   Effect: {fileID: 11400000, guid: 10d907817a7d4af88e6c5eaf82a2c94e, type: 2}

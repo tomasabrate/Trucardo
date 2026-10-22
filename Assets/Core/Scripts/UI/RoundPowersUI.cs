@@ -94,23 +94,24 @@ namespace Trucardo.Core.UI
             cardObj.transform.SetParent(panelRoot.transform, false);
 
             LayoutElement le = cardObj.GetComponent<LayoutElement>();
-            le.preferredHeight = 98f;
-            le.minHeight = 98f;
+            le.preferredHeight = 126f;
+            le.minHeight = 126f;
             le.preferredWidth = 340f;
 
             Image img = cardObj.GetComponent<Image>();
+            img.sprite = cachedWoodSprite;
             img.color = isLocal 
-                ? new Color(0.18f, 0.11f, 0.07f, 0.96f)  // Madera oscura cálida para jugador local
-                : new Color(0.20f, 0.08f, 0.06f, 0.96f); // Caoba quemado / rojizo para el rival
+                ? new Color(0.42f, 0.26f, 0.16f, 0.98f)   // Madera oscura cálida con tinte criollo
+                : new Color(0.38f, 0.18f, 0.14f, 0.98f);  // Caoba rojizo para el rival
             img.type = Image.Type.Simple;
             img.raycastTarget = false;
 
             // Borde / Filete criollo decorativo
             Outline outline = cardObj.GetComponent<Outline>();
             outline.effectColor = isLocal 
-                ? new Color(0.92f, 0.74f, 0.32f, 0.90f)  // Dorado criollo
-                : new Color(0.95f, 0.40f, 0.22f, 0.90f); // Naranja brasa
-            outline.effectDistance = new Vector2(2f, -2f);
+                ? new Color(0.92f, 0.74f, 0.32f, 0.85f)  // Dorado criollo
+                : new Color(0.95f, 0.40f, 0.22f, 0.85f); // Naranja brasa
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
 
             // Contenedor interno con VerticalLayoutGroup para garantizar alineación perfecta
             GameObject contentObj = new GameObject("CardContent", typeof(RectTransform), typeof(VerticalLayoutGroup));
@@ -118,14 +119,14 @@ namespace Trucardo.Core.UI
             RectTransform contentRt = contentObj.GetComponent<RectTransform>();
             contentRt.anchorMin = Vector2.zero;
             contentRt.anchorMax = Vector2.one;
-            contentRt.offsetMin = new Vector2(16f, 8f);
-            contentRt.offsetMax = new Vector2(-16f, -8f);
+            contentRt.offsetMin = new Vector2(18f, 10f);
+            contentRt.offsetMax = new Vector2(-18f, -10f);
 
             VerticalLayoutGroup vlg = contentObj.GetComponent<VerticalLayoutGroup>();
-            vlg.spacing = 2f;
+            vlg.spacing = 3f;
             vlg.childAlignment = TextAnchor.UpperLeft;
             vlg.childControlWidth = true;
-            vlg.childControlHeight = false;
+            vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
@@ -154,13 +155,13 @@ namespace Trucardo.Core.UI
             nameObj.transform.SetParent(contentObj.transform, false);
             LayoutElement nameLe = nameObj.GetComponent<LayoutElement>();
             nameLe.preferredHeight = 24f;
-            nameLe.minHeight = 24f;
+            nameLe.minHeight = 22f;
 
             TMP_Text nameTmp = nameObj.GetComponent<TextMeshProUGUI>();
             nameTmp.font = cachedFontAsset;
             if (cachedFontMaterial != null) nameTmp.fontSharedMaterial = cachedFontMaterial;
             nameTmp.text = power.DisplayName.ToUpper();
-            nameTmp.fontSize = 18f;
+            nameTmp.fontSize = 17f;
             nameTmp.fontStyle = FontStyles.Bold;
             nameTmp.color = new Color(1f, 0.98f, 0.92f, 1f);
             nameTmp.alignment = TextAlignmentOptions.Left;
@@ -170,18 +171,21 @@ namespace Trucardo.Core.UI
             GameObject descObj = new GameObject("PowerDescText", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
             descObj.transform.SetParent(contentObj.transform, false);
             LayoutElement descLe = descObj.GetComponent<LayoutElement>();
-            descLe.preferredHeight = 36f;
-            descLe.minHeight = 32f;
+            descLe.preferredHeight = 58f;
+            descLe.minHeight = 44f;
 
             TMP_Text descTmp = descObj.GetComponent<TextMeshProUGUI>();
             descTmp.font = cachedFontAsset;
             if (cachedFontMaterial != null) descTmp.fontSharedMaterial = cachedFontMaterial;
             descTmp.text = power.GetEffectiveShortDescription();
-            descTmp.fontSize = 13.5f; // Texto amplio y nítidamente legible
+            descTmp.fontSize = 13f;
             descTmp.fontStyle = FontStyles.Normal;
+            descTmp.enableAutoSizing = true;
+            descTmp.fontSizeMin = 10.5f;
+            descTmp.fontSizeMax = 13.5f;
             descTmp.textWrappingMode = TextWrappingModes.Normal;
             descTmp.overflowMode = TextOverflowModes.Ellipsis;
-            descTmp.color = new Color(0.90f, 0.88f, 0.82f, 1f);
+            descTmp.color = new Color(0.92f, 0.90f, 0.84f, 1f);
             descTmp.alignment = TextAlignmentOptions.TopLeft;
             descTmp.raycastTarget = false;
 
@@ -234,7 +238,7 @@ namespace Trucardo.Core.UI
                 if (extPanelRect != null)
                 {
                     extPanelRect.anchoredPosition = new Vector2(25f, 20f);
-                    extPanelRect.sizeDelta = new Vector2(340f, 240f);
+                    extPanelRect.sizeDelta = new Vector2(340f, 280f);
                 }
                 return;
             }
@@ -248,6 +252,12 @@ namespace Trucardo.Core.UI
                     cachedFontAsset = btnText.font;
                     cachedFontMaterial = btnText.fontSharedMaterial;
                 }
+            }
+
+            if (cachedWoodSprite == null)
+            {
+                Button anyBtn = FindAnyObjectByType<Button>();
+                if (anyBtn != null && anyBtn.image != null) cachedWoodSprite = anyBtn.image.sprite;
             }
 
             if (cachedFontAsset == null)
@@ -270,7 +280,7 @@ namespace Trucardo.Core.UI
             panelRect.anchorMax = new Vector2(0f, 0.5f);
             panelRect.pivot = new Vector2(0f, 0.5f);
             panelRect.anchoredPosition = new Vector2(25f, 20f);
-            panelRect.sizeDelta = new Vector2(340f, 240f);
+            panelRect.sizeDelta = new Vector2(340f, 280f);
 
             VerticalLayoutGroup vlg = panelObj.GetComponent<VerticalLayoutGroup>();
             vlg.spacing = 8f;

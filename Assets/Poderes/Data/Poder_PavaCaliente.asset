@@ -15,11 +15,11 @@ MonoBehaviour:
   PowerId: pava_caliente
   DisplayName: Pava Caliente
   Rarity: 0
-  ObjectConcept: "Pava de campo tiznada de chapa enlozada negra para fuego a le\xC3\xB1a."
-  ModelStatus: Provisorio
-  ShortDescription: "El rival tiene solo 5 segundos por turno durante toda la mano, o jugar\xC3\xA1 al azar."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: En cualquier momento durante la ronda.\nMec\xC3\xA1nica: Aplica un temporizador de presi\xC3\xB3n extrema: el rival dispone de \xC3\xBAnicamente 5 segundos por cada decisi\xC3\xB3n de juego."
-  Description: "El rival tiene solo 5 segundos por turno durante toda la mano, o jugar\xC3\xA1 al azar."
+  ObjectConcept: "Pava de campo tiznada de chapa enlozada negra para fuego a le\xF1a."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "El rival tiene solo 5 segundos por turno durante toda la mano, o jugar\xE1 al azar."
+  DetailedDescription: "Momento de activaci\xF3n: En cualquier momento durante la ronda.\nMec\xE1nica: Aplica un temporizador de presi\xF3n extrema: el rival dispone de \xFAnicamente 5 segundos por cada decisi\xF3n de juego."
+  Description: "El rival tiene solo 5 segundos por turno durante toda la mano, o jugar\xE1 al azar."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 939da1bcbada4edca6f0b9e37b628577, type: 3}
   Effect: {fileID: 11400000, guid: d1810f431f26447b835f52f216a2ba69, type: 2}

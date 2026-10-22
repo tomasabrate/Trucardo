@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Trucardo.Core
 {
@@ -56,6 +56,7 @@ namespace Trucardo.Core
         public bool IsValid()
         {
             return !string.IsNullOrWhiteSpace(PowerId)
+                && PowerId != "test_power"
                 && !string.IsNullOrWhiteSpace(DisplayName)
                 && Effect != null;
         }

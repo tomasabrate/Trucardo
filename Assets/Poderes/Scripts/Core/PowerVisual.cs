@@ -11,7 +11,7 @@ namespace Trucardo.Core
         public PowerData Data { get; private set; }
         public bool isOpponentPower = false;
 
-        public string PromptText => Data != null ? (isOpponentPower ? $"[Rival] {Data.DisplayName}" : Data.DisplayName) : "Poder";
+        public string PromptText => Data != null ? Data.DisplayName : "Poder";
 
         public bool CanInteract(GameObject interactor) => Data != null && isActiveAndEnabled;
 

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,8 +6,23 @@ using Trucardo.Core;
 
 namespace Trucardo.EditorScripts
 {
+    [InitializeOnLoad]
     public static class PowerSetupEditor
     {
+        static PowerSetupEditor()
+        {
+            EditorApplication.delayCall += OnEditorReady;
+        }
+
+        private static void OnEditorReady()
+        {
+            if (!SessionState.GetBool("Trucardo_FBX_Setup_Complete_v3", false))
+            {
+                SessionState.SetBool("Trucardo_FBX_Setup_Complete_v3", true);
+                SetupPowersSystem();
+            }
+        }
+
         [MenuItem("Trucardo/Configurar UI de Poderes Activos en Escena")]
         public static void SetupRoundPowersUIInScene()
         {
@@ -38,43 +53,137 @@ namespace Trucardo.EditorScripts
         }
 
         [MenuItem("Trucardo/Configurar Sistema de Poderes (Completo)")]
+        [MenuItem("Trucardo/Actualizar Modelos FBX de Poderes")]
         public static void SetupPowersSystem()
         {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+
             EnsureFolder("Assets/Poderes");
             EnsureFolder("Assets/Poderes/Data");
             EnsureFolder("Assets/Poderes/Prefabs");
             EnsureFolder("Assets/Poderes/Materiales");
             EnsureFolder("Assets/Poderes/Modelos");
+            EnsureFolder("Assets/Poderes/Modelos/Modelo FBX");
             EnsureFolder("Assets/Poderes/Texturas");
             EnsureFolder("Assets/Resources");
 
-            // ================= 1. MATERIALES =================
-            Material faconMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Facon.mat", new Color(0.75f, 0.78f, 0.82f));
-            Material mateMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Mate.mat", new Color(0.22f, 0.35f, 0.15f));
-            Material guampasMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Guampas.mat", new Color(0.92f, 0.88f, 0.75f));
-            Material lazoMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Lazo.mat", new Color(0.55f, 0.32f, 0.14f));
-            Material guitarraMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Guitarra.mat", new Color(0.65f, 0.40f, 0.20f));
-            Material pavaMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_PavaCaliente.mat", new Color(0.20f, 0.20f, 0.22f));
-            Material manoMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_ManoDeDios.mat", new Color(1.0f, 0.84f, 0.0f));
-            Material boleadorasMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Boleadoras.mat", new Color(0.35f, 0.25f, 0.20f));
-            Material ceiboMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_Ceibo.mat", new Color(0.85f, 0.10f, 0.15f));
-            Material luzMalaMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_LuzMala.mat", new Color(0.20f, 1.0f, 0.40f));
-            Material bastonMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_Poder_BastonPresidencial.mat", new Color(0.30f, 0.18f, 0.10f));
+            // ================= 1. MODELOS FBX Y PREFABS 3D =================
+            // Calibración de escalas para mesa de Truco (1.4m x 1.4m) con props de entre 11cm y 20cm:
 
-            // ================= 2. PREFABS 3D =================
-            GameObject faconPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Facon.prefab", PrimitiveType.Cube, faconMat, new Vector3(0.025f, 0.015f, 0.14f));
-            GameObject matePrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Mate.prefab", PrimitiveType.Cylinder, mateMat, new Vector3(0.08f, 0.045f, 0.08f));
-            GameObject guampasPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Guampas.prefab", PrimitiveType.Capsule, guampasMat, new Vector3(0.045f, 0.07f, 0.045f));
-            GameObject lazoPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Lazo.prefab", PrimitiveType.Cylinder, lazoMat, new Vector3(0.09f, 0.015f, 0.09f));
-            GameObject guitarraPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Guitarra.prefab", PrimitiveType.Cube, guitarraMat, new Vector3(0.065f, 0.02f, 0.12f));
-            GameObject pavaPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_PavaCaliente.prefab", PrimitiveType.Cylinder, pavaMat, new Vector3(0.07f, 0.055f, 0.07f));
-            GameObject manoPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_ManoDeDios.prefab", PrimitiveType.Sphere, manoMat, new Vector3(0.08f, 0.08f, 0.08f));
-            GameObject boleadorasPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Boleadoras.prefab", PrimitiveType.Sphere, boleadorasMat, new Vector3(0.065f, 0.065f, 0.065f));
-            GameObject ceiboPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_Ceibo.prefab", PrimitiveType.Cylinder, ceiboMat, new Vector3(0.06f, 0.04f, 0.06f));
-            GameObject luzMalaPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_LuzMala.prefab", PrimitiveType.Sphere, luzMalaMat, new Vector3(0.075f, 0.075f, 0.075f));
-            GameObject bastonPrefab = GetOrCreatePrefab("Assets/Poderes/Prefabs/Prefab_Poder_BastonPresidencial.prefab", PrimitiveType.Cylinder, bastonMat, new Vector3(0.02f, 0.08f, 0.02f));
+            // 1. Facón: Cuchillo criollo gaucho (40cm real -> ~16cm en mesa)
+            GameObject faconPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Facon.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Facon.fbx",
+                new Vector3(0.40f, 0.40f, 0.40f),
+                new Vector3(0f, -30f, 0f),
+                Vector3.zero,
+                PrimitiveType.Cube,
+                new Vector3(0.025f, 0.015f, 0.14f));
 
-            // ================= 3. EFECTOS SCRIPTABLEOBJECT =================
+            // 2. Mate: Mate de calabaza con virola y bombilla (13.9cm real -> ~11.8cm en mesa)
+            GameObject matePrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Mate.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Mate.fbx",
+                new Vector3(0.85f, 0.85f, 0.85f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Cylinder,
+                new Vector3(0.08f, 0.045f, 0.08f));
+
+            // 3. Guampas: Cuerno criollo de buey (17.9cm real -> ~13.4cm en mesa)
+            GameObject guampasPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Guampas.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Guamba.fbx",
+                new Vector3(0.75f, 0.75f, 0.75f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Capsule,
+                new Vector3(0.045f, 0.07f, 0.045f));
+
+            // 4. Lazo: Rollo trenzado de cuero con argolla (32.5cm real -> ~14.3cm en mesa)
+            GameObject lazoPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Lazo.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Lazo.fbx",
+                new Vector3(0.44f, 0.44f, 0.44f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Cylinder,
+                new Vector3(0.09f, 0.015f, 0.09f));
+
+            // 5. Guitarra: Guitarra criolla clásica (98.7cm real -> ~19.7cm en mesa, acostada estilizada)
+            GameObject guitarraPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Guitarra.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Guitarra.fbx",
+                new Vector3(0.20f, 0.20f, 0.20f),
+                new Vector3(0f, 30f, 0f),
+                Vector3.zero,
+                PrimitiveType.Cube,
+                new Vector3(0.065f, 0.02f, 0.12f));
+
+            // 6. Pava Caliente: Pava de campo enlozada tiznada (22.3cm real -> ~12.9cm en mesa)
+            GameObject pavaPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_PavaCaliente.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Pava.fbx",
+                new Vector3(0.58f, 0.58f, 0.58f),
+                new Vector3(0f, -45f, 0f),
+                Vector3.zero,
+                PrimitiveType.Cylinder,
+                new Vector3(0.07f, 0.055f, 0.07f));
+
+            // 7. Mano de Dios: Escultura dorada de la mano mítica con nubes (34.8cm real -> ~13.9cm en mesa)
+            GameObject manoPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_ManoDeDios.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/ManoDeDios.fbx",
+                new Vector3(0.40f, 0.40f, 0.40f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Sphere,
+                new Vector3(0.08f, 0.08f, 0.08f));
+
+            // 8. Boleadoras: Tres ramales con bolas de piedra (47.3cm real -> ~15.1cm en mesa)
+            GameObject boleadorasPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Boleadoras.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Boleadoras.fbx",
+                new Vector3(0.32f, 0.32f, 0.32f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Sphere,
+                new Vector3(0.065f, 0.065f, 0.065f));
+
+            // 9. Ceibo: Rama florecida de Flor Nacional del Ceibo (30cm real -> ~12.6cm en mesa)
+            GameObject ceiboPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_Ceibo.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Ceibo.fbx",
+                new Vector3(0.42f, 0.42f, 0.42f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Cylinder,
+                new Vector3(0.06f, 0.04f, 0.06f));
+
+            // 10. Luz Mala: Fuego fatuo espectral (V2 optimizada para prop de mano/mesa, 16.5cm real -> ~13.2cm)
+            string luzMalaFbx = File.Exists(Path.Combine(Application.dataPath, "Poderes/Modelos/Modelo FBX/LuzMalaV2.fbx"))
+                ? "Assets/Poderes/Modelos/Modelo FBX/LuzMalaV2.fbx"
+                : "Assets/Poderes/Modelos/Modelo FBX/LuzMala.fbx";
+            GameObject luzMalaPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_LuzMala.prefab",
+                luzMalaFbx,
+                new Vector3(0.80f, 0.80f, 0.80f),
+                Vector3.zero,
+                Vector3.zero,
+                PrimitiveType.Sphere,
+                new Vector3(0.075f, 0.075f, 0.075f));
+
+            // 11. Bastón Presidencial: Bastón de mando de urunday y plata (80cm real -> ~17.6cm en mesa)
+            GameObject bastonPrefab = CreateOrUpdatePowerPrefab(
+                "Assets/Poderes/Prefabs/Prefab_Poder_BastonPresidencial.prefab",
+                "Assets/Poderes/Modelos/Modelo FBX/Baston.fbx",
+                new Vector3(0.22f, 0.22f, 0.22f),
+                new Vector3(0f, 45f, 0f),
+                Vector3.zero,
+                PrimitiveType.Cylinder,
+                new Vector3(0.02f, 0.08f, 0.02f));
+
+            // ================= 2. EFECTOS SCRIPTABLEOBJECT =================
             FaconEffect faconEffect = GetOrCreateEffect<FaconEffect>("Assets/Poderes/Data/FaconEffect.asset");
             MateEffect mateEffect = GetOrCreateEffect<MateEffect>("Assets/Poderes/Data/MateEffect.asset");
             GuampasEffect guampasEffect = GetOrCreateEffect<GuampasEffect>("Assets/Poderes/Data/GuampasEffect.asset");
@@ -87,151 +196,140 @@ namespace Trucardo.EditorScripts
             LuzMalaEffect luzMalaEffect = GetOrCreateEffect<LuzMalaEffect>("Assets/Poderes/Data/LuzMalaEffect.asset");
             BastonPresidencialEffect bastonEffect = GetOrCreateEffect<BastonPresidencialEffect>("Assets/Poderes/Data/BastonPresidencialEffect.asset");
 
-            // ================= 4. POWER DATA =================
-            // 1. Facón (Común)
-            PowerData faconPower = GetOrCreatePowerData(
+            // ================= 3. POWER DATA =================
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Facon.asset",
                 "facon",
                 "Facón",
-                "Rompe una carta a elección del rival y robas una carta nueva del mazo.",
-                "Momento de activación: Durante el turno del jugador antes de jugar su carta de la baza.\nMecánica: Destruye una carta de la mano del rival y roba inmediatamente una carta nueva del mazo para sumarla a tu mano.",
+                "Rompé una carta a elección del rival (con clic); se revela y se le repone otra del mazo.",
+                "Momento de activación: Durante el turno del jugador antes de tirar una carta a la mesa.\nMecánica: Hacé clic sobre la carta del rival que quieras destruir. Se revelará brevemente cuál era antes de descartarla, y el rival recibirá una nueva carta aleatoria del mazo.",
                 "Cuchillo criollo gaucho / Facón tradicional con mango de alpaca/asta y vaina de cuero.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 faconPrefab,
                 faconEffect);
 
-            // 2. Mate (Común)
-            PowerData matePower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Mate.asset",
                 "mate",
                 "Mate",
-                "Revela una carta de la mano del rival durante 5 segundos.",
-                "Momento de activación: En cualquier momento durante el turno del jugador mientras el oponente conserve cartas en mano.\nMecánica: Revela una carta oculta de la mano del rival durante 5 segundos hacia el jugador local.",
+                "Revela una carta de la mano del rival durante 5 segundos (ambos saben cuál es).",
+                "Momento de activación: En cualquier momento durante el turno del jugador mientras el oponente conserve cartas en mano.\nMecánica: Revela una carta oculta de la mano del rival durante 5 segundos hacia el jugador local, avisándole al rival cuál carta le fue vista.",
                 "Mate de calabaza curada con virola labrada y bombilla de alpaca.",
-                "Provisorio implementado",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 matePrefab,
                 mateEffect);
 
-            // 3. Guampas (Común)
-            PowerData guampasPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Guampas.asset",
                 "guampas",
                 "Guampas",
-                "Roba una carta del mazo; si es mejor que una de tu mano, la reemplaza.",
-                "Momento de activación: En el turno del jugador antes de tirar una carta a la mesa.\nMecánica: Toma una carta del mazo y la evalúa contra tu mano, reemplazando la carta más débil si resulta ventajoso.",
+                "Roba una carta del mazo; elegí con clic izquierdo por cuál cambiarla, o clic derecho para descartarla.",
+                "Momento de activación: En el turno del jugador antes de tirar una carta a la mesa.\nMecánica: Toma una carta del mazo y permite al jugador elegir en 3D si reemplazar una carta de su mano o descartarla conservando su mano original.",
                 "Par de cuernos de buey / guampas criollas pulidas.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 guampasPrefab,
                 guampasEffect);
 
-            // 4. Lazo (Común)
-            PowerData lazoPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Lazo.asset",
                 "lazo",
                 "Lazo",
                 "Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas.",
                 "Momento de activación: Únicamente durante la primera mano (baza 0), antes de haber jugado ninguna carta.\nMecánica: Descarta las 3 cartas iniciales completas al mazo y recibe 3 cartas nuevas extraídas del mazo.",
                 "Lazo gaucho trenzado de cuero crudo en rollo con argolla.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 lazoPrefab,
                 lazoEffect);
 
-            // 5. Guitarra (Común)
-            PowerData guitarraPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Guitarra.asset",
                 "guitarra",
                 "Guitarra",
-                "Intercambia una de tus cartas por una del rival a ciegas.",
-                "Momento de activación: Durante el turno del jugador antes de tirar su carta.\nMecánica: Intercambia una carta al azar de tu mano con una de las cartas restantes del oponente sin conocerla previamente.",
+                "Intercambia una de tus cartas por una del rival eligiendo ambas cartas con clic directo en 3D.",
+                "Momento de activación: Durante el turno del jugador antes de tirar su carta.\nMecánica: El jugador hace clic en una carta propia (se eleva como confirmación) y luego hace clic en la carta rival deseada a ciegas para intercambiarlas.",
                 "Guitarra criolla clásica de madera con roseta y cuerdas de nylon.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 guitarraPrefab,
                 guitarraEffect);
 
-            // 6. Pava Caliente (Común)
-            PowerData pavaPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_PavaCaliente.asset",
                 "pava_caliente",
                 "Pava Caliente",
                 "El rival tiene solo 5 segundos por turno durante toda la mano, o jugará al azar.",
                 "Momento de activación: En cualquier momento durante la ronda.\nMecánica: Aplica un temporizador de presión extrema: el rival dispone de únicamente 5 segundos por cada decisión de juego.",
                 "Pava de campo tiznada de chapa enlozada negra para fuego a leña.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 pavaPrefab,
                 pavaEffect);
 
-            // 7. Mano de Dios (Común)
-            PowerData manoPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_ManoDeDios.asset",
                 "mano_de_dios",
                 "Mano de Dios",
-                "Cambia quién es 'Mano' en la ronda actual a tu favor.",
-                "Momento de activación: Durante la ronda, preferentemente antes del desenlace de empates.\nMecánica: Invierte la condición de quién es Mano de la partida, otorgando victoria automática en empates de Envido y ventajas de Truco.",
+                "Sos Mano de la ronda (ganás empates) y le cedés el tiro de la baza al rival.",
+                "Momento de activación: Durante el turno del jugador antes de tirar su carta o resolver empates.\nMecánica: Asigna la condición de Mano de la ronda y cede el turno de tiro al oponente.",
                 "Escultura dorada de una mano abierta apuntando hacia el cielo.",
-                "Provisorio implementado",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 manoPrefab,
                 manoEffect);
 
-            // 8. Boleadoras (Común)
-            PowerData boleadorasPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Boleadoras.asset",
                 "boleadoras",
                 "Boleadoras",
                 "Traba al rival: le impide recibir su próximo poder en la siguiente ronda.",
                 "Momento de activación: Durante cualquier momento de la ronda en curso.\nMecánica: Bloquea al rival colocándole el estado Boleado, impidiéndole recibir poderes en la mesa en la próxima ronda.",
                 "Boleadoras gauchas de tres ramales trenzados con bolas de piedra.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Comun,
                 boleadorasPrefab,
                 boleadorasEffect);
 
-            // 9. Ceibo (Legendario)
-            PowerData ceiboPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_Ceibo.asset",
                 "ceibo",
                 "Ceibo",
                 "Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado).",
                 "Momento de activación: En cualquier momento antes de jugar todas las cartas (ideal antes de cantar Envido).\nMecánica: Transforma el palo de todas tus cartas al mismo palo manteniendo sus números, garantizando un Envido legendario.",
                 "Ramillete florecido del Ceibo (Flor Nacional Argentina) con pétalos carmesí.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Legendario,
                 ceiboPrefab,
                 ceiboEffect);
 
-            // 10. Luz Mala (Legendario)
-            PowerData luzMalaPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_LuzMala.asset",
                 "luz_mala",
                 "Luz Mala",
                 "Vuelve blancas y mezcla las cartas del rival: no sabrá cuál es cuál al jugar.",
                 "Momento de activación: Durante el turno del jugador antes de que el rival juegue sus cartas clave.\nMecánica: Envuelve las cartas del oponente en un halo espectral blanco, forzándolo a jugar a ciegas.",
                 "Fuego fatuo espectral / candil antiguo con resplandor verdoso fantasmal.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Legendario,
                 luzMalaPrefab,
                 luzMalaEffect);
 
-            // 11. Bastón Presidencial (Legendario)
-            PowerData bastonPower = GetOrCreatePowerData(
+            GetOrCreatePowerData(
                 "Assets/Poderes/Data/Poder_BastonPresidencial.asset",
                 "baston_presidencial",
                 "Bastón Presidencial",
                 "Obliga al rival a aceptar (decir '¡Quiero!') a tu próximo canto.",
                 "Momento de activación: Justo antes de efectuar un canto (Envido o Truco).\nMecánica: Impone autoridad absoluta sobre la voluntad del oponente: bloquea la opción 'No Quiero' y fuerza la respuesta '¡Quiero!'.",
                 "Bastón de mando presidencial de madera de urunday con empuñadura y regatón de plata cincelada.",
-                "Provisorio",
+                "Modelo 3D Final Low-Poly",
                 PowerRarity.Legendario,
                 bastonPrefab,
                 bastonEffect);
 
-            // ================= 5. POWER CATALOG =================
+            // ================= 4. POWER CATALOG =================
             const string catalogPath = "Assets/Poderes/Data/PowerCatalog.asset";
             const string resourcesCatalogPath = "Assets/Resources/PowerCatalog.asset";
 
@@ -243,74 +341,138 @@ namespace Trucardo.EditorScripts
             }
 
             catalog.AvailablePowers.Clear();
-            catalog.AvailablePowers.Add(faconPower);
-            catalog.AvailablePowers.Add(matePower);
-            catalog.AvailablePowers.Add(guampasPower);
-            catalog.AvailablePowers.Add(lazoPower);
-            catalog.AvailablePowers.Add(guitarraPower);
-            catalog.AvailablePowers.Add(pavaPower);
-            catalog.AvailablePowers.Add(manoPower);
-            catalog.AvailablePowers.Add(boleadorasPower);
-            catalog.AvailablePowers.Add(ceiboPower);
-            catalog.AvailablePowers.Add(luzMalaPower);
-            catalog.AvailablePowers.Add(bastonPower);
-            EditorUtility.SetDirty(catalog);
+            string[] allPowerGuids = AssetDatabase.FindAssets("t:PowerData", new[] { "Assets/Poderes/Data" });
+            foreach (string guid in allPowerGuids)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                PowerData powerData = AssetDatabase.LoadAssetAtPath<PowerData>(assetPath);
+                if (powerData != null && powerData.PowerId != "test_power" && !assetPath.Contains("Prueba") && !catalog.AvailablePowers.Contains(powerData))
+                {
+                    catalog.AvailablePowers.Add(powerData);
+                }
+            }
 
-            // Guardar copia en Resources para carga automática en runtime
+            EditorUtility.SetDirty(catalog);
+            if (File.Exists(resourcesCatalogPath))
+            {
+                AssetDatabase.DeleteAsset(resourcesCatalogPath);
+            }
             AssetDatabase.CopyAsset(catalogPath, resourcesCatalogPath);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-
-            Debug.Log("<color=#4CAF50><b>[Poderes]</b></color> Catálogo completo configurado exitosamente: ¡11 Poderes listos para jugar!");
+            Debug.Log("<color=#4CAF50><b>[Poderes]</b> Todos los modelos FBX reales han sido configurados e integrados exitosamente en sus respectivos Prefabs y PowerData.</color>");
         }
 
-        private static Material GetOrCreateMaterial(string path, Color color)
+        private static GameObject CreateOrUpdatePowerPrefab(
+            string prefabPath,
+            string fbxPath,
+            Vector3 modelScale,
+            Vector3 modelRotation,
+            Vector3 modelOffset,
+            PrimitiveType fallbackPrimitive,
+            Vector3 fallbackScale)
         {
-            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (mat == null)
+            GameObject fbxAsset = !string.IsNullOrEmpty(fbxPath) ? AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath) : null;
+            string prefabName = Path.GetFileNameWithoutExtension(prefabPath);
+
+            GameObject rootObj = new GameObject(prefabName);
+            rootObj.AddComponent<PowerVisual>();
+
+            Bounds totalBounds = new Bounds(Vector3.zero, Vector3.zero);
+            bool hasBounds = false;
+
+            if (fbxAsset != null)
             {
-                Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-                if (shader == null) shader = Shader.Find("Standard");
-                mat = new Material(shader) { color = color };
-                AssetDatabase.CreateAsset(mat, path);
+                GameObject visualChild = null;
+                if (PrefabUtility.IsPartOfPrefabAsset(fbxAsset))
+                {
+                    visualChild = (GameObject)PrefabUtility.InstantiatePrefab(fbxAsset);
+                }
+                if (visualChild == null)
+                {
+                    visualChild = Object.Instantiate(fbxAsset);
+                }
+
+                visualChild.name = "VisualModel";
+                visualChild.transform.SetParent(rootObj.transform, false);
+                visualChild.transform.localPosition = modelOffset;
+                visualChild.transform.localRotation = Quaternion.Euler(modelRotation);
+                visualChild.transform.localScale = modelScale;
+
+                // Destruir colliders internos del FBX si existieran
+                Collider[] childColliders = visualChild.GetComponentsInChildren<Collider>(true);
+                foreach (var c in childColliders)
+                {
+                    Object.DestroyImmediate(c);
+                }
+
+                // Asignación de materiales y texturas específicas si corresponde (ej. Mano de Dios)
+                if (prefabName.Contains("ManoDeDios"))
+                {
+                    Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Poderes/Modelos/Modelo FBX/ManoDeDios_Textura.png");
+                    Material balonMat = GetOrCreateTextureMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_Balon.mat", tex);
+                    Material nubeAMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeA.mat", HexToColor("#F4F7FA"));
+                    Material nubeBMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeB.mat", HexToColor("#D9E5EF"));
+                    Material nubeCMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeC.mat", HexToColor("#B7CFE3"));
+
+                    Renderer rend = visualChild.GetComponentInChildren<Renderer>(true);
+                    if (rend != null)
+                    {
+                        rend.sharedMaterials = new Material[] { balonMat, nubeAMat, nubeBMat, nubeCMat };
+                    }
+                }
+
+                Renderer[] renderers = visualChild.GetComponentsInChildren<Renderer>(true);
+                foreach (var r in renderers)
+                {
+                    if (!hasBounds)
+                    {
+                        totalBounds = r.bounds;
+                        hasBounds = true;
+                    }
+                    else
+                    {
+                        totalBounds.Encapsulate(r.bounds);
+                    }
+                }
             }
             else
             {
-                mat.color = color;
-                EditorUtility.SetDirty(mat);
+                GameObject primitive = GameObject.CreatePrimitive(fallbackPrimitive);
+                primitive.name = "VisualPrimitive";
+                primitive.transform.SetParent(rootObj.transform, false);
+                primitive.transform.localScale = fallbackScale;
+
+                Collider primCol = primitive.GetComponent<Collider>();
+                if (primCol != null) Object.DestroyImmediate(primCol);
+
+                totalBounds = new Bounds(Vector3.up * (fallbackScale.y * 0.5f), fallbackScale);
+                hasBounds = true;
             }
-            return mat;
-        }
 
-        private static GameObject GetOrCreatePrefab(string path, PrimitiveType shape, Material material, Vector3 scale)
-        {
-            GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (existing != null) return existing;
-
-            GameObject tempObj = GameObject.CreatePrimitive(shape);
-            tempObj.transform.localScale = scale;
-            if (material != null)
+            // Collider ergonómico en el Root para interacción táctil en primera persona
+            BoxCollider collider = rootObj.AddComponent<BoxCollider>();
+            if (hasBounds)
             {
-                var renderer = tempObj.GetComponent<Renderer>();
-                if (renderer != null) renderer.sharedMaterial = material;
-            }
+                Vector3 localCenter = rootObj.transform.InverseTransformPoint(totalBounds.center);
+                Vector3 localSize = rootObj.transform.InverseTransformVector(totalBounds.size);
+                localSize = new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z));
 
-            // Asegurar PowerVisual
-            if (tempObj.GetComponent<PowerVisual>() == null)
+                // Mínimo 12cm lateral y 10cm de altura para clic infalible
+                localSize = Vector3.Max(localSize, new Vector3(0.12f, 0.10f, 0.12f));
+                collider.center = localCenter;
+                collider.size = localSize;
+            }
+            else
             {
-                tempObj.AddComponent<PowerVisual>();
+                collider.center = new Vector3(0f, 0.06f, 0f);
+                collider.size = new Vector3(0.14f, 0.12f, 0.14f);
             }
 
-            // Asegurar Collider
-            if (tempObj.GetComponent<Collider>() == null)
-            {
-                tempObj.AddComponent<BoxCollider>();
-            }
-
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(tempObj, path);
-            Object.DestroyImmediate(tempObj);
-            return prefab;
+            GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(rootObj, prefabPath);
+            Object.DestroyImmediate(rootObj);
+            return savedPrefab;
         }
 
         private static T GetOrCreateEffect<T>(string path) where T : PowerEffect
@@ -356,6 +518,61 @@ namespace Trucardo.EditorScripts
 
             EditorUtility.SetDirty(power);
             return power;
+        }
+
+        private static Material GetOrCreateTextureMaterial(string path, Texture2D texture)
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+
+            mat.color = Color.white;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+            if (texture != null)
+            {
+                mat.mainTexture = texture;
+                if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", texture);
+            }
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        private static Material GetOrCreateMaterial(string path, Color color)
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+
+            mat.color = color;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        private static Color HexToColor(string hex)
+        {
+            if (ColorUtility.TryParseHtmlString(hex, out Color c)) return c;
+            return Color.white;
         }
 
         private static void EnsureFolder(string path)

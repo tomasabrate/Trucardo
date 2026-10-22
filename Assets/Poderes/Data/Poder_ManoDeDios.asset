@@ -15,7 +15,11 @@ MonoBehaviour:
   PowerId: mano_de_dios
   DisplayName: Mano de Dios
   Rarity: 0
-  Description: "Sos Mano de la ronda (gan\xC3\xA1s empates) y le ced\xC3\xA9s el tiro al rival."
+  ObjectConcept: Escultura dorada de una mano abierta apuntando hacia el cielo.
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Sos Mano de la ronda (gan\xE1s empates) y le ced\xE9s el tiro de la baza al rival."
+  DetailedDescription: "Momento de activaci\xF3n: Durante el turno del jugador antes de tirar su carta o resolver empates.\nMec\xE1nica: Asigna la condici\xF3n de Mano de la ronda y cede el turno de tiro al oponente."
+  Description: "Sos Mano de la ronda (gan\xE1s empates) y le ced\xE9s el tiro de la baza al rival."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000002, guid: d2371c85df6d4937a9433989a92e22e2, type: 3}
   Effect: {fileID: 11400000, guid: 6184ebe7c2f549f3af27f67f056813f1, type: 2}

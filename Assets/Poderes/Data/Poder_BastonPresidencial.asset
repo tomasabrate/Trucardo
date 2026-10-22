@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: Poder_BastonPresidencial
   m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.PowerData
   PowerId: baston_presidencial
-  DisplayName: "Bast\xC3\xB3n Presidencial"
+  DisplayName: "Bast\xF3n Presidencial"
   Rarity: 1
-  ObjectConcept: "Bast\xC3\xB3n de mando presidencial de madera de urunday con empu\xC3\xB1adura y regat\xC3\xB3n de plata cincelada."
-  ModelStatus: Provisorio
-  ShortDescription: "Obliga al rival a aceptar (decir '\xC2\xA1Quiero!') a tu pr\xC3\xB3ximo canto."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: Justo antes de efectuar un canto (Envido o Truco).\nMec\xC3\xA1nica: Impone autoridad absoluta sobre la voluntad del oponente: bloquea la opci\xC3\xB3n 'No Quiero' y fuerza la respuesta '\xC2\xA1Quiero!'."
-  Description: "Obliga al rival a aceptar (decir '\xC2\xA1Quiero!') a tu pr\xC3\xB3ximo canto."
+  ObjectConcept: "Bast\xF3n de mando presidencial de madera de urunday con empu\xF1adura y regat\xF3n de plata cincelada."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Obliga al rival a aceptar (decir '\xA1Quiero!') a tu pr\xF3ximo canto."
+  DetailedDescription: "Momento de activaci\xF3n: Justo antes de efectuar un canto (Envido o Truco).\nMec\xE1nica: Impone autoridad absoluta sobre la voluntad del oponente: bloquea la opci\xF3n 'No Quiero' y fuerza la respuesta '\xA1Quiero!'."
+  Description: "Obliga al rival a aceptar (decir '\xA1Quiero!') a tu pr\xF3ximo canto."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: 8f801efaf4d246f1bfaa097b5387deb3, type: 3}
   Effect: {fileID: 11400000, guid: 73ea625c31ec4aff9edd45cd6d20a914, type: 2}

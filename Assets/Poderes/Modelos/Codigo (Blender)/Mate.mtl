@@ -1,0 +1,36 @@
+newmtl Calabaza
+Kd 0.6118 0.3569 0.1725
+Ka 0 0 0
+Ks 0 0 0
+d 1
+
+newmtl Metal
+Kd 0.6627 0.6471 0.6157
+Ka 0 0 0
+Ks 0 0 0
+d 1
+
+newmtl Yerba_A
+Kd 0.4353 0.4980 0.1647
+Ka 0 0 0
+Ks 0 0 0
+d 1
+
+newmtl Yerba_B
+Kd 0.5608 0.6275 0.2275
+Ka 0 0 0
+Ks 0 0 0
+d 1
+
+newmtl Yerba_C
+Kd 0.7098 0.7098 0.2745
+Ka 0 0 0
+Ks 0 0 0
+d 1
+
+newmtl Bombilla
+Kd 0.7843 0.7490 0.6510
+Ka 0 0 0
+Ks 0 0 0
+d 1
+

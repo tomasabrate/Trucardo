@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace Trucardo.Core
@@ -13,7 +13,7 @@ namespace Trucardo.Core
             List<PowerData> candidates = new List<PowerData>();
             foreach (var power in AvailablePowers)
             {
-                if (power == null || !power.IsValid()) continue;
+                if (power == null || !power.IsValid() || power.PowerId == "test_power") continue;
                 if (rarityFilter.HasValue && power.Rarity != rarityFilter.Value) continue;
                 candidates.Add(power);
             }
@@ -23,7 +23,7 @@ namespace Trucardo.Core
                 // Fallback to any valid power if filter yielded none
                 foreach (var power in AvailablePowers)
                 {
-                    if (power != null && power.IsValid()) candidates.Add(power);
+                    if (power != null && power.IsValid() && power.PowerId != "test_power") candidates.Add(power);
                 }
             }
 

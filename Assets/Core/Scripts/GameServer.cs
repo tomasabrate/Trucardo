@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -54,6 +54,7 @@ namespace Trucardo.Core
         public HashSet<int> P1RevealedOpponentCards = new HashSet<int>();
         public HashSet<int> P2RevealedOpponentCards = new HashSet<int>();
         public ulong GuitarraPendingPlayerId = 0;
+        public System.Collections.Generic.List<string> BotAvailablePowerIds = new System.Collections.Generic.List<string>();
     }
 
     public partial class GameServer : NetworkBehaviour
@@ -305,6 +306,7 @@ namespace Trucardo.Core
             CancelGuitarraChoice(session);
             if (session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Clear();
             if (session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Clear();
+            if (session.BotAvailablePowerIds != null) session.BotAvailablePowerIds.Clear();
 
             if (session.Player1Id == departingPlayerId)
             {
@@ -537,19 +539,35 @@ namespace Trucardo.Core
 
             if (decision == null) yield break;
 
-            // Activación opcional de poder por parte del Bot
+            // Activación opcional de poder por parte del Bot (únicamente poderes que posee en la mesa)
             if (!session.BotPowerUsedThisRound && !session.P2Boleado && session.GameModel.CurrentState == GameState.TurnoJugador)
             {
-                if (UnityEngine.Random.value < 0.35f)
+                if (UnityEngine.Random.value < 0.35f && session.BotAvailablePowerIds != null && session.BotAvailablePowerIds.Count > 0)
                 {
                     PowerCatalog catalog = Resources.Load<PowerCatalog>("PowerCatalog");
                     if (catalog != null && catalog.AvailablePowers != null && catalog.AvailablePowers.Count > 0)
                     {
-                        PowerData botPower = catalog.GetRandomPower();
-                        if (botPower != null && botPower.IsValid())
+                        var playablePowers = new System.Collections.Generic.List<string>();
+                        foreach (var pid in session.BotAvailablePowerIds)
                         {
+                            PowerData pData = catalog.AvailablePowers.Find(p => p != null && p.PowerId == pid);
+                            if (pData != null && pData.Effect != null)
+                            {
+                                PowerContext context = new PowerContext(botId, 2, null, null, session.GameModel);
+                                if (pData.Effect.CanExecute(context, out _))
+                                {
+                                    playablePowers.Add(pid);
+                                }
+                            }
+                        }
+
+                        if (playablePowers.Count > 0)
+                        {
+                            string chosenPowerId = playablePowers[UnityEngine.Random.Range(0, playablePowers.Count)];
+                            session.BotAvailablePowerIds.Remove(chosenPowerId);
                             session.BotPowerUsedThisRound = true;
-                            ProcessPlayPower(botId, botPower.PowerId);
+                            ProcessPlayPower(botId, chosenPowerId);
+                            SyncClientState(session);
                         }
                     }
                 }
@@ -1206,6 +1224,27 @@ namespace Trucardo.Core
             session.P2ActivePowerId = null;
             session.BotPowerUsedThisRound = false;
 
+            if (session.Player2Type == ParticipantType.Bot)
+            {
+                bool botBoleado = session.P2Boleado;
+                if (botBoleado)
+                {
+                    session.P2Boleado = false;
+                }
+                else if (session.BotAvailablePowerIds.Count < 4)
+                {
+                    PowerCatalog catalog = Resources.Load<PowerCatalog>("PowerCatalog");
+                    if (catalog != null && catalog.AvailablePowers != null && catalog.AvailablePowers.Count > 0)
+                    {
+                        PowerData newPower = catalog.GetRandomPower();
+                        if (newPower != null && newPower.IsValid())
+                        {
+                            session.BotAvailablePowerIds.Add(newPower.PowerId);
+                        }
+                    }
+                }
+            }
+
             List<int> deckIndices = new List<int>();
             for (int i = 0; i < 40; i++) deckIndices.Add(i);
             
@@ -1428,6 +1467,22 @@ namespace Trucardo.Core
             }
         }
 
+        [ClientRpc]
+        public void SyncBotPowersClientRpc(string botPowersDelimited, ClientRpcParams clientRpcParams = default)
+        {
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.SpawnManager != null && NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject() != null)
+            {
+                PlayerController pc = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    string[] powerIds = string.IsNullOrEmpty(botPowersDelimited)
+                        ? new string[0]
+                        : botPowersDelimited.Split(new[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries);
+                    pc.SyncOpponentPowers(powerIds);
+                }
+            }
+        }
+
         public void CheckStartPavaCalienteTimer(TableSession session)
         {
             if (session == null) return;
@@ -1540,6 +1595,14 @@ namespace Trucardo.Core
                 session.P1LuzMalaActive,
                 session.P2LuzMalaActive,
                 clientRpcParams);
+
+            if (session.Player2Type == ParticipantType.Bot)
+            {
+                string delimited = (session.BotAvailablePowerIds != null && session.BotAvailablePowerIds.Count > 0)
+                    ? string.Join(",", session.BotAvailablePowerIds)
+                    : "";
+                SyncBotPowersClientRpc(delimited, clientRpcParams);
+            }
         }
 
         public void PromptGuampasChoice(TableSession session, ulong targetClientId, int drawnCardIndex)

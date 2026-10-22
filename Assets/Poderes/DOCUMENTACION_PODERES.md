@@ -1,12 +1,12 @@
-# Registro Maestro y Documentación de Poderes - Trucardo
+﻿# Registro Maestro y Documentación de Poderes - Trucardo
 
 > [!IMPORTANT]
 > **DIRECTIVA PARA AGENTES DE IA (LECTURA Y ACTUALIZACIÓN OBLIGATORIA):**
 > Este documento es la **Fuente Canónica de Verdad** sobre los poderes de Trucardo.
 > 1. Si cualquier agente necesita conocer las reglas, mecánicas, interacciones o balance de cualquier poder, **DEBE CONSULTAR OBLIGATORIAMENTE ESTE DOCUMENTO**.
-> 2. Cada vez que el usuario solicite un cambio o ajuste sobre cualquier poder (mecánica, balance, interacción, UI o reglas), **EL AGENTE TIENE LA OBLIGACIÓN ESTRICTA de actualizar inmediatamente este archivo** y los ScriptableObjects pertinentes para evitar pérdida de contexto.
+> 2. Cada vez que el usuario solicite un cambio o ajuste sobre cualquier poder (mecánica, balance, interacción, UI, modelos o reglas), **EL AGENTE TIENE LA OBLIGACIÓN ESTRICTA de actualizar inmediatamente este archivo** y los ScriptableObjects pertinentes para evitar pérdida de contexto.
 
-Este documento contiene el diseño de juego, reglas técnicas, descripción in-game y especificación visual de los **11 Poderes de Trucardo** (8 Comunes y 3 Legendarios), actualizado con el sistema de acumulación, sinergias y línea de tiempo de la UI.
+Este documento contiene el diseño de juego, reglas técnicas, descripción in-game y especificación visual de los **11 Poderes de Trucardo** (8 Comunes y 3 Legendarios), actualizado con los modelos 3D low-poly reales (FBX), el sistema de acumulación, sinergias y línea de tiempo de la UI.
 
 ---
 
@@ -16,10 +16,14 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
   - Cada jugador (humano y bot/rival) recibe **1 poder aleatorio por ronda** al repartirse las cartas.
   - **Acumulación en mesa:** Si un poder no se utiliza durante la ronda, **se conserva y se acumula** en la mesa para las rondas siguientes, hasta un **máximo de 4 poderes acumulados** por jugador.
   - **Uso múltiple por ronda:** Si un jugador tiene varios poderes acumulados en su mesa, puede activar más de un poder dentro de una misma ronda táctica.
-- **Ubicación en la Mesa:**
-  - Los poderes se ubican siempre sobre el **sector izquierdo de la mesa** (desde la perspectiva del jugador local, que corresponde a la derecha del rival).
-  - Están dispuestos en una cuadrícula compacta de 2x2 ranuras para acomodar hasta 4 poderes sin superponerse ni tapar las cartas.
-  - El jugador local puede ver sus propios poderes en primer plano y los poderes del rival al frente.
+- **Ubicación y Distribución Espacial en la Mesa:**
+  - Los poderes se ubican sobre el **sector lateral izquierdo de la mesa** (perspectiva del jugador local, correspondiente a la derecha del rival).
+  - Están dispuestos en una cuadrícula espaciosa de **2 columnas x 2 filas** con separación optimizada de **15 cm** (`colSpacing = 0.15f`, `rowSpacing = 0.15f`) y anclaje lateral en `-0.48m` (`baseLateralOffset = -0.48f`).
+  - **Aislamiento estricto de cartas:** El área central de cartas jugadas se ubica entre `-0.22m` y `+0.22m`. El slot más cercano de poderes queda en `-0.405m`, garantizando un pasillo despejado de más de **18.5 cm** de mesa libre que impide cualquier solapamiento o confusión visual entre poderes y naipes.
+  - **Apoyo natural sobre la mesa:** La base de los modelos 3D (`modelCenterHeight = 0.005f`) reposa a ras de la superficie de madera, evitando objetos flotantes.
+- **Modelos 3D y Apariencia Visual:**
+  - Se utilizan los modelos definitivos Low-Poly en formato `.fbx` cargados en `Assets/Poderes/Modelos/Modelo FBX/` con sus materiales y colores planos embebidos.
+  - Cada modelo cuenta con una escala ajustada al tamaño de la mesa de Truco (props de entre 11 cm y 20 cm) y un `BoxCollider` ergonómico en la raíz (mínimo de 12x10x12 cm) para garantizar clics cómodos e infalibles en primera persona.
 - **Interacción e Interfaz:**
   - El jugador apunta al objeto 3D con la vista y presiona **Clic izquierdo del mouse** para activar el poder.
   - Al mirar el objeto propio, el indicador de interfaz muestra: `[Clic] <Nombre del Poder>`.
@@ -44,13 +48,13 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 #### 1. Facón
 - **Identificador (ID):** `facon`
 - **Rareza:** Común
-- **Objeto Tradicional:** Cuchillo criollo gaucho / Facón tradicional con mango de alpaca/asta y vaina de cuero.
+- **Objeto Tradicional:** Cuchillo criollo gaucho tradicional con mango de alpaca/asta y hoja de acero templado.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Prisma afilado metálico grisáceo.
-  - *Modelo definitivo planificado:* Modelo 3D de facón criollo apoyado sobre su vaina.
+  - *Estado:* Modelo 3D Final Low-Poly (`Facon.fbx` en `Prefab_Poder_Facon.prefab`).
+  - *Representación:* Cuchillo criollo gaucho con vaina de cuero y mango labrado.
+  - *Escala en mesa:* `0.40x` (largo calibrado a ~16 cm en mesa, orientado a -30° para reposo estético).
 - **Descripción Corta (In-Game):**
-  > *"Rompe una carta a elección del rival (haciéndole clic en 3D); se revela brevemente y se le repone otra del mazo."*
+  > *"Rompé una carta a elección del rival (con clic); se revela y se le repone otra del mazo."*
 - **Descripción Larga y Reglas:**
   - **Momento de activación:** Durante el turno del jugador antes de tirar una carta a la mesa.
   - **Mecánica interactiva en 3D:**
@@ -69,11 +73,11 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Rareza:** Común
 - **Objeto Tradicional:** Mate de calabaza curada con virola labrada y bombilla de alpaca.
 - **Modelo 3D:**
-  - *Estado:* Provisorio implementado (`Prefab_Poder_Mate.prefab`).
-  - *Representación actual:* Cilindro verde oscuro / madera de escala reducida (8x9 cm).
-  - *Modelo definitivo planificado:* Mate realista 3D con yerba mate y bombilla inclinada.
+  - *Estado:* Modelo 3D Final Low-Poly (`Mate.fbx` en `Prefab_Poder_Mate.prefab`).
+  - *Representación:* Mate tradicional de calabaza con virola metálica, yerba mate y bombilla.
+  - *Escala en mesa:* `0.85x` (altura ~11.8 cm, base circular ~8.3 cm).
 - **Descripción Corta (In-Game):**
-  > *"Revela una carta de la mano del rival. La víctima sabe cuál le vieron."*
+  > *"Revela una carta de la mano del rival durante 5 segundos (ambos saben cuál es)."*
 - **Descripción Larga y Reglas:**
   - **Momento de activación:** En cualquier momento durante el turno del jugador mientras el oponente conserve cartas en mano.
   - **Mecánica:** Selecciona aleatoriamente una carta oculta de la mano del rival y la voltea suavemente erguida de frente hacia el invocador durante 5 segundos.
@@ -85,13 +89,13 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 #### 3. Guampas
 - **Identificador (ID):** `guampas`
 - **Rareza:** Común
-- **Objeto Tradicional:** Par de cuernos de buey / guampas criollas pulidas o vaso de guampa labrado.
+- **Objeto Tradicional:** Cuerno de buey / guampa criolla labrada tradicional.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Cápsula o toroide arqueado color hueso.
-  - *Modelo definitivo planificado:* Par de guampas criollas con detalles en cuero o alpaca.
+  - *Estado:* Modelo 3D Final Low-Poly (`Guamba.fbx` en `Prefab_Poder_Guampas.prefab`).
+  - *Representación:* Guampa criolla arqueada con grabado y boca pulida.
+  - *Escala en mesa:* `0.75x` (altura ~13.4 cm, ancho ~7.4 cm).
 - **Descripción Corta (In-Game):**
-  > *"Robá del mazo; hacé clic en una de tus cartas para cambiarla o clic derecho para descartarla."*
+  > *"Roba una carta del mazo; elegí con clic izquierdo por cuál cambiarla, o clic derecho para descartarla."*
 - **Descripción Larga y Reglas:**
   - **Momento de activación:** En el turno del jugador antes de tirar una carta a la mesa.
   - **Mecánica interactiva en 3D (Sin menús 2D invasivos):**
@@ -109,9 +113,9 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Rareza:** Común
 - **Objeto Tradicional:** Lazo gaucho trenzado de cuero crudo en rollo con presilla y argolla de hierro.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Toroide / Anillo marrón cuero.
-  - *Modelo definitivo planificado:* Rollo de lazo trenzado de cuero vacuno con argolla.
+  - *Estado:* Modelo 3D Final Low-Poly (`Lazo.fbx` en `Prefab_Poder_Lazo.prefab`).
+  - *Representación:* Rollo circular trenzado de lazo gaucho con textura de cuero y argolla.
+  - *Escala en mesa:* `0.44x` (diámetro ~14.3 cm, altura ~2.2 cm).
 - **Descripción Corta (In-Game):**
   > *"Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas."*
 - **Descripción Larga y Reglas:**
@@ -124,13 +128,13 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 #### 5. Guitarra
 - **Identificador (ID):** `guitarra`
 - **Rareza:** Común
-- **Objeto Tradicional:** Guitarra criolla / criolla de madera con roseta tradicional y cuerdas de nylon.
+- **Objeto Tradicional:** Guitarra criolla de madera con roseta tradicional y cuerdas de nylon.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Figura acústica de madera estilizada.
-  - *Modelo definitivo planificado:* Guitarra criolla clásica apoyada.
+  - *Estado:* Modelo 3D Final Low-Poly (`Guitarra.fbx` en `Prefab_Poder_Guitarra.prefab`).
+  - *Representación:* Guitarra criolla clásica de madera en flat shading apoyada horizontalmente.
+  - *Escala en mesa:* `0.20x` (largo ~19.7 cm, ancho ~7.9 cm, rotación 30°).
 - **Descripción Corta (In-Game):**
-  > *"Intercambia una de tus cartas por una del rival seleccionándolas directamente con clic."*
+  > *"Intercambia una de tus cartas por una del rival eligiendo ambas cartas con clic directo en 3D."*
 - **Descripción Larga y Reglas:**
   - **Momento de activación:** Durante el turno del jugador antes de tirar su carta.
   - **Mecánica interactiva en 3D (Sin menús 2D invasivos):**
@@ -147,11 +151,11 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 #### 6. Pava Caliente
 - **Identificador (ID):** `pava_caliente`
 - **Rareza:** Común
-- **Objeto Tradicional:** Pava de campo tiznada de chapa enlozada negra o acero inoxidable para fuego a leña.
+- **Objeto Tradicional:** Pava de campo tiznada de chapa enlozada negra para fuego a leña.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Cilindro cónico con asa / figura de pava metálica.
-  - *Modelo definitivo planificado:* Pava criolla enlozada de campo con pico y asa de madera.
+  - *Estado:* Modelo 3D Final Low-Poly (`Pava.fbx` en `Prefab_Poder_PavaCaliente.prefab`).
+  - *Representación:* Pava criolla de campo con asa superior, tapa y pico vertedor.
+  - *Escala en mesa:* `0.58x` (ancho ~12.9 cm, alto ~12.4 cm, rotación -45°).
 - **Descripción Corta (In-Game):**
   > *"El rival tiene solo 5 segundos por turno durante toda la mano, o jugará al azar."*
 - **Descripción Larga y Reglas:**
@@ -165,19 +169,19 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 #### 7. Mano de Dios
 - **Identificador (ID):** `mano_de_dios`
 - **Rareza:** Común
-- **Objeto Tradicional:** Escultura dorada de una mano abierta apuntando hacia el cielo (alusión a la jugada mítica).
+- **Objeto Tradicional:** Pelota de fútbol low-poly con mano estilizada luciendo la bandera argentina y sol patrio, reposando sobre nubes celestiales.
 - **Modelo 3D:**
-  - *Estado:* Provisorio implementado (`Prefab_Poder_ManoDeDios.prefab`).
-  - *Representación actual:* Esfera dorada brillante compacta (8 cm).
-  - *Modelo definitivo planificado:* Escultura dorada estilizada de mano o guantelete.
+  - *Estado:* Modelo 3D Final Low-Poly (`ManoDeDios.fbx` en `Prefab_Poder_ManoDeDios.prefab`).
+  - *Representación:* Pelota con textura (`ManoDeDios_Textura.png`) que ilustra la silueta de la mano con los colores patrios y sol, sostenida por tres tonos de nubes en sombreado facetado.
+  - *Escala en mesa:* `0.40x` (ancho ~13.9 cm, alto ~9.0 cm).
 - **Descripción Corta (In-Game):**
-  > *"Sos Mano de la ronda (ganás empates) y le cedés el tiro de la baza al rival."*
+  > *"Sos Mano de la ronda (ganás empates) y le cedés el primer tiro al rival si la baza recién empieza."*
 - **Descripción Larga y Reglas:**
-  - **Momento de activación:** Durante la ronda, preferentemente antes del desenlace de empates o cuando el jugador desea forzar al rival a iniciar el tiro de una baza.
+  - **Momento de activación:** Durante la ronda, preferentemente antes del desenlace de empates o al inicio de una baza.
   - **Mecánicas combinadas:**
-    1. **Adquisición de la Mano de la ronda:** Asigna `ManoPlayerId = invocador`. El jugador que lo activa pasa a ser considerado la "Mano" oficial de la partida para toda la ronda.
-    2. **Ventaja de desempate:** En caso de empate en puntos de Envido, el jugador gana automáticamente. En caso de "parda" (empate en la primera baza del Truco), quien es mano define la ventaja para adjudicarse la ronda al ganar la siguiente baza.
-    3. **Cesión del tiro de la baza:** Si el poder se activa durante `TurnoJugador` en el turno del invocador (`CurrentTurnId == Invocador`), **transfiere de inmediato el tiro inicial de la baza al rival** (`CurrentTurnId = Rival`), reprograma el temporizador de Pava Caliente si estuviera activo y ordena al bot/rival tirar su carta primero a la mesa sin que el jugador quede esperando.
+    1. **Adquisición de la Mano de la ronda:** Asigna `ManoPlayerId = invocador`. El jugador que lo activa pasa a ser considerado la "Mano" oficial de la partida para toda la ronda, ganando cualquier desempate en Envido o parda en Truco.
+    2. **Cesión del tiro inicial (solo al abrir una baza):** Si se activa al inicio de una baza cuando ambos jugadores tienen la misma cantidad de cartas jugadas (`P1PlayedCards.Count == P2PlayedCards.Count`) y era turno del invocador de abrir la mano, cede el tiro inicial al rival (`CurrentTurnId = Rival`), forzando al oponente a tirar primero.
+    3. **Respuesta en baza en curso:** Si la baza ya comenzó y el rival ya tiró su carta (esperando la respuesta del jugador), el invocador **conserva su turno para jugar su carta y cerrar la baza** sin que el rival tire dos veces seguidas ni se saltee la mano actual.
 
 ---
 
@@ -186,9 +190,9 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Rareza:** Común
 - **Objeto Tradicional:** Boleadoras de tres ramales de tientos de cuero crudo trenzado con bolas de piedra ("tres marías").
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Tres esferas conectadas por cilindros finos.
-  - *Modelo definitivo planificado:* Boleadoras gauchas con tientos de cuero trenzados.
+  - *Estado:* Modelo 3D Final Low-Poly (`Boleadoras.fbx` en `Prefab_Poder_Boleadoras.prefab`).
+  - *Representación:* Tres bolas de piedra unidas por tientos de cuero trenzados.
+  - *Escala en mesa:* `0.32x` (ancho ~15.1 cm, profundidad ~9.8 cm, alto ~2.1 cm).
 - **Descripción Corta (In-Game):**
   > *"Traba al rival: le impide recibir su próximo poder en la siguiente ronda."*
 - **Descripción Larga y Reglas:**
@@ -206,9 +210,9 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Rareza:** Legendario
 - **Objeto Tradicional:** Ramillete o rama florecida del Ceibo (Flor Nacional Argentina) con pétalos rojo carmesí.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Flor roja estilizada / prisma pentagonal carmesí.
-  - *Modelo definitivo planificado:* Rama tallada con flores rojas de ceibo y hojas verdes.
+  - *Estado:* Modelo 3D Final Low-Poly (`Ceibo.fbx` en `Prefab_Poder_Ceibo.prefab`).
+  - *Representación:* Rama leñosa con ramillete de flores rojas de ceibo y hojas verdes.
+  - *Escala en mesa:* `0.42x` (altura ~12.6 cm, ancho ~8.4 cm).
 - **Descripción Corta (In-Game):**
   > *"Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado)."*
 - **Descripción Larga y Reglas:**
@@ -223,9 +227,9 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Rareza:** Legendario
 - **Objeto Tradicional:** Fuego fatuo espectral / candil antiguo de campo que despide un resplandor verdoso fantasmal.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Esfera translúcida con emisión verde fosforescente.
-  - *Modelo definitivo planificado:* Calavera o candil campero con llama verde sobrenatural.
+  - *Estado:* Modelo 3D Final Low-Poly (`LuzMalaV2.fbx` en `Prefab_Poder_LuzMala.prefab`).
+  - *Representación:* Candil / candela fantasmal de campo con llama espectral verde y fragmentos levitando.
+  - *Escala en mesa:* `0.80x` (altura ~13.2 cm, ancho ~8.6 cm).
 - **Descripción Corta (In-Game):**
   > *"Vuelve blancas y mezcla las cartas del rival: no sabrá cuál es cuál al jugar."*
 - **Descripción Larga y Reglas:**
@@ -240,9 +244,9 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Rareza:** Legendario
 - **Objeto Tradicional:** Bastón de mando presidencial de madera de urunday con empuñadura y regatón de plata cincelada.
 - **Modelo 3D:**
-  - *Estado:* Provisorio / Pendiente.
-  - *Representación actual:* Bastón cilíndrico fino marrón oscuro con pomo plateado.
-  - *Modelo definitivo planificado:* Bastón de mando cincelado con escudo nacional en el pomo.
+  - *Estado:* Modelo 3D Final Low-Poly (`Baston.fbx` en `Prefab_Poder_BastonPresidencial.prefab`).
+  - *Representación:* Bastón de mando acostado con empuñadura de plata, escudo patrio y cana de urunday.
+  - *Escala en mesa:* `0.22x` (largo ~17.6 cm, ancho ~1.3 cm, rotación 45°).
 - **Descripción Corta (In-Game):**
   > *"Obliga al rival a aceptar (decir '¡Quiero!') a tu próximo canto."*
 - **Descripción Larga y Reglas:**
@@ -253,24 +257,26 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 
 ## 3. Matriz Comparativa Rápida
 
-| Poder | Rareza | Objeto Criollo | Modelo 3D Actual | Descripción Corta (HUD) | Sinergia / Detalle Clave |
-|---|---|---|---|---|---|
-| **Facón** | Común | Cuchillo criollo | Prisma metálico | Rompe una carta del rival (con clic); se revela y se le repone otra del mazo. | Selección 3D. Destruye carta del rival, se revela brevemente y el mazo le entrega una nueva al rival. |
-| **Mate** | Común | Mate con bombilla | Cilindro verde/madera (8x9 cm) | Revela una carta del rival (5s). | La víctima sabe cuál carta le vieron. Sinergia de memoria táctica con Facón y Guitarra. |
-| **Guampas** | Común | Cuernos de toro | Cápsula arqueada | Robá del mazo; elegí si cambiar una de tus cartas o descartarla. | Interacción 3D directa: clic izquierdo en carta propia para reemplazar o clic derecho para descartar robada. |
-| **Lazo** | Común | Rollo de lazo gaucho | Anillo/toroide cuero | (1ra mano) Descarta tus 3 cartas y saca 3 nuevas. | Restringido estrictamente a baza 0. |
-| **Guitarra** | Común | Guitarra criolla | Silueta acústica madera | Intercambia una de tus cartas por una del rival seleccionándolas con clic. | Selección 3D directa con elevación de carta propia; a ciegas o recordando la posición del Mate. |
-| **Pava Caliente** | Común | Pava tiznada de campo | Cilindro con pico | Rival tiene solo 5s por turno o juega al azar. | Temporizador regresivo visual en HUD con juego forzado. |
-| **Mano de Dios** | Común | Mano dorada | Esfera dorada (8 cm) | Sos Mano de la ronda (ganás empates) y le cedés el tiro al rival. | Asigna la condición de Mano (desempates/pardas a favor) y cede el tiro de baza al rival al instante. |
-| **Boleadoras** | Común | Boleadoras tres marías | Tres esferas unidas | Niega al rival recibir su poder la próxima ronda. | Neutraliza la siguiente ventaja del oponente. |
-| **Ceibo** | Legendario | Flor del Ceibo | Flor roja prisma | Cambia el palo de todas tus cartas al mismo palo. | Garantiza combinaciones monstruosas de Envido (ej. 33). |
-| **Luz Mala** | Legendario | Fuego fatuo / Candil | Esfera verde brillante | Vuelve blancas y mezcla las cartas del rival. | Fuerza a jugar a ciegas tanto a humanos como a bots. |
-| **Bastón Presidencial** | Legendario | Bastón de mando | Bastón con pomo plata | Obliga al rival a aceptar tu próximo canto. | Impide el "No Quiero", cobro garantizado de puntos. |
+| Poder | Rareza | Objeto Criollo | Modelo FBX | Medidas en Mesa | Descripción Corta (HUD) | Sinergia / Detalle Clave |
+|---|---|---|---|---|---|---|
+| **Facón** | Común | Cuchillo criollo | `Facon.fbx` | ~16 cm largo (0.40x) | Rompe una carta del rival (con clic); se revela y se le repone otra del mazo. | Selección 3D. Destruye carta del rival, se revela brevemente y el mazo le entrega una nueva al rival. |
+| **Mate** | Común | Mate con bombilla | `Mate.fbx` | ~11.8 cm alto (0.85x) | Revela una carta del rival (5s). | La víctima sabe cuál carta le vieron. Sinergia de memoria táctica con Facón y Guitarra. |
+| **Guampas** | Común | Cuernos de buey | `Guamba.fbx` | ~13.4 cm alto (0.75x) | Robá del mazo; elegí si cambiar una de tus cartas o descartarla. | Interacción 3D directa: clic izquierdo en carta propia para reemplazar o clic derecho para descartar robada. |
+| **Lazo** | Común | Rollo de lazo gaucho | `Lazo.fbx` | ~14.3 cm diám. (0.44x) | (1ra mano) Descarta tus 3 cartas y saca 3 nuevas. | Restringido estrictamente a baza 0. |
+| **Guitarra** | Común | Guitarra criolla | `Guitarra.fbx` | ~19.7 cm largo (0.20x) | Intercambia una de tus cartas por una del rival seleccionándolas con clic. | Selección 3D directa con elevación de carta propia; a ciegas o recordando la posición del Mate. |
+| **Pava Caliente** | Común | Pava tiznada de campo | `Pava.fbx` | ~12.9 cm ancho (0.58x) | Rival tiene solo 5s por turno o juega al azar. | Temporizador regresivo visual en HUD con juego forzado. |
+| **Mano de Dios** | Común | Mano dorada mítica | `ManoDeDios.fbx` | ~13.9 cm ancho (0.40x) | Sos Mano de la ronda (ganás empates) y le cedés el tiro al rival. | Asigna la condición de Mano (desempates/pardas a favor) y cede el tiro de baza al rival al instante. |
+| **Boleadoras** | Común | Boleadoras tres marías | `Boleadoras.fbx` | ~15.1 cm ancho (0.32x) | Niega al rival recibir su poder la próxima ronda. | Neutraliza la siguiente ventaja del oponente. |
+| **Ceibo** | Legendario | Flor del Ceibo | `Ceibo.fbx` | ~12.6 cm alto (0.42x) | Cambia el palo de todas tus cartas al mismo palo. | Garantiza combinaciones monstruosas de Envido (ej. 33). |
+| **Luz Mala** | Legendario | Fuego fatuo / Candil | `LuzMalaV2.fbx` | ~13.2 cm alto (0.80x) | Vuelve blancas y mezcla las cartas del rival. | Fuerza a jugar a ciegas tanto a humanos como a bots. |
+| **Bastón Presidencial** | Legendario | Bastón de mando | `Baston.fbx` | ~17.6 cm largo (0.22x) | Obliga al rival a aceptar tu próximo canto. | Impide el "No Quiero", cobro garantizado de puntos. |
 
 ---
 
 ## 4. Guía de Archivos y Arquitectura en el Proyecto
 
+- **Modelos FBX Nativos:** [`Assets/Poderes/Modelos/Modelo FBX/`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Modelos/Modelo%20FBX/)
+- **Prefabs 3D Ensamblados:** [`Assets/Poderes/Prefabs/`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Prefabs/)
 - **Definición de Datos:** [`Assets/Poderes/Scripts/Core/PowerData.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Core/PowerData.cs)
 - **Efectos Base:** [`Assets/Poderes/Scripts/Core/PowerEffect.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Core/PowerEffect.cs)
 - **Implementación de Efectos:** [`Assets/Poderes/Scripts/Effects/`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Effects/)
@@ -285,8 +291,8 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
   - `CeiboEffect.cs`
   - `LuzMalaEffect.cs`
   - `BastonPresidencialEffect.cs`
-- **Visualizadores de Mesa:** [`Assets/Poderes/Scripts/Core/PowerHandVisualizer.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Core/PowerHandVisualizer.cs) (cuadrícula 2x2 para hasta 4 poderes acumulados).
+- **Visualizadores de Mesa:** [`Assets/Poderes/Scripts/Core/PowerHandVisualizer.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Core/PowerHandVisualizer.cs) (cuadrícula 2x2 con separación de 15 cm y pasillo de 18.5 cm hacia las cartas).
 - **Línea de Tiempo de Ronda en UI:** [`Assets/Core/Scripts/UI/RoundPowersUI.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Core/Scripts/UI/RoundPowersUI.cs) y [`Assets/Core/Scripts/UI/HUDController.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Core/Scripts/UI/HUDController.cs).
 - **ScriptableObjects (Assets):** [`Assets/Poderes/Data/`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Data/)
-- **Prefabs 3D:** [`Assets/Poderes/Prefabs/`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Prefabs/)
+- **Editor / Generador Automático:** [`Assets/Poderes/Scripts/Editor/PowerSetupEditor.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Editor/PowerSetupEditor.cs)
 - **Panel de Pruebas / Modo Admin:** [`Assets/Poderes/Scripts/Core/PowerAdminController.cs`](file:///C:/Users/Tomas%20Abrate/Trucardo/Assets/Poderes/Scripts/Core/PowerAdminController.cs) (tecla `F1`)

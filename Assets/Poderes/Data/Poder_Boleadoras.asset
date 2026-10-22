@@ -16,10 +16,10 @@ MonoBehaviour:
   DisplayName: Boleadoras
   Rarity: 0
   ObjectConcept: Boleadoras gauchas de tres ramales trenzados con bolas de piedra.
-  ModelStatus: Provisorio
-  ShortDescription: "Traba al rival: le impide recibir su pr\xC3\xB3ximo poder en la siguiente ronda."
-  DetailedDescription: "Momento de activaci\xC3\xB3n: Durante cualquier momento de la ronda en curso.\nMec\xC3\xA1nica: Bloquea al rival coloc\xC3\xA1ndole el estado Boleado, impidi\xC3\xA9ndole recibir poderes en la mesa en la pr\xC3\xB3xima ronda."
-  Description: "Traba al rival: le impide recibir su pr\xC3\xB3ximo poder en la siguiente ronda."
+  ModelStatus: Modelo 3D Final Low-Poly
+  ShortDescription: "Traba al rival: le impide recibir su pr\xF3ximo poder en la siguiente ronda."
+  DetailedDescription: "Momento de activaci\xF3n: Durante cualquier momento de la ronda en curso.\nMec\xE1nica: Bloquea al rival coloc\xE1ndole el estado Boleado, impidi\xE9ndole recibir poderes en la mesa en la pr\xF3xima ronda."
+  Description: "Traba al rival: le impide recibir su pr\xF3ximo poder en la siguiente ronda."
   SelectionImage: {fileID: 0}
   WorldPrefab: {fileID: 1000000000000001, guid: a95375331a3543c497e26d8efe16561f, type: 3}
   Effect: {fileID: 11400000, guid: 0e17f7a352dc452790154de1141f952c, type: 2}
