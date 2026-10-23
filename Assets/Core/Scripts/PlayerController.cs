@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
@@ -102,9 +102,36 @@ namespace Trucardo.Core
             else TrySitDown();
         }
 
+        private static AudioClip cachedPowerStrumSound;
+
+        private static AudioClip GetPowerStrumSound()
+        {
+            if (cachedPowerStrumSound == null)
+            {
+                cachedPowerStrumSound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+            }
+            return cachedPowerStrumSound;
+        }
+
+        private void Awake()
+        {
+            if (Application.targetFrameRate <= 0 || Application.targetFrameRate > 120)
+            {
+                Application.targetFrameRate = 60;
+            }
+        }
+
         public override void OnNetworkSpawn()
         {
             TableDefinition.EnsureSceneConfiguration();
+            if (cachedPowerStrumSound == null)
+            {
+                cachedPowerStrumSound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+            }
+            if (powerCatalog == null)
+            {
+                powerCatalog = Resources.Load<PowerCatalog>("PowerCatalog");
+            }
             characterController = GetComponent<CharacterController>();
 
             AudioListener audioListener = GetComponent<AudioListener>();
@@ -1269,7 +1296,7 @@ namespace Trucardo.Core
                                         handVisualizer.RefreshLayout();
                                     }
                                     if (hudController != null) hudController.HidePowerPrompt();
-                                    AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                                    AudioClip sound = GetPowerStrumSound();
                                     if (sound != null) AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
                                     if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
                                     if (serverInstance != null) serverInstance.SubmitGuampasChoiceServerRpc(cardToReplace);
@@ -1298,7 +1325,7 @@ namespace Trucardo.Core
                                         Destroy(activeFaconVisual.gameObject);
                                         activeFaconVisual = null;
                                     }
-                                    AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                                    AudioClip sound = GetPowerStrumSound();
                                     if (sound != null) AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
                                     if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
                                     if (serverInstance != null) serverInstance.PlayFaconWithTargetServerRpc(oppSlot);
@@ -1368,7 +1395,7 @@ namespace Trucardo.Core
                                             Destroy(activeGuitarraVisual.gameObject);
                                             activeGuitarraVisual = null;
                                         }
-                                        AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                                        AudioClip sound = GetPowerStrumSound();
                                         if (sound != null) AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
                                         if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
                                         if (serverInstance != null) serverInstance.PlayGuitarraWithTargetServerRpc(myCardIndex, oppSlot);
@@ -1679,7 +1706,7 @@ namespace Trucardo.Core
                 serverInstance.PlayPowerServerRpc(visual.Data.PowerId);
             }
 
-            AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+            AudioClip sound = GetPowerStrumSound();
             if (sound != null)
             {
                 AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);
@@ -1745,7 +1772,7 @@ namespace Trucardo.Core
                     opponentPowerVisualizer.RefreshLayout();
                 }
 
-                AudioClip sound = Resources.Load<AudioClip>("Sonidos/Efectos/Rasgueo Para Poder");
+                AudioClip sound = GetPowerStrumSound();
                 if (sound != null)
                 {
                     AudioSource.PlayClipAtPoint(sound, transform.position, 1.0f);

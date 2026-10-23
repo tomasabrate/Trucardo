@@ -600,11 +600,13 @@ namespace Trucardo.Core.UI
             toastCoroutine = null;
         }
 
+        private int lastDisplayedPavaTenth = -1;
+
         private void Update()
         {
-            EnsurePavaTimerUI();
             if (pavaCalienteActive && isSeated && !matchFinished)
             {
+                if (pavaTimerRoot == null) EnsurePavaTimerUI();
                 if (pavaTimerRoot != null && !pavaTimerRoot.activeSelf)
                     pavaTimerRoot.SetActive(true);
 
@@ -615,7 +617,13 @@ namespace Trucardo.Core.UI
 
                     if (pavaTimerText != null)
                     {
-                        pavaTimerText.text = $"🔥 PAVA CALIENTE: {pavaTimeRemaining:F1}s";
+                        int tenth = Mathf.RoundToInt(pavaTimeRemaining * 10f);
+                        if (tenth != lastDisplayedPavaTenth)
+                        {
+                            lastDisplayedPavaTenth = tenth;
+                            pavaTimerText.text = $"🔥 PAVA CALIENTE: {pavaTimeRemaining:F1}s";
+                        }
+
                         if (pavaTimeRemaining <= 2.0f)
                         {
                             pavaTimerText.color = (Mathf.Sin(Time.time * 12f) > 0f) ? Color.red : new Color(1f, 0.45f, 0f, 1f);
@@ -628,8 +636,9 @@ namespace Trucardo.Core.UI
                 }
                 else
                 {
-                    if (pavaTimerText != null)
+                    if (pavaTimerText != null && lastDisplayedPavaTenth != -999)
                     {
+                        lastDisplayedPavaTenth = -999;
                         pavaTimerText.text = "🔥 PAVA RIVAL: APURADO";
                         pavaTimerText.color = new Color(0.9f, 0.7f, 0.5f, 1f);
                     }
@@ -637,6 +646,7 @@ namespace Trucardo.Core.UI
             }
             else
             {
+                lastDisplayedPavaTenth = -1;
                 if (pavaTimerRoot != null && pavaTimerRoot.activeSelf)
                     pavaTimerRoot.SetActive(false);
             }

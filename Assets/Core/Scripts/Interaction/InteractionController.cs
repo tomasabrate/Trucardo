@@ -22,6 +22,7 @@ namespace Trucardo.Core.Interaction
         private int bindingIndex;
         private string bindingLabel = "";
         private bool enabledAction;
+        private readonly RaycastHit[] hitBuffer = new RaycastHit[16];
 
                         private void OnEnable()
         {
@@ -111,28 +112,29 @@ namespace Trucardo.Core.Interaction
 
             if (raycastOrigin != null)
             {
-                var hits = Physics.RaycastAll(raycastOrigin.position, raycastOrigin.forward, maxDistance, raycastMask, triggerInteraction);
+                int hitCount = Physics.RaycastNonAlloc(raycastOrigin.position, raycastOrigin.forward, hitBuffer, maxDistance, raycastMask, triggerInteraction);
                 
-                if (hits.Length == 0)
+                if (hitCount == 0)
                 {
-                    hits = Physics.SphereCastAll(raycastOrigin.position, 0.05f, raycastOrigin.forward, maxDistance, raycastMask, triggerInteraction);
+                    hitCount = Physics.SphereCastNonAlloc(raycastOrigin.position, 0.05f, raycastOrigin.forward, hitBuffer, maxDistance, raycastMask, triggerInteraction);
                 }
 
-                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-                foreach (var hit in hits)
+                float closestDistance = float.MaxValue;
+                for (int i = 0; i < hitCount; i++)
                 {
-                    if (hit.collider.transform.root == player.transform.root) continue;
+                    var hit = hitBuffer[i];
+                    if (hit.collider == null || hit.collider.transform.root == player.transform.root) continue;
+                    if (hit.distance >= closestDistance) continue;
 
                     var candidate = hit.collider.GetComponentInParent<IInteractable>();
                     var component = candidate as MonoBehaviour;
                     
                     if (component != null && component.isActiveAndEnabled && candidate.CanInteract(player.gameObject))
                     {
+                        closestDistance = hit.distance;
                         target = candidate;
                         targetComponent = component;
                         targetCollider = hit.collider;
-                        break;
                     }
                 }
             }

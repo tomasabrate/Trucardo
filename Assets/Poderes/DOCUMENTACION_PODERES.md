@@ -24,6 +24,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelos 3D y Apariencia Visual:**
   - Se utilizan los modelos definitivos Low-Poly en formato `.fbx` cargados en `Assets/Poderes/Modelos/Modelo FBX/` con sus materiales y colores planos embebidos.
   - Cada modelo cuenta con una escala ajustada al tamaño de la mesa de Truco (props de entre 11 cm y 20 cm) y un `BoxCollider` ergonómico en la raíz (mínimo de 12x10x12 cm) para garantizar clics cómodos e infalibles en primera persona.
+  - **Optimización y Rendimiento:** Todos los materiales de poderes cuentan con **GPU Instancing activado** (m_EnableInstancingVariants: 1) para permitir batching en la GPU al convivir hasta 8 objetos en mesa, y la interacción en primera persona usa consultas libres de recolección de basura (Physics.RaycastNonAlloc).
 - **Interacción e Interfaz:**
   - El jugador apunta al objeto 3D con la vista y presiona **Clic izquierdo del mouse** para activar el poder.
   - Al mirar el objeto propio, el indicador de interfaz muestra: `[Clic] <Nombre del Poder>`.

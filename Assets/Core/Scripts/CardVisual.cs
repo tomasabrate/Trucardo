@@ -219,11 +219,13 @@ namespace Trucardo.Core
                     luzMalaPointLight.color = new Color(0.72f, 1f, 0.90f);
                     luzMalaPointLight.range = 0.65f;
                     luzMalaPointLight.intensity = 2.4f;
+                    luzMalaPointLight.shadows = LightShadows.None;
                 }
             }
 
             if (luzMalaPointLight != null)
             {
+                luzMalaPointLight.shadows = LightShadows.None;
                 luzMalaPointLight.gameObject.SetActive(true);
             }
 
