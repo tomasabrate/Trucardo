@@ -5,14 +5,8 @@ using UnityEngine.SceneManagement;
 using Trucardo.Core;
 using System.IO;
 
-[InitializeOnLoad]
 public class SetupBartender
 {
-    static SetupBartender()
-    {
-        EditorApplication.delayCall += Setup;
-    }
-
     [MenuItem("Tools/Setup Bartender Model")]
     public static void Setup()
     {
@@ -20,16 +14,19 @@ public class SetupBartender
         string texPath = "Assets/Models/Personajes/Bartender/FullRender_MK1.png";
         string matPath = "Assets/Models/Personajes/Bartender/Mat_Bartender.mat";
         string prefabPath = "Assets/Core/Prefabs/BartenderPrefab.prefab";
+        string animCtrlPath = "Assets/Models/Personajes/Bartender/BartenderAnimator.controller";
 
         AssetDatabase.ImportAsset(texPath, ImportAssetOptions.ForceUpdate);
         AssetDatabase.ImportAsset(fbxPath, ImportAssetOptions.ForceUpdate);
 
-        // 1. Configurar ModelImporter
+        // 1. Configurar ModelImporter respetando Humanoid si tiene rig
         ModelImporter importer = AssetImporter.GetAtPath(fbxPath) as ModelImporter;
         if (importer != null)
         {
-            importer.animationType = ModelImporterAnimationType.None;
-            importer.SaveAndReimport();
+            if (importer.animationType != ModelImporterAnimationType.Human)
+            {
+                // Dejar que mantenga el tipo que corresponda
+            }
         }
 
         // 2. Material
@@ -70,6 +67,29 @@ public class SetupBartender
         col.center = new Vector3(0, 1.1375f, 0);
         col.radius = 0.44f;
 
+        // Animator con BartenderAnimator.controller
+        Animator anim = root.AddComponent<Animator>();
+        RuntimeAnimatorController animCtrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(animCtrlPath);
+        if (animCtrl != null)
+        {
+            anim.runtimeAnimatorController = animCtrl;
+        }
+
+        Avatar avatar = AssetDatabase.LoadAssetAtPath<Avatar>(fbxPath);
+        if (avatar != null)
+        {
+            anim.avatar = avatar;
+        }
+
+        BartenderController ctrl = root.AddComponent<BartenderController>();
+        SerializedObject so = new SerializedObject(ctrl);
+        SerializedProperty propAnim = so.FindProperty("animator");
+        if (propAnim != null)
+        {
+            propAnim.objectReferenceValue = anim;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         GameObject visuals = (GameObject)PrefabUtility.InstantiatePrefab(fbxAsset);
         visuals.name = "Visuals";
         visuals.transform.SetParent(root.transform);
@@ -95,13 +115,33 @@ public class SetupBartender
             server.bartenderPrefab = savedPrefab;
             EditorUtility.SetDirty(server);
             Debug.Log("[SetupBartender] bartenderPrefab asignado al GameServer de la escena.");
+        }
 
-            Scene activeScene = SceneManager.GetActiveScene();
-            if (activeScene.isLoaded)
+        // 5. Instanciar en SampleScene si no existe
+        GameObject existingBartender = GameObject.Find("Bartender");
+        if (existingBartender == null && savedPrefab != null)
+        {
+            GameObject posObj = GameObject.Find("PosicionBartender");
+            Vector3 spawnPos = posObj != null ? posObj.transform.position : new Vector3(6.05f, 0f, 8.2f);
+            Quaternion spawnRot = posObj != null ? posObj.transform.rotation : Quaternion.Euler(0f, 180f, 0f);
+
+            GameObject bartenderInst = (GameObject)PrefabUtility.InstantiatePrefab(savedPrefab);
+            bartenderInst.name = "Bartender";
+            bartenderInst.transform.position = spawnPos;
+            bartenderInst.transform.rotation = spawnRot;
+            if (posObj != null)
             {
-                EditorSceneManager.MarkSceneDirty(activeScene);
-                EditorSceneManager.SaveScene(activeScene);
+                bartenderInst.transform.SetParent(posObj.transform.parent);
             }
+            EditorUtility.SetDirty(bartenderInst);
+            Debug.Log("[SetupBartender] Bartender instanciado directamente en la escena.");
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.isLoaded)
+        {
+            EditorSceneManager.MarkSceneDirty(activeScene);
+            EditorSceneManager.SaveScene(activeScene);
         }
     }
 }

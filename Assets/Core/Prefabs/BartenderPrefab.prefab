@@ -10,6 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4978491864329842006}
   - component: {fileID: 4940747438582996640}
+  - component: {fileID: 7120938475628192031}
+  - component: {fileID: 2091793469987836118}
   m_Layer: 0
   m_Name: BartenderPrefab
   m_TagString: Untagged
@@ -56,6 +58,52 @@ CapsuleCollider:
   m_Height: 2.275
   m_Direction: 1
   m_Center: {x: 0, y: 1.1375, z: 0}
+--- !u!95 &7120938475628192031
+Animator:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2835638389642720280}
+  m_Enabled: 1
+  serializedVersion: 7
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 8b7617b8f9e64e528acae5573489e021, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &2091793469987836118
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2835638389642720280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2889cd9406409b43b753069d00a03da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.BartenderController
+  animator: {fileID: 7120938475628192031}
+  idleStateName: Idle
+  walkStateName: Walk
+  bartendingStateName: Bartending
+  barCenter: {x: 6.05, y: 0, z: 8.2}
+  patrolRangeX: 1.6
+  depthRangeZ: 0.2
+  defaultFacingEuler: {x: 0, y: 180, z: 0}
+  walkSpeed: 1.1
+  turnSpeed: 4
+  idleDurationRange: {x: 4, y: 8}
+  bartendingDurationRange: {x: 4, y: 7}
 --- !u!1001 &3787683481774610197
 PrefabInstance:
   m_ObjectHideFlags: 0

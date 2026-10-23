@@ -16,9 +16,9 @@ namespace Trucardo.EditorScripts
 
         private static void OnEditorReady()
         {
-            if (!SessionState.GetBool("Trucardo_FBX_Setup_Complete_v3", false))
+            if (!SessionState.GetBool("Trucardo_FBX_Setup_Complete_v4", false))
             {
-                SessionState.SetBool("Trucardo_FBX_Setup_Complete_v3", true);
+                SessionState.SetBool("Trucardo_FBX_Setup_Complete_v4", true);
                 SetupPowersSystem();
             }
         }
@@ -74,7 +74,7 @@ namespace Trucardo.EditorScripts
             GameObject faconPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Facon.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Facon.fbx",
-                new Vector3(0.40f, 0.40f, 0.40f),
+                new Vector3(0.47f, 0.47f, 0.47f),
                 new Vector3(0f, -30f, 0f),
                 Vector3.zero,
                 PrimitiveType.Cube,
@@ -84,7 +84,7 @@ namespace Trucardo.EditorScripts
             GameObject matePrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Mate.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Mate.fbx",
-                new Vector3(0.85f, 0.85f, 0.85f),
+                new Vector3(1.00f, 1.00f, 1.00f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Cylinder,
@@ -94,7 +94,7 @@ namespace Trucardo.EditorScripts
             GameObject guampasPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Guampas.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Guamba.fbx",
-                new Vector3(0.75f, 0.75f, 0.75f),
+                new Vector3(0.88f, 0.88f, 0.88f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Capsule,
@@ -104,7 +104,7 @@ namespace Trucardo.EditorScripts
             GameObject lazoPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Lazo.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Lazo.fbx",
-                new Vector3(0.44f, 0.44f, 0.44f),
+                new Vector3(0.52f, 0.52f, 0.52f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Cylinder,
@@ -114,7 +114,7 @@ namespace Trucardo.EditorScripts
             GameObject guitarraPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Guitarra.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Guitarra.fbx",
-                new Vector3(0.20f, 0.20f, 0.20f),
+                new Vector3(0.23f, 0.23f, 0.23f),
                 new Vector3(0f, 30f, 0f),
                 Vector3.zero,
                 PrimitiveType.Cube,
@@ -124,7 +124,7 @@ namespace Trucardo.EditorScripts
             GameObject pavaPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_PavaCaliente.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Pava.fbx",
-                new Vector3(0.58f, 0.58f, 0.58f),
+                new Vector3(0.68f, 0.68f, 0.68f),
                 new Vector3(0f, -45f, 0f),
                 Vector3.zero,
                 PrimitiveType.Cylinder,
@@ -134,17 +134,17 @@ namespace Trucardo.EditorScripts
             GameObject manoPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_ManoDeDios.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/ManoDeDios.fbx",
-                new Vector3(0.40f, 0.40f, 0.40f),
+                new Vector3(0.47f, 0.47f, 0.47f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Sphere,
-                new Vector3(0.08f, 0.08f, 0.08f));
+                new Vector3(0.095f, 0.095f, 0.095f));
 
             // 8. Boleadoras: Tres ramales con bolas de piedra (47.3cm real -> ~15.1cm en mesa)
             GameObject boleadorasPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Boleadoras.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Boleadoras.fbx",
-                new Vector3(0.32f, 0.32f, 0.32f),
+                new Vector3(0.38f, 0.38f, 0.38f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Sphere,
@@ -154,7 +154,7 @@ namespace Trucardo.EditorScripts
             GameObject ceiboPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_Ceibo.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Ceibo.fbx",
-                new Vector3(0.42f, 0.42f, 0.42f),
+                new Vector3(0.50f, 0.50f, 0.50f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Cylinder,
@@ -167,7 +167,7 @@ namespace Trucardo.EditorScripts
             GameObject luzMalaPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_LuzMala.prefab",
                 luzMalaFbx,
-                new Vector3(0.80f, 0.80f, 0.80f),
+                new Vector3(0.94f, 0.94f, 0.94f),
                 Vector3.zero,
                 Vector3.zero,
                 PrimitiveType.Sphere,
@@ -177,7 +177,7 @@ namespace Trucardo.EditorScripts
             GameObject bastonPrefab = CreateOrUpdatePowerPrefab(
                 "Assets/Poderes/Prefabs/Prefab_Poder_BastonPresidencial.prefab",
                 "Assets/Poderes/Modelos/Modelo FBX/Baston.fbx",
-                new Vector3(0.22f, 0.22f, 0.22f),
+                new Vector3(0.25f, 0.25f, 0.25f),
                 new Vector3(0f, 45f, 0f),
                 Vector3.zero,
                 PrimitiveType.Cylinder,
@@ -411,10 +411,10 @@ namespace Trucardo.EditorScripts
                 if (prefabName.Contains("ManoDeDios"))
                 {
                     Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Poderes/Modelos/Modelo FBX/ManoDeDios_Textura.png");
-                    Material balonMat = GetOrCreateTextureMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_Balon.mat", tex);
-                    Material nubeAMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeA.mat", HexToColor("#F4F7FA"));
-                    Material nubeBMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeB.mat", HexToColor("#D9E5EF"));
-                    Material nubeCMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeC.mat", HexToColor("#B7CFE3"));
+                    Material balonMat = GetOrCreateTextureMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_Balon.mat", tex, HexToColor("#201804"));
+                    Material nubeAMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeA.mat", HexToColor("#DFE3E6"), HexToColor("#181B1E"));
+                    Material nubeBMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeB.mat", HexToColor("#C6D4DF"), HexToColor("#141A20"));
+                    Material nubeCMat = GetOrCreateMaterial("Assets/Poderes/Materiales/Mat_ManoDeDios_NubeC.mat", HexToColor("#A8BFCF"), HexToColor("#101720"));
 
                     Renderer rend = visualChild.GetComponentInChildren<Renderer>(true);
                     if (rend != null)
@@ -459,8 +459,8 @@ namespace Trucardo.EditorScripts
                 Vector3 localSize = rootObj.transform.InverseTransformVector(totalBounds.size);
                 localSize = new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z));
 
-                // Mínimo 12cm lateral y 10cm de altura para clic infalible
-                localSize = Vector3.Max(localSize, new Vector3(0.12f, 0.10f, 0.12f));
+                // Mínimo ergonómico ampliado para clic infalible con nuevos tamaños
+                localSize = Vector3.Max(localSize, new Vector3(0.14f, 0.12f, 0.14f));
                 collider.center = localCenter;
                 collider.size = localSize;
             }
@@ -520,7 +520,7 @@ namespace Trucardo.EditorScripts
             return power;
         }
 
-        private static Material GetOrCreateTextureMaterial(string path, Texture2D texture)
+        private static Material GetOrCreateTextureMaterial(string path, Texture2D texture, Color? emission = null)
         {
             Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
@@ -543,11 +543,18 @@ namespace Trucardo.EditorScripts
                 mat.mainTexture = texture;
                 if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", texture);
             }
+            if (emission.HasValue)
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", emission.Value);
+            }
+            mat.enableInstancing = true;
             EditorUtility.SetDirty(mat);
             return mat;
         }
 
-        private static Material GetOrCreateMaterial(string path, Color color)
+        private static Material GetOrCreateMaterial(string path, Color color, Color? emission = null)
         {
             Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
@@ -565,6 +572,13 @@ namespace Trucardo.EditorScripts
 
             mat.color = color;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (emission.HasValue)
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", emission.Value);
+            }
+            mat.enableInstancing = true;
             EditorUtility.SetDirty(mat);
             return mat;
         }

@@ -18,12 +18,14 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
   - **Uso múltiple por ronda:** Si un jugador tiene varios poderes acumulados en su mesa, puede activar más de un poder dentro de una misma ronda táctica.
 - **Ubicación y Distribución Espacial en la Mesa:**
   - Los poderes se ubican sobre el **sector lateral izquierdo de la mesa** (perspectiva del jugador local, correspondiente a la derecha del rival).
-  - Están dispuestos en una cuadrícula espaciosa de **2 columnas x 2 filas** con separación optimizada de **15 cm** (`colSpacing = 0.15f`, `rowSpacing = 0.15f`) y anclaje lateral en `-0.48m` (`baseLateralOffset = -0.48f`).
-  - **Aislamiento estricto de cartas:** El área central de cartas jugadas se ubica entre `-0.22m` y `+0.22m`. El slot más cercano de poderes queda en `-0.405m`, garantizando un pasillo despejado de más de **18.5 cm** de mesa libre que impide cualquier solapamiento o confusión visual entre poderes y naipes.
+  - Están dispuestos en una cuadrícula espaciosa de **2 columnas x 2 filas** con separación ampliada de **18 cm** (`colSpacing = 0.18f`, `rowSpacing = 0.18f`) y anclaje lateral en `-0.50m` (`baseLateralOffset = -0.50f`).
+  - **Aislamiento estricto de cartas:** El área central de cartas jugadas se ubica entre `-0.22m` y `+0.22m`. El slot más cercano de poderes queda en `-0.405m`, garantizando un pasillo despejado de **16 cm** de mesa libre que impide cualquier solapamiento o confusión visual entre poderes y naipes.
+  - **Margen anti-colisión entre poderes:** Con separación de 18 cm entre centros y props de ~13-17 cm, existe un margen limpio de 3 a 5 cm entre modelos vecinos, impidiendo que se toquen o mezclen entre ellos.
   - **Apoyo natural sobre la mesa:** La base de los modelos 3D (`modelCenterHeight = 0.005f`) reposa a ras de la superficie de madera, evitando objetos flotantes.
 - **Modelos 3D y Apariencia Visual:**
   - Se utilizan los modelos definitivos Low-Poly en formato `.fbx` cargados en `Assets/Poderes/Modelos/Modelo FBX/` con sus materiales y colores planos embebidos.
-  - Cada modelo cuenta con una escala ajustada al tamaño de la mesa de Truco (props de entre 11 cm y 20 cm) y un `BoxCollider` ergonómico en la raíz (mínimo de 12x10x12 cm) para garantizar clics cómodos e infalibles en primera persona.
+  - Cada modelo cuenta con una escala ajustada un poco más grande (~15% a 18% de incremento) para dotarlos de mayor presencia y legibilidad táctica en la mesa, y un `BoxCollider` ergonómico en la raíz (mínimo ampliado a 14x12x14 cm) para garantizar clics cómodos e infalibles en primera persona.
+  - **Acabado Mate Rústico y Emisión de Apoyo Sutil:** Los materiales presentan un acabado mate sin brillos plásticos (`_Smoothness: 0.05 - 0.20`, `_Metallic: 0`), sintonizando fielmente con las texturas rústicas de la pulpería. Cuentan con colores criollos sobrios y una autoiluminación tenue de apoyo (`_EmissionColor` suave) que garantiza legibilidad de cada objeto sobre la madera sin generar resplandores estridentes ni agregar fuentes de luz (`Light`) en el espacio 3D de la escena.
   - **Optimización y Rendimiento:** Todos los materiales de poderes cuentan con **GPU Instancing activado** (m_EnableInstancingVariants: 1) para permitir batching en la GPU al convivir hasta 8 objetos en mesa, y la interacción en primera persona usa consultas libres de recolección de basura (Physics.RaycastNonAlloc).
 - **Interacción e Interfaz:**
   - El jugador apunta al objeto 3D con la vista y presiona **Clic izquierdo del mouse** para activar el poder.
@@ -53,7 +55,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Facon.fbx` en `Prefab_Poder_Facon.prefab`).
   - *Representación:* Cuchillo criollo gaucho con vaina de cuero y mango labrado.
-  - *Escala en mesa:* `0.40x` (largo calibrado a ~16 cm en mesa, orientado a -30° para reposo estético).
+  - *Escala en mesa:* `0.47x` (largo calibrado a ~18.8 cm en mesa, orientado a -30° para reposo estético).
 - **Descripción Corta (In-Game):**
   > *"Rompé una carta a elección del rival (con clic); se revela y se le repone otra del mazo."*
 - **Descripción Larga y Reglas:**
@@ -76,7 +78,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Mate.fbx` en `Prefab_Poder_Mate.prefab`).
   - *Representación:* Mate tradicional de calabaza con virola metálica, yerba mate y bombilla.
-  - *Escala en mesa:* `0.85x` (altura ~11.8 cm, base circular ~8.3 cm).
+  - *Escala en mesa:* `1.00x` (altura ~13.9 cm, base circular ~9.8 cm).
 - **Descripción Corta (In-Game):**
   > *"Revela una carta de la mano del rival durante 5 segundos (ambos saben cuál es)."*
 - **Descripción Larga y Reglas:**
@@ -94,7 +96,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Guamba.fbx` en `Prefab_Poder_Guampas.prefab`).
   - *Representación:* Guampa criolla arqueada con grabado y boca pulida.
-  - *Escala en mesa:* `0.75x` (altura ~13.4 cm, ancho ~7.4 cm).
+  - *Escala en mesa:* `0.88x` (altura ~15.7 cm, ancho ~8.7 cm).
 - **Descripción Corta (In-Game):**
   > *"Roba una carta del mazo; elegí con clic izquierdo por cuál cambiarla, o clic derecho para descartarla."*
 - **Descripción Larga y Reglas:**
@@ -116,7 +118,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Lazo.fbx` en `Prefab_Poder_Lazo.prefab`).
   - *Representación:* Rollo circular trenzado de lazo gaucho con textura de cuero y argolla.
-  - *Escala en mesa:* `0.44x` (diámetro ~14.3 cm, altura ~2.2 cm).
+  - *Escala en mesa:* `0.52x` (diámetro ~16.9 cm, altura ~2.6 cm).
 - **Descripción Corta (In-Game):**
   > *"Solo en primera mano: descarta todas tus cartas y roba 3 cartas nuevas."*
 - **Descripción Larga y Reglas:**
@@ -133,7 +135,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Guitarra.fbx` en `Prefab_Poder_Guitarra.prefab`).
   - *Representación:* Guitarra criolla clásica de madera en flat shading apoyada horizontalmente.
-  - *Escala en mesa:* `0.20x` (largo ~19.7 cm, ancho ~7.9 cm, rotación 30°).
+  - *Escala en mesa:* `0.23x` (largo ~22.7 cm, ancho ~9.1 cm, rotación 30°).
 - **Descripción Corta (In-Game):**
   > *"Intercambia una de tus cartas por una del rival eligiendo ambas cartas con clic directo en 3D."*
 - **Descripción Larga y Reglas:**
@@ -156,7 +158,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Pava.fbx` en `Prefab_Poder_PavaCaliente.prefab`).
   - *Representación:* Pava criolla de campo con asa superior, tapa y pico vertedor.
-  - *Escala en mesa:* `0.58x` (ancho ~12.9 cm, alto ~12.4 cm, rotación -45°).
+  - *Escala en mesa:* `0.68x` (ancho ~15.2 cm, alto ~14.6 cm, rotación -45°).
 - **Descripción Corta (In-Game):**
   > *"El rival tiene solo 5 segundos por turno durante toda la mano, o jugará al azar."*
 - **Descripción Larga y Reglas:**
@@ -174,7 +176,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`ManoDeDios.fbx` en `Prefab_Poder_ManoDeDios.prefab`).
   - *Representación:* Pelota con textura (`ManoDeDios_Textura.png`) que ilustra la silueta de la mano con los colores patrios y sol, sostenida por tres tonos de nubes en sombreado facetado.
-  - *Escala en mesa:* `0.40x` (ancho ~13.9 cm, alto ~9.0 cm).
+  - *Escala en mesa:* `0.47x` (ancho ~16.4 cm, alto ~10.6 cm).
 - **Descripción Corta (In-Game):**
   > *"Sos Mano de la ronda (ganás empates) y le cedés el primer tiro al rival si la baza recién empieza."*
 - **Descripción Larga y Reglas:**
@@ -193,7 +195,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Boleadoras.fbx` en `Prefab_Poder_Boleadoras.prefab`).
   - *Representación:* Tres bolas de piedra unidas por tientos de cuero trenzados.
-  - *Escala en mesa:* `0.32x` (ancho ~15.1 cm, profundidad ~9.8 cm, alto ~2.1 cm).
+  - *Escala en mesa:* `0.38x` (ancho ~17.8 cm, profundidad ~11.6 cm, alto ~2.5 cm).
 - **Descripción Corta (In-Game):**
   > *"Traba al rival: le impide recibir su próximo poder en la siguiente ronda."*
 - **Descripción Larga y Reglas:**
@@ -213,7 +215,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Ceibo.fbx` en `Prefab_Poder_Ceibo.prefab`).
   - *Representación:* Rama leñosa con ramillete de flores rojas de ceibo y hojas verdes.
-  - *Escala en mesa:* `0.42x` (altura ~12.6 cm, ancho ~8.4 cm).
+  - *Escala en mesa:* `0.50x` (altura ~15.0 cm, ancho ~10.0 cm).
 - **Descripción Corta (In-Game):**
   > *"Cambia el palo de todas tus cartas al mismo palo aleatorio (alto Envido asegurado)."*
 - **Descripción Larga y Reglas:**
@@ -230,7 +232,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`LuzMalaV2.fbx` en `Prefab_Poder_LuzMala.prefab`).
   - *Representación:* Candil / candela fantasmal de campo con llama espectral verde y fragmentos levitando.
-  - *Escala en mesa:* `0.80x` (altura ~13.2 cm, ancho ~8.6 cm).
+  - *Escala en mesa:* `0.94x` (altura ~15.5 cm, ancho ~10.1 cm).
 - **Descripción Corta (In-Game):**
   > *"Vuelve blancas y mezcla las cartas del rival: no sabrá cuál es cuál al jugar."*
 - **Descripción Larga y Reglas:**
@@ -247,7 +249,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Modelo 3D:**
   - *Estado:* Modelo 3D Final Low-Poly (`Baston.fbx` en `Prefab_Poder_BastonPresidencial.prefab`).
   - *Representación:* Bastón de mando acostado con empuñadura de plata, escudo patrio y cana de urunday.
-  - *Escala en mesa:* `0.22x` (largo ~17.6 cm, ancho ~1.3 cm, rotación 45°).
+  - *Escala en mesa:* `0.25x` (largo ~20.0 cm, ancho ~1.5 cm, rotación 45°).
 - **Descripción Corta (In-Game):**
   > *"Obliga al rival a aceptar (decir '¡Quiero!') a tu próximo canto."*
 - **Descripción Larga y Reglas:**
