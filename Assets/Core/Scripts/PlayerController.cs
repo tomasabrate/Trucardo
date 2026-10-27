@@ -1324,7 +1324,7 @@ namespace Trucardo.Core
                                         handVisualizer.elevatedCard = myCard;
                                         handVisualizer.RefreshLayout();
                                         guitarraStep = 2;
-                                        if (hudController != null) hudController.ShowPowerPrompt("🎸 ¡PODER GUITARRA!", "2. Seleccioná una del rival para intercambiar\n<size=11>(Clic derecho para cancelar)</size>");
+                                        if (hudController != null) hudController.ShowPowerPrompt("🎸 ¡PODER GUITARRA!", "2. Seleccioná una del rival para intercambiar\n<size=18>(Clic derecho para cancelar)</size>");
                                         return;
                                     }
                                 }
@@ -1654,7 +1654,7 @@ namespace Trucardo.Core
                 activeFaconVisual = visual;
                 if (hudController != null)
                 {
-                    hudController.ShowPowerPrompt("🔪 ¡PODER FACÓN!", "Seleccioná una carta del rival para destrozarla\n<size=11>(Clic derecho para cancelar)</size>");
+                    hudController.ShowPowerPrompt("🔪 ¡PODER FACÓN!", "Seleccioná una carta del rival para destrozarla\n<size=18>(Clic derecho para cancelar)</size>");
                 }
                 return;
             }
@@ -1669,7 +1669,7 @@ namespace Trucardo.Core
                 activeGuitarraVisual = visual;
                 if (hudController != null)
                 {
-                    hudController.ShowPowerPrompt("🎸 ¡PODER GUITARRA!", "1. Seleccioná una de tus cartas para cambiar\n<size=11>(Clic derecho para cancelar)</size>");
+                    hudController.ShowPowerPrompt("🎸 ¡PODER GUITARRA!", "1. Seleccioná una de tus cartas para cambiar\n<size=18>(Clic derecho para cancelar)</size>");
                 }
                 return;
             }

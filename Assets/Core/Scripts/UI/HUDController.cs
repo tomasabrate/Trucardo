@@ -33,6 +33,7 @@ namespace Trucardo.Core.UI
         [SerializeField] private Button quieroButton;
         [SerializeField] private Button noQuieroButton;
         [SerializeField] private RoundPowersUI roundPowersUI;
+        [SerializeField, Min(0f)] private float powerBannerTextSpacing = 0f;
 
         private PlayerController localPlayer;
         private bool isSeated;
@@ -709,7 +710,11 @@ namespace Trucardo.Core.UI
 
         private void EnsureToastUI()
         {
-            if (toastRoot != null) return;
+            if (toastRoot != null)
+            {
+                ApplyPowerBannerTextSpacing();
+                return;
+            }
 
             Transform canvasTransform = hudCanvas != null ? hudCanvas.transform : transform;
             Transform existing = canvasTransform.Find("PowerToastBanner");
@@ -723,8 +728,26 @@ namespace Trucardo.Core.UI
                 if (extRt != null)
                 {
                     extRt.anchoredPosition = new Vector2(0f, -185f);
-                    extRt.sizeDelta = new Vector2(540f, 68f);
+                    extRt.sizeDelta = new Vector2(620f, 108f);
                 }
+                if (toastTitleText != null)
+                {
+                    toastTitleText.fontSize = 24f;
+                    toastTitleText.rectTransform.sizeDelta = new Vector2(-32f, 30f);
+                }
+                if (toastMessageText != null)
+                {
+                    toastMessageText.fontSize = 20f;
+                    toastMessageText.fontSizeMin = 16f;
+                    toastMessageText.fontSizeMax = 20f;
+                    toastMessageText.enableAutoSizing = true;
+                }
+                RectTransform existingMessageRect = toastMessageText != null
+                    ? toastMessageText.rectTransform
+                    : null;
+                if (existingMessageRect != null)
+                    existingMessageRect.sizeDelta = new Vector2(-32f, -52f);
+                ApplyPowerBannerTextSpacing();
                 return;
             }
 
@@ -752,7 +775,7 @@ namespace Trucardo.Core.UI
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(0f, -185f);
-            rt.sizeDelta = new Vector2(540f, 68f);
+            rt.sizeDelta = new Vector2(620f, 108f);
 
             Image img = toastObj.GetComponent<Image>();
             img.sprite = woodSprite;
@@ -767,13 +790,13 @@ namespace Trucardo.Core.UI
             titleRt.anchorMax = new Vector2(1f, 1f);
             titleRt.pivot = new Vector2(0f, 1f);
             titleRt.anchoredPosition = new Vector2(16f, -6f);
-            titleRt.sizeDelta = new Vector2(-32f, 24f);
+            titleRt.sizeDelta = new Vector2(-32f, 30f);
 
             toastTitleText = titleObj.GetComponent<TextMeshProUGUI>();
             toastTitleText.font = fontAsset;
             if (fontMaterial != null) toastTitleText.fontSharedMaterial = fontMaterial;
             toastTitleText.text = "PODER";
-            toastTitleText.fontSize = 16f;
+            toastTitleText.fontSize = 24f;
             toastTitleText.fontStyle = FontStyles.Bold;
             toastTitleText.characterSpacing = 1.5f;
             toastTitleText.alignment = TextAlignmentOptions.Center;
@@ -787,21 +810,41 @@ namespace Trucardo.Core.UI
             msgRt.anchorMax = new Vector2(1f, 1f);
             msgRt.pivot = new Vector2(0f, 0f);
             msgRt.anchoredPosition = new Vector2(16f, 6f);
-            msgRt.sizeDelta = new Vector2(-32f, -32f);
+            msgRt.sizeDelta = new Vector2(-32f, -52f);
 
             toastMessageText = msgObj.GetComponent<TextMeshProUGUI>();
             toastMessageText.font = fontAsset;
             if (fontMaterial != null) toastMessageText.fontSharedMaterial = fontMaterial;
             toastMessageText.text = "";
-            toastMessageText.fontSize = 14f;
-            toastMessageText.fontSizeMin = 11f;
-            toastMessageText.fontSizeMax = 14f;
+            toastMessageText.fontSize = 20f;
+            toastMessageText.fontSizeMin = 16f;
+            toastMessageText.fontSizeMax = 20f;
             toastMessageText.enableAutoSizing = true;
             toastMessageText.alignment = TextAlignmentOptions.Center;
             toastMessageText.color = new Color(0.92f, 0.90f, 0.85f, 1f);
             toastMessageText.raycastTarget = false;
 
+            ApplyPowerBannerTextSpacing();
             toastObj.SetActive(false);
+        }
+
+        private void ApplyPowerBannerTextSpacing()
+        {
+            float messageTopOffset = -(36f + Mathf.Max(0f, powerBannerTextSpacing));
+
+            if (toastMessageText != null)
+            {
+                RectTransform messageRect = toastMessageText.rectTransform;
+                messageRect.offsetMin = new Vector2(16f, 6f);
+                messageRect.offsetMax = new Vector2(-16f, messageTopOffset);
+            }
+
+            if (powerPromptInstruction != null)
+            {
+                RectTransform instructionRect = powerPromptInstruction.rectTransform;
+                instructionRect.offsetMin = new Vector2(10f, 4f);
+                instructionRect.offsetMax = new Vector2(-10f, messageTopOffset);
+            }
         }
 
         private void CallEnvidoOption() => CallEnvido(EnvidoCall.Envido);
@@ -1170,7 +1213,11 @@ namespace Trucardo.Core.UI
 
         private void EnsurePowerPromptUI()
         {
-            if (powerPromptRoot != null) return;
+            if (powerPromptRoot != null)
+            {
+                ApplyPowerBannerTextSpacing();
+                return;
+            }
 
             Transform canvasTransform = hudCanvas != null ? hudCanvas.transform : transform;
             Transform existing = canvasTransform.Find("PowerPromptBanner");
@@ -1183,8 +1230,23 @@ namespace Trucardo.Core.UI
                 if (extRt != null)
                 {
                     extRt.anchoredPosition = new Vector2(0f, -185f);
-                    extRt.sizeDelta = new Vector2(560f, 74f);
+                    extRt.sizeDelta = new Vector2(620f, 108f);
                 }
+                if (powerPromptTitle != null)
+                {
+                    powerPromptTitle.fontSize = 24f;
+                    powerPromptTitle.rectTransform.sizeDelta = new Vector2(-20f, 30f);
+                }
+                if (powerPromptInstruction != null)
+                {
+                    powerPromptInstruction.fontSize = 20f;
+                    powerPromptInstruction.fontSizeMin = 16f;
+                    powerPromptInstruction.fontSizeMax = 20f;
+                    powerPromptInstruction.enableAutoSizing = true;
+                    powerPromptInstruction.rectTransform.offsetMin = new Vector2(10f, 4f);
+                    powerPromptInstruction.rectTransform.offsetMax = new Vector2(-10f, -52f);
+                }
+                ApplyPowerBannerTextSpacing();
                 return;
             }
 
@@ -1211,7 +1273,7 @@ namespace Trucardo.Core.UI
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(0f, -185f);
-            rt.sizeDelta = new Vector2(560f, 74f);
+            rt.sizeDelta = new Vector2(620f, 108f);
 
             Image img = promptObj.GetComponent<Image>();
             img.sprite = woodSprite;
@@ -1225,12 +1287,12 @@ namespace Trucardo.Core.UI
             titleRt.anchorMax = new Vector2(1f, 1f);
             titleRt.pivot = new Vector2(0.5f, 1f);
             titleRt.anchoredPosition = new Vector2(0f, -6f);
-            titleRt.sizeDelta = new Vector2(-20f, 24f);
+            titleRt.sizeDelta = new Vector2(-20f, 30f);
 
             powerPromptTitle = titleObj.GetComponent<TextMeshProUGUI>();
             powerPromptTitle.font = fontAsset;
             if (fontMaterial != null) powerPromptTitle.fontSharedMaterial = fontMaterial;
-            powerPromptTitle.fontSize = 15f;
+            powerPromptTitle.fontSize = 24f;
             powerPromptTitle.fontStyle = FontStyles.Bold;
             powerPromptTitle.alignment = TextAlignmentOptions.Center;
             powerPromptTitle.color = new Color(0.96f, 0.82f, 0.45f, 1f);
@@ -1242,15 +1304,19 @@ namespace Trucardo.Core.UI
             descRt.anchorMax = new Vector2(1f, 1f);
             descRt.pivot = new Vector2(0.5f, 0.5f);
             descRt.offsetMin = new Vector2(10f, 4f);
-            descRt.offsetMax = new Vector2(-10f, -26f);
+            descRt.offsetMax = new Vector2(-10f, -52f);
 
             powerPromptInstruction = descObj.GetComponent<TextMeshProUGUI>();
             powerPromptInstruction.font = fontAsset;
             if (fontMaterial != null) powerPromptInstruction.fontSharedMaterial = fontMaterial;
-            powerPromptInstruction.fontSize = 13f;
+            powerPromptInstruction.fontSize = 20f;
+            powerPromptInstruction.fontSizeMin = 16f;
+            powerPromptInstruction.fontSizeMax = 20f;
+            powerPromptInstruction.enableAutoSizing = true;
             powerPromptInstruction.alignment = TextAlignmentOptions.Center;
             powerPromptInstruction.color = new Color(0.95f, 0.92f, 0.88f, 1f);
 
+            ApplyPowerBannerTextSpacing();
             promptObj.SetActive(false);
         }
 

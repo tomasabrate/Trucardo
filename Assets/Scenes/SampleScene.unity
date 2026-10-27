@@ -16021,6 +16021,7 @@ GameObject:
   - component: {fileID: 566182419}
   - component: {fileID: 566182418}
   - component: {fileID: 566182422}
+  - component: {fileID: 566182423}
   m_Layer: 5
   m_Name: CanvasHUD
   m_TagString: Untagged
@@ -16148,7 +16149,24 @@ MonoBehaviour:
   volverButton: {fileID: 1114390329}
   quieroButton: {fileID: 1653558264}
   noQuieroButton: {fileID: 1816870181}
-  roundPowersUI: {fileID: 0}
+  roundPowersUI: {fileID: 566182423}
+  powerBannerTextSpacing: 6
+--- !u!114 &566182423
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 566182417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b5d92a17f3e498c8c43021f478a5b99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.UI.RoundPowersUI
+  panelRoot: {fileID: 0}
+  headerText: {fileID: 0}
+  cardBackgroundExtraSize: {x: 0, y: 0}
+  cardBackgroundOffset: {x: 0, y: 0}
 --- !u!1 &566973062
 GameObject:
   m_ObjectHideFlags: 0

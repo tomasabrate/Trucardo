@@ -30,11 +30,15 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
   - Al mirar el objeto del rival, el indicador de interfaz muestra: `[Rival] <Nombre del Poder>` (sin opción de clic, solo informativo).
 - **Línea de Tiempo de Poderes en la Ronda (UI Izquierda):**
   - Cada vez que un jugador (local o rival) activa un poder, este se registra inmediatamente en una **línea de tiempo cronológica vertical** ubicada a la izquierda de la pantalla.
+  - El panel conserva su anclaje original en el lateral izquierdo, centrado verticalmente, y adapta el ancho de las tarjetas al tamaño del Canvas con un límite para evitar invadir el resto del HUD.
+  - En cada tarjeta, el nombre del poder aparece arriba a la izquierda y la etiqueta con estrella (`★ VOS ACTIVASTE` o `☠ RIVAL ACTIVÓ`) en la misma altura, alineada a la derecha con margen. La etiqueta conserva tamaño 19; la descripción queda debajo y los textos se recortan o ajustan dentro de la placa. `CardContent` no agrega separación vertical entre filas.
+  - El fondo de las tarjetas es negro sólido y no depende del sprite del botón Truco. `Card Background Extra Size` y `Card Background Offset` en el componente `RoundPowersUI` permiten ajustar el tamaño y el encuadre del fondo independientemente del texto.
   - Posee estética de madera tallada criolla con distintivos visuales claros:
     - **Poder propio:** Placa con ribete dorado y etiqueta `★ VOS ACTIVASTE`.
     - **Poder rival:** Placa con ribete naranja quemado y etiqueta `☠ RIVAL ACTIVÓ`.
   - Si un jugador activa 2 poderes, el rival activa 1 y luego el jugador activa otro, se apilan verticalmente en ese orden exacto de arriba a abajo.
   - La línea de tiempo se **reinicia automáticamente al comenzar cada nueva ronda**.
+- **Notificaciones y prompts de poderes:** `PowerToastBanner` y `PowerPromptBanner` usan paneles de 620 × 108 unidades, títulos de 24 y mensajes/instrucciones de hasta 20 (con autoajuste para textos largos), manteniendo título y mensaje separados. El espacio entre ambos se configura en el campo compartido `Power Banner Text Spacing` del `HUDController` (valor inicial: 0, sin espacio adicional). La indicación `(Clic derecho para cancelar)` se muestra en tamaño 18.
 - **Modo Pruebas / Admin (F1):** Permite forzar qué poder y qué cartas aparecen para realizar pruebas controladas de balance y depuración.
 
 ---

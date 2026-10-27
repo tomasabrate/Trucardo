@@ -60,17 +60,9 @@ namespace Trucardo.Core
             if (SceneManager.GetActiveScene().name != "SampleScene") return;
             if (NetworkManager.Singleton == null) return;
 
-            // Si ya estamos conectados, mostramos solo el estado y salimos
+            // La conexión no necesita un rótulo permanente sobre el HUD.
             if (NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer)
-            {
-                GUILayout.BeginArea(new Rect(10, 10, 300, 300));
-                if (selectedMode == GameMode.Singleplayer)
-                    GUILayout.Label("Estado: Modo Individual (Solo)");
-                else
-                    GUILayout.Label($"Estado: {(NetworkManager.Singleton.IsServer ? "Servidor/Host" : "Cliente Conectado")}");
-                GUILayout.EndArea();
                 return;
-            }
 
             // Si seleccionó Cliente en el menú principal, le mostramos el cuadro para ingresar la IP
             if (selectedMode == GameMode.Client)
