@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -95,9 +95,101 @@ namespace Trucardo.Core
 
             bool isSingleplayer = ShouldAutoFillBot();
 
+            SpawnBartender();
+
             if (isSingleplayer && botPrefab != null)
             {
                 SpawnVisualBots();
+            }
+        }
+
+        private void SpawnBartender()
+        {
+            if (GameObject.Find("Bartender") != null)
+            {
+                return;
+            }
+
+            Transform barTransform = bartenderPosition != null ? bartenderPosition : null;
+            if (barTransform == null)
+            {
+                GameObject posObj = GameObject.Find("PosicionBartender");
+                if (posObj != null) barTransform = posObj.transform;
+            }
+
+            Vector3 bartenderPos = Vector3.zero;
+            Quaternion bartenderRot = Quaternion.identity;
+
+            if (barTransform != null)
+            {
+                bartenderPos = barTransform.position;
+                bartenderRot = barTransform.rotation;
+            }
+            else
+            {
+                GameObject mostrador = GameObject.Find("Mostrador_Principal");
+                GameObject mesaLarga = GameObject.Find("MesaLarga");
+
+                if (mostrador != null)
+                {
+                    if (mesaLarga != null)
+                    {
+                        bartenderPos = (mostrador.transform.position + mesaLarga.transform.position) / 2f;
+                    }
+                    else
+                    {
+                        bartenderPos = mostrador.transform.position + new Vector3(0f, 0f, 1.4f);
+                    }
+                    
+                    if (Physics.Raycast(bartenderPos + Vector3.up * 1.5f, Vector3.down, out RaycastHit hit, 5f))
+                    {
+                        bartenderPos.y = hit.point.y;
+                    }
+                    else
+                    {
+                        bartenderPos.y = 0f;
+                    }
+                    
+                    Vector3 lookDir = mostrador.transform.position - bartenderPos;
+                    lookDir.y = 0;
+                    if (lookDir != Vector3.zero) bartenderRot = Quaternion.LookRotation(lookDir);
+                    else bartenderRot = Quaternion.Euler(0f, 180f, 0f);
+                }
+                else
+                {
+                    bartenderPos = new Vector3(6.05f, 0f, 8.2f);
+                    bartenderRot = Quaternion.Euler(0f, 180f, 0f);
+                }
+            }
+
+            GameObject prefabToSpawn = bartenderPrefab;
+            if (prefabToSpawn == null)
+            {
+#if UNITY_EDITOR
+                prefabToSpawn = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Core/Prefabs/BartenderPrefab.prefab");
+#endif
+            }
+            if (prefabToSpawn == null)
+            {
+                prefabToSpawn = botPrefab;
+            }
+
+            GameObject bartender = Instantiate(prefabToSpawn, bartenderPos, bartenderRot);
+            bartender.name = "Bartender";
+            CleanBotComponents(bartender);
+
+            BartenderController bartenderCtrl = bartender.GetComponent<BartenderController>();
+            if (bartenderCtrl == null)
+            {
+                bartenderCtrl = bartender.AddComponent<BartenderController>();
+            }
+            bartenderCtrl.Initialize(bartenderPos, bartenderRot);
+
+            Animator animBar = bartender.GetComponentInChildren<Animator>();
+            if (animBar != null && animBar.runtimeAnimatorController != null && animBar.avatar != null && animBar.avatar.isValid)
+            {
+                animBar.SetBool("IsSeated", false);
+                animBar.Play("Idle", 0, 0f);
             }
         }
 
@@ -153,84 +245,7 @@ namespace Trucardo.Core
                 }
             }
 
-            // Spawn Bartender
-            Transform barTransform = bartenderPosition != null ? bartenderPosition : null;
-            if (barTransform == null)
-            {
-                GameObject posObj = GameObject.Find("PosicionBartender");
-                if (posObj != null) barTransform = posObj.transform;
-            }
 
-            Vector3 bartenderPos = Vector3.zero;
-            Quaternion bartenderRot = Quaternion.identity;
-
-            if (barTransform != null)
-            {
-                bartenderPos = barTransform.position;
-                bartenderRot = barTransform.rotation;
-            }
-            else
-            {
-                // Fallback: Detrás del mostrador principal mirando al salón
-                GameObject mostrador = GameObject.Find("Mostrador_Principal");
-                GameObject mesaLarga = GameObject.Find("MesaLarga");
-
-                if (mostrador != null)
-                {
-                    if (mesaLarga != null)
-                    {
-                        bartenderPos = (mostrador.transform.position + mesaLarga.transform.position) / 2f;
-                    }
-                    else
-                    {
-                        bartenderPos = mostrador.transform.position + new Vector3(0f, 0f, 1.4f);
-                    }
-                    
-                    // Asegurar que esté tocando el piso (raycast desde 1.5m de altura, NO 5m para evitar el techo a 4.1m)
-                    if (Physics.Raycast(bartenderPos + Vector3.up * 1.5f, Vector3.down, out RaycastHit hit, 5f))
-                    {
-                        bartenderPos.y = hit.point.y;
-                    }
-                    else
-                    {
-                        bartenderPos.y = 0f; // Asumir piso en 0
-                    }
-                    
-                    // Que mire hacia el mostrador / salón
-                    Vector3 lookDir = mostrador.transform.position - bartenderPos;
-                    lookDir.y = 0;
-                    if (lookDir != Vector3.zero) bartenderRot = Quaternion.LookRotation(lookDir);
-                    else bartenderRot = Quaternion.Euler(0f, 180f, 0f);
-                }
-                else
-                {
-                    bartenderPos = new Vector3(6.05f, 0f, 8.2f);
-                    bartenderRot = Quaternion.Euler(0f, 180f, 0f);
-                }
-            }
-
-            GameObject prefabToSpawn = bartenderPrefab;
-            if (prefabToSpawn == null)
-            {
-#if UNITY_EDITOR
-                prefabToSpawn = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Core/Prefabs/BartenderPrefab.prefab");
-#endif
-            }
-            if (prefabToSpawn == null)
-            {
-                prefabToSpawn = botPrefab;
-            }
-
-            GameObject bartender = Instantiate(prefabToSpawn, bartenderPos, bartenderRot);
-            bartender.name = "Bartender";
-            CleanBotComponents(bartender);
-
-            Animator animBar = bartender.GetComponentInChildren<Animator>();
-            if (animBar != null && animBar.runtimeAnimatorController != null && animBar.avatar != null && animBar.avatar.isValid)
-            {
-                animBar.SetBool("IsSeated", false);
-                animBar.Play("Idle", 0, 0f); // Animación base respirando/parado
-            }
         }
 
         private void CleanBotComponents(GameObject botInst)
