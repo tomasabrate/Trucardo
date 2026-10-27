@@ -165,7 +165,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Descripción Larga y Reglas:**
   - **Momento de activación:** En cualquier momento durante la ronda.
   - **Mecánica:** Aplica un temporizador de presión extrema ("la pava está hirviendo"). Desde su activación y durante toda la mano, el rival dispone de únicamente **5 segundos** para responder a cantos o tirar una carta.
-  - **Contador en HUD:** Cuando el jugador bajo efecto entra en su turno, se muestra una alerta visual y un contador regresivo de 5 segundos.
+  - **Contador en HUD:** Cuando el jugador bajo efecto entra en su turno, se muestra una alerta visual y un contador regresivo de 5 segundos en la esquina superior izquierda de la pantalla. Su posicionamiento conserva la altura configurada del elemento UI.
   - **Penalización por tiempo agotado:** Si el contador llega a cero, el servidor fuerza automáticamente la acción: si debía tirar carta, tira su primera carta disponible; si había un canto pendiente, lo acepta.
 
 ---

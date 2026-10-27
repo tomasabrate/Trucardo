@@ -653,6 +653,7 @@ namespace Trucardo.Core.UI
             {
                 pavaTimerRoot = existing.gameObject;
                 pavaTimerText = existing.GetComponentInChildren<TMP_Text>();
+                PositionPavaTimerInTopRight();
                 return;
             }
 
@@ -675,11 +676,8 @@ namespace Trucardo.Core.UI
             pavaTimerRoot = timerObj;
 
             RectTransform rt = timerObj.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -55f);
             rt.sizeDelta = new Vector2(280f, 44f);
+            PositionPavaTimerInTopRight();
 
             Image img = timerObj.GetComponent<Image>();
             img.sprite = woodSprite;
@@ -706,6 +704,17 @@ namespace Trucardo.Core.UI
             pavaTimerText.raycastTarget = false;
 
             timerObj.SetActive(false);
+        }
+
+        private void PositionPavaTimerInTopRight()
+        {
+            RectTransform rt = pavaTimerRoot.GetComponent<RectTransform>();
+            if (rt == null) return;
+
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(20f, -20f);
         }
 
         private void EnsureToastUI()
