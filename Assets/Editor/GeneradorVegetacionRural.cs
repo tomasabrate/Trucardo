@@ -13,7 +13,7 @@ public static class GeneradorVegetacionRural
     private const string VersionEditorPrefs = "Trucardo.GeneradorVegetacionRural.Version";
     private const string VersionEscenaPrefs = "Trucardo.GeneradorVegetacionRural.EscenaVersion";
     private const int VersionActual = 2;
-    private const int VersionEscenaActual = 1;
+    private const int VersionEscenaActual = 2;
     private const float NivelSueloExterior = -0.12f;
 
     static GeneradorVegetacionRural()
@@ -255,30 +255,161 @@ public static class GeneradorVegetacionRural
 
         (float x, float z, float rot, float esc, bool tipo2)[] pastosExteriores =
         {
-            ( -4.2f, -16.8f,  40f, 1.10f, false),
-            ( -7.4f, -16.9f, 120f, 0.95f, true),
-            (-12.0f, -19.8f, 210f, 1.15f, false),
-            (-19.8f, -17.2f,  85f, 1.05f, true),
-            (  3.8f, -16.7f, 160f, 1.00f, true),
-            (  8.8f, -19.5f, 290f, 1.12f, false),
+            // Borde exterior de la valla Sur y costados del camino de salida
+            ( -3.2f, -16.4f,  25f, 1.08f, false),
+            ( -3.8f, -17.1f, 140f, 0.94f, true),
+            ( -5.5f, -16.5f, 215f, 1.12f, false),
+            ( -7.4f, -16.9f, 120f, 0.98f, true),
+            ( -9.6f, -16.4f,  45f, 1.10f, false),
+            (-11.8f, -16.8f, 300f, 0.95f, true),
+            (-14.0f, -16.5f, 175f, 1.14f, false),
+            (-16.2f, -16.9f,  80f, 1.02f, true),
+            (  1.8f, -16.5f, 195f, 1.06f, true),
+            (  2.4f, -17.2f,  60f, 0.92f, false),
+            (  4.5f, -16.6f, 250f, 1.10f, false),
+            (  6.8f, -16.8f, 110f, 0.96f, true),
+            (  9.2f, -16.4f, 330f, 1.12f, false),
+            ( 11.6f, -16.9f,  35f, 1.00f, true),
+            ( 14.2f, -16.5f, 160f, 1.08f, false),
             ( 15.8f, -16.8f,  15f, 0.96f, true),
-            (-20.2f,  -2.2f, 135f, 1.10f, false),
-            (-22.8f,  -0.8f, 245f, 0.95f, true),
-            (-18.2f,  -8.0f,  50f, 1.04f, true),
-            (-18.0f,   1.5f, 190f, 1.08f, false),
-            (-18.3f,   9.2f, 310f, 0.92f, true),
-            (-24.8f,   8.8f,  75f, 1.15f, false),
-            ( 16.6f,  -6.5f, 140f, 1.06f, false),
-            ( 16.5f,   2.4f, 260f, 0.94f, true),
-            ( 21.8f,   3.0f,  25f, 1.12f, false),
-            ( 16.8f,  10.5f, 175f, 1.00f, true),
-            ( 19.0f,  13.5f, 330f, 1.08f, false),
-            ( -9.5f,  18.8f,  60f, 1.10f, true),
-            ( -2.4f,  18.9f, 200f, 0.96f, false),
-            (  6.8f,  18.7f, 110f, 1.05f, true),
-            ( 14.5f,  18.6f, 280f, 1.12f, false),
-            (-11.2f,  22.2f,  35f, 1.08f, false),
-            ( 10.4f,  21.8f, 150f, 0.98f, true)
+
+            // Borde exterior de la valla Oeste y alrededores del Molinete
+            (-17.8f, -14.2f,  75f, 1.06f, false),
+            (-18.2f, -11.0f, 210f, 0.94f, true),
+            (-17.9f,  -8.0f,  50f, 1.10f, true),
+            (-18.4f,  -5.2f, 165f, 1.02f, false),
+            (-17.8f,  -1.8f, 285f, 1.12f, false),
+            (-18.0f,   1.5f, 190f, 1.08f, true),
+            (-17.7f,   4.8f,  40f, 0.96f, false),
+            (-18.3f,   8.5f, 310f, 1.05f, true),
+            (-17.9f,  12.0f, 125f, 1.14f, false),
+            (-18.2f,  15.6f, 235f, 0.98f, true),
+            (-20.0f,  -3.2f, 135f, 1.12f, false),
+            (-23.4f,  -2.6f,  20f, 1.00f, true),
+            (-23.2f,   0.4f, 245f, 1.08f, false),
+            (-20.2f,   0.2f, 110f, 0.95f, true),
+
+            // Borde exterior de la valla Este
+            ( 16.3f, -13.8f, 155f, 1.05f, true),
+            ( 16.6f, -10.2f,  30f, 1.12f, false),
+            ( 16.4f,  -6.5f, 140f, 1.00f, false),
+            ( 16.8f,  -2.8f, 275f, 0.94f, true),
+            ( 16.5f,   1.2f,  85f, 1.10f, false),
+            ( 16.7f,   4.6f, 210f, 1.02f, true),
+            ( 16.4f,   8.2f, 325f, 1.14f, false),
+            ( 16.8f,  11.8f, 175f, 0.98f, true),
+            ( 16.5f,  15.2f,  55f, 1.06f, false),
+
+            // Borde exterior de la valla Norte
+            (-15.2f,  18.5f,  90f, 1.08f, true),
+            (-12.0f,  18.8f, 220f, 1.12f, false),
+            ( -9.2f,  18.6f,  60f, 1.04f, true),
+            ( -5.8f,  18.9f, 180f, 0.96f, false),
+            ( -2.4f,  18.7f, 295f, 1.10f, false),
+            (  1.2f,  18.5f,  45f, 1.00f, true),
+            (  4.8f,  18.8f, 150f, 1.14f, false),
+            (  8.4f,  18.6f, 265f, 0.95f, true),
+            ( 11.8f,  18.9f,  20f, 1.08f, false),
+            ( 14.8f,  18.5f, 195f, 1.02f, true),
+
+            // Campo medio Sur (19m a 32m)
+            ( -3.5f, -19.8f, 110f, 1.12f, true),
+            ( -6.8f, -21.2f, 240f, 1.04f, false),
+            (-10.8f, -20.5f,  35f, 1.18f, false),
+            (-12.2f, -22.0f, 185f, 0.98f, true),
+            (-16.5f, -20.4f, 305f, 1.10f, false),
+            (-20.2f, -19.2f,  85f, 1.06f, true),
+            (-23.8f, -22.5f, 160f, 1.14f, false),
+            ( -4.8f, -25.5f, 270f, 1.08f, true),
+            ( -9.5f, -27.2f,  50f, 1.15f, false),
+            (-15.4f, -26.8f, 195f, 1.02f, true),
+            (-21.5f, -28.0f, 320f, 1.12f, false),
+            (  2.8f, -19.6f,  70f, 1.06f, false),
+            (  6.4f, -21.5f, 215f, 1.12f, true),
+            (  9.2f, -20.2f, 340f, 1.00f, false),
+            ( 10.6f, -21.8f, 130f, 1.14f, true),
+            ( 14.8f, -20.6f, 255f, 1.05f, false),
+            ( 18.8f, -18.4f,  40f, 1.10f, true),
+            ( 22.5f, -21.5f, 180f, 1.16f, false),
+            (  4.2f, -25.8f, 295f, 1.04f, true),
+            (  8.8f, -27.5f,  95f, 1.12f, false),
+            ( 14.5f, -26.4f, 220f, 1.08f, true),
+            ( 20.4f, -27.8f,  15f, 1.15f, false),
+
+            // Campo medio Oeste (20m a 34m)
+            (-22.5f, -14.5f, 145f, 1.10f, true),
+            (-25.2f,  -9.6f, 280f, 1.14f, false),
+            (-23.8f,  -6.2f,  65f, 1.02f, true),
+            (-26.5f,  -2.4f, 190f, 1.12f, false),
+            (-24.2f,   2.8f, 315f, 1.06f, true),
+            (-25.4f,   6.8f,  80f, 1.16f, false),
+            (-26.8f,   8.2f, 210f, 1.00f, true),
+            (-22.4f,  11.8f, 345f, 1.12f, false),
+            (-21.2f,  15.5f, 120f, 1.08f, true),
+            (-25.0f,  18.4f, 235f, 1.14f, false),
+            (-30.5f, -12.0f,  45f, 1.15f, false),
+            (-31.8f,  -4.5f, 170f, 1.06f, true),
+            (-29.5f,   3.5f, 290f, 1.12f, false),
+            (-32.0f,  11.2f, 105f, 1.08f, true),
+            (-28.8f,  20.5f, 225f, 1.16f, false),
+
+            // Campo medio Este (19m a 34m)
+            ( 20.2f, -13.5f, 200f, 1.08f, false),
+            ( 19.8f,  -9.2f,  55f, 1.14f, true),
+            ( 21.4f,  -7.8f, 175f, 1.02f, false),
+            ( 20.5f,  -3.6f, 300f, 1.10f, true),
+            ( 22.0f,   1.2f,  90f, 1.16f, false),
+            ( 23.5f,   2.5f, 240f, 1.04f, true),
+            ( 20.4f,   6.4f,  25f, 1.12f, false),
+            ( 19.2f,  11.6f, 150f, 1.08f, true),
+            ( 20.6f,  13.2f, 285f, 1.14f, false),
+            ( 22.8f,  17.8f,  70f, 1.06f, true),
+            ( 27.5f, -11.5f, 195f, 1.12f, true),
+            ( 28.8f,  -4.2f, 320f, 1.15f, false),
+            ( 26.5f,   4.8f, 115f, 1.08f, true),
+            ( 29.2f,  12.5f, 250f, 1.14f, false),
+            ( 26.0f,  21.0f,  35f, 1.10f, true),
+
+            // Campo medio Norte (20m a 34m)
+            (-16.8f,  22.5f, 130f, 1.12f, false),
+            (-13.2f,  22.8f, 265f, 1.04f, true),
+            (-11.6f,  24.2f,  40f, 1.16f, false),
+            ( -7.2f,  22.4f, 185f, 1.08f, true),
+            ( -2.2f,  24.2f, 310f, 1.14f, false),
+            ( -0.8f,  25.8f,  95f, 1.02f, true),
+            (  4.5f,  22.6f, 220f, 1.12f, false),
+            (  9.8f,  22.2f, 345f, 1.06f, true),
+            ( 12.0f,  23.8f, 140f, 1.15f, false),
+            ( 16.5f,  22.0f, 275f, 1.08f, true),
+            ( 20.8f,  22.4f,  60f, 1.12f, false),
+            (-18.5f,  28.5f, 190f, 1.14f, true),
+            (-10.5f,  29.8f, 325f, 1.10f, false),
+            ( -3.5f,  30.5f,  80f, 1.16f, true),
+            (  5.2f,  29.2f, 210f, 1.08f, false),
+            ( 13.8f,  28.8f, 330f, 1.12f, true),
+            ( 21.5f,  27.5f, 115f, 1.15f, false),
+
+            // Pastos mas lejanos acompanando arbustos y arboles distantes (33m a 48m)
+            (-32.0f, -31.0f,  50f, 1.20f, false),
+            (-18.5f, -38.5f, 175f, 1.18f, true),
+            ( -7.5f, -39.0f, 290f, 1.22f, false),
+            (  9.5f, -38.0f,  85f, 1.16f, true),
+            ( 24.5f, -34.5f, 210f, 1.20f, false),
+            ( 35.0f, -27.5f, 335f, 1.18f, true),
+            (-38.0f, -16.5f, 120f, 1.22f, true),
+            (-37.5f,  -2.5f, 245f, 1.16f, false),
+            (-40.5f,  10.5f,  30f, 1.20f, false),
+            (-35.5f,  24.0f, 155f, 1.18f, true),
+            (-34.0f,  34.5f, 280f, 1.22f, false),
+            ( 35.5f, -15.0f,  65f, 1.18f, false),
+            ( 38.0f,   1.5f, 190f, 1.22f, true),
+            ( 35.0f,  16.5f, 315f, 1.16f, false),
+            ( 36.5f,  30.0f, 100f, 1.20f, true),
+            (-22.5f,  39.0f, 225f, 1.18f, true),
+            ( -8.0f,  42.0f, 350f, 1.22f, false),
+            (  7.5f,  41.0f, 135f, 1.16f, true),
+            ( 21.5f,  38.5f, 260f, 1.20f, false),
+            ( 31.0f,  40.5f,  40f, 1.18f, true)
         };
 
         for (int i = 0; i < pastosExteriores.Length; i++)
@@ -288,15 +419,86 @@ public static class GeneradorVegetacionRural
             InstanciarElemento(
                 prefab,
                 grpExteriorMedio,
-                (p.tipo2 ? "Pasto_02_Ext_" : "Pasto_01_Ext_") + (i + 1).ToString("00"),
+                (p.tipo2 ? "Pasto_02_Ext_" : "Pasto_01_Ext_") + (i + 1).ToString("000"),
                 new Vector3(p.x, NivelSueloExterior, p.z),
                 p.rot,
                 p.esc);
         }
 
         // =====================================================================
-        // 3. MAS LEJOS EN EL CAMPO: ARBOLES EN EL HORIZONTE (32m a 75m)
+        // 3. MAS LEJOS EN EL CAMPO: ARBUSTOS Y ARBOLES LEJANOS (24m a 54m)
         // =====================================================================
+        (float x, float z, float rot, float esc, bool tipo2)[] arbustosLejanos =
+        {
+            // Zona media-lejana y lejana Sur (24m a 48m)
+            ( -6.2f, -24.8f,  35f, 1.05f, false),
+            (-11.8f, -26.5f, 165f, 1.12f, true),
+            (-18.5f, -25.0f, 285f, 0.98f, false),
+            (-26.5f, -24.2f, 110f, 1.15f, true),
+            (  5.5f, -24.5f, 230f, 1.08f, true),
+            ( 12.4f, -26.0f,  45f, 1.02f, false),
+            ( 19.2f, -24.8f, 190f, 1.14f, true),
+            ( 26.8f, -23.5f, 315f, 1.06f, false),
+            (-33.5f, -31.5f,  80f, 1.18f, true),
+            (-21.0f, -36.5f, 205f, 1.10f, false),
+            ( -8.5f, -38.5f, 330f, 1.20f, true),
+            (  4.2f, -37.0f, 125f, 1.12f, false),
+            ( 14.5f, -39.5f, 250f, 1.16f, true),
+            ( 26.0f, -35.0f,  15f, 1.08f, false),
+            ( 37.5f, -28.0f, 145f, 1.22f, true),
+
+            // Zona media-lejana y lejana Oeste (26m a 50m)
+            (-28.5f, -15.5f, 270f, 1.10f, false),
+            (-31.0f,  -7.5f,  55f, 1.16f, true),
+            (-29.2f,   1.2f, 180f, 1.04f, false),
+            (-32.5f,   9.8f, 305f, 1.14f, true),
+            (-28.0f,  19.5f,  90f, 1.08f, false),
+            (-44.0f, -20.5f, 215f, 1.22f, false),
+            (-39.5f,  -6.8f, 340f, 1.15f, true),
+            (-46.5f,   4.5f, 115f, 1.20f, false),
+            (-41.0f,  16.5f, 240f, 1.12f, true),
+            (-36.5f,  28.5f,  25f, 1.18f, false),
+            (-42.5f,  35.5f, 160f, 1.14f, true),
+
+            // Zona media-lejana y lejana Este (25m a 48m)
+            ( 26.5f, -14.2f, 290f, 1.12f, true),
+            ( 28.0f,  -6.0f,  75f, 1.06f, false),
+            ( 27.2f,   3.8f, 200f, 1.15f, true),
+            ( 29.5f,  11.5f, 325f, 1.08f, false),
+            ( 25.8f,  19.8f, 110f, 1.14f, true),
+            ( 38.5f, -16.5f, 235f, 1.18f, false),
+            ( 43.0f,  -4.5f,  40f, 1.22f, true),
+            ( 41.5f,   8.0f, 165f, 1.12f, false),
+            ( 37.0f,  21.0f, 295f, 1.16f, true),
+            ( 42.5f,  31.5f,  85f, 1.20f, false),
+
+            // Zona media-lejana y lejana Norte (26m a 48m)
+            (-19.5f,  27.5f, 210f, 1.12f, true),
+            ( -9.5f,  28.8f, 335f, 1.06f, false),
+            (  1.5f,  29.2f, 100f, 1.16f, true),
+            ( 11.5f,  28.0f, 225f, 1.08f, false),
+            ( 21.0f,  26.8f,  10f, 1.14f, true),
+            (-28.5f,  39.5f, 135f, 1.20f, false),
+            (-14.0f,  43.5f, 260f, 1.15f, true),
+            ( -1.5f,  45.0f,  45f, 1.22f, false),
+            ( 12.5f,  42.5f, 170f, 1.16f, true),
+            ( 26.5f,  40.0f, 295f, 1.18f, false),
+            ( 34.0f,  45.5f,  70f, 1.14f, true)
+        };
+
+        for (int i = 0; i < arbustosLejanos.Length; i++)
+        {
+            var b = arbustosLejanos[i];
+            GameObject prefab = b.tipo2 ? arbusto02 : arbusto01;
+            InstanciarElemento(
+                prefab,
+                grpArbolesLejanos,
+                (b.tipo2 ? "Arbusto_02_Lejano_" : "Arbusto_01_Lejano_") + (i + 1).ToString("00"),
+                new Vector3(b.x, NivelSueloExterior, b.z),
+                b.rot,
+                b.esc);
+        }
+
         (float x, float z, float rot, float esc, bool tipo2)[] arbolesLejanos =
         {
             // Horizonte Sur

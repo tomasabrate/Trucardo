@@ -73,5 +73,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.GameServer
   ShowTopMostFoldoutHeaderGroup: 1
+  botDialogue:
+    enabled: 1
+    port: 8080
+    modelFilename: Qwen_Qwen3.5-0.8B-Q4_1.gguf
+    startupTimeout: 60
+    requestTimeout: 8
+    maxTokens: 48
+    temperature: 0.9
+    cooldown: 3.5
+    baseSpeakProbability: 0.85
+    logDebug: 0
+    contextSize: 2048
+    threads: 4
+    eventLifetime: 8
   masterDeck: {fileID: 11400000, guid: cc227df05a03ae14b8de9ba37cc0f098, type: 2}
+  autoFillPlayer2WithBot: 1
+  botActionDelaySeconds: 0.75
+  defaultBotDifficulty: 1
+  defaultBotPersonality: 0
+  useFixedBotSeed: 0
+  botSeed: 12345
+  logBotDecisions: 0
   cardPrefab: {fileID: 0}
+  botPrefab: {fileID: 708491000381413559, guid: 47fd79558be882f44a860fab6cc77052, type: 3}
+  botVariantPrefabs:
+  - {fileID: 708491000381413559, guid: 47fd79558be882f44a860fab6cc77052, type: 3}
+  - {fileID: 708491000381413559, guid: c33000018be882f44a860fab6cc77051, type: 3}
+  - {fileID: 708491000381413559, guid: c33000038be882f44a860fab6cc77053, type: 3}
+  - {fileID: 708491000381413559, guid: c33000028be882f44a860fab6cc77052, type: 3}
+  - {fileID: 708491000381413559, guid: c33000048be882f44a860fab6cc77054, type: 3}
+  bartenderPrefab: {fileID: 0}
+  botYOffset: 0.35
+  botForwardOffset: 0.15
+  bartenderPosition: {fileID: 0}

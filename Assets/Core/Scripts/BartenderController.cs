@@ -68,9 +68,25 @@ namespace Trucardo.Core
                 defaultFacingEuler = transform.eulerAngles;
             }
 
-            if (animator == null)
+            if (animator == null || animator.avatar == null)
             {
-                animator = GetComponentInChildren<Animator>();
+                Animator[] anims = GetComponentsInChildren<Animator>(true);
+                foreach (var a in anims)
+                {
+                    if (a.avatar != null && a.avatar.isValid)
+                    {
+                        animator = a;
+                        break;
+                    }
+                }
+                if (animator == null && anims.Length > 0)
+                {
+                    animator = anims[anims.Length - 1];
+                }
+            }
+            if (animator != null)
+            {
+                animator.applyRootMotion = false;
             }
 
             targetRotation = Quaternion.Euler(defaultFacingEuler);
