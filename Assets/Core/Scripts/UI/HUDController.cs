@@ -51,6 +51,7 @@ namespace Trucardo.Core.UI
         private GameObject victoryPanelRoot;
         private GameObject defeatPanelRoot;
         private GameObject postGamePanelRoot;
+        private GameObject visibleEndGamePanel;
         private Button victoryNextButton;
         private Button defeatNextButton;
         private Button rematchButton;
@@ -131,7 +132,24 @@ namespace Trucardo.Core.UI
         {
             UnregisterButtonActions();
             if (instance == this)
+            {
+                UIInteractionAudio.SetEndGameAudioActive(false);
                 instance = null;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (instance != this)
+                return;
+
+            visibleEndGamePanel = null;
+            UIInteractionAudio.SetEndGameAudioActive(false);
+        }
+
+        private void LateUpdate()
+        {
+            UpdateEndGameAudio();
         }
 
         public void AttachPlayer(PlayerController player)
@@ -410,6 +428,7 @@ namespace Trucardo.Core.UI
             if (victoryPanelRoot != null) victoryPanelRoot.SetActive(showEndGame && localPlayerWon && !postGameOpen);
             if (defeatPanelRoot != null) defeatPanelRoot.SetActive(showEndGame && !localPlayerWon && !postGameOpen);
             if (postGamePanelRoot != null) postGamePanelRoot.SetActive(showEndGame && postGameOpen);
+            UpdateEndGameAudio();
             if (trucoButton != null)
             {
                 trucoButton.gameObject.SetActive(true);
@@ -447,6 +466,30 @@ namespace Trucardo.Core.UI
             {
                 roundPowersUI.UpdateGameState(isSeated, matchFinished);
             }
+        }
+
+        private void UpdateEndGameAudio()
+        {
+            GameObject resultPanel = null;
+            if (endGameCanvas != null && endGameCanvas.isActiveAndEnabled)
+            {
+                if (victoryPanelRoot != null && victoryPanelRoot.activeInHierarchy)
+                    resultPanel = victoryPanelRoot;
+                else if (defeatPanelRoot != null && defeatPanelRoot.activeInHierarchy)
+                    resultPanel = defeatPanelRoot;
+            }
+
+            UIInteractionAudio.SetEndGameAudioActive(resultPanel != null);
+            if (resultPanel != null && resultPanel != visibleEndGamePanel)
+            {
+                bool played = resultPanel == victoryPanelRoot
+                    ? UIInteractionAudio.PlayVictory()
+                    : UIInteractionAudio.PlayDefeat();
+                if (!played)
+                    return;
+            }
+
+            visibleEndGamePanel = resultPanel;
         }
 
         public void AddPowerToRoundTimeline(PowerData power, bool isLocal)

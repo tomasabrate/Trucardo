@@ -8,30 +8,56 @@ public sealed class UIInteractionAudio : MonoBehaviour, IPointerClickHandler, IP
 {
     private const float SliderSoundInterval = 0.1f;
     private const float UiSoundVolume = 0.3f;
+    // Ganancia adicional para las grabaciones de victoria y derrota, que vienen bajas.
+    private const float EndGameSoundGain = 2.5f;
     private const string OpenButtonResource = "Sonidos/BotonUI/Open_button_wood";
     private const string CloseButtonResource = "Sonidos/BotonUI/CloseButtonWood";
     private const string SliderResource = "Sonidos/BotonUI/SliderButton";
     private const string DropdownResource = "Sonidos/BotonUI/litupsubway-ui-hover-sfx-513360";
     private const string ButtonHoverResource = "Sonidos/BotonUI/SelecctionMenu";
+    private const string VictoryResource = "Sonidos/Efectos/Victoria";
+    private const string DefeatResource = "Sonidos/Efectos/Derrota";
 
     private static AudioClip openButtonClip;
     private static AudioClip closeButtonClip;
     private static AudioClip sliderClip;
     private static AudioClip dropdownClip;
     private static AudioClip buttonHoverClip;
+    private static AudioClip victoryClip;
+    private static AudioClip defeatClip;
     private static AudioSource audioSource;
+    private static AudioSource endGameAudioSource;
     private static bool clipsLoaded;
+    private static bool endGameAudioActive;
+    private static bool previousListenerPause;
 
     private Button button;
     private Slider slider;
     private TMP_Dropdown dropdown;
     private float lastSliderSoundValue;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRuntimeState()
+    {
+        SetEndGameAudioActive(false);
+        clipsLoaded = false;
+        openButtonClip = null;
+        closeButtonClip = null;
+        sliderClip = null;
+        dropdownClip = null;
+        buttonHoverClip = null;
+        victoryClip = null;
+        defeatClip = null;
+        if (audioSource != null) audioSource.Stop();
+        if (endGameAudioSource != null) endGameAudioSource.Stop();
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Initialize()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
+        LoadClips();
         AttachToLoadedSceneControls();
     }
 
@@ -90,6 +116,34 @@ public sealed class UIInteractionAudio : MonoBehaviour, IPointerClickHandler, IP
         if (button != null && button.IsInteractable())
         {
             PlayButton();
+        }
+    }
+
+    public static bool PlayVictory()
+    {
+        return Play(UISound.Victory);
+    }
+
+    public static bool PlayDefeat()
+    {
+        return Play(UISound.Defeat);
+    }
+
+    public static void SetEndGameAudioActive(bool active)
+    {
+        if (endGameAudioActive == active)
+            return;
+
+        endGameAudioActive = active;
+        if (active)
+        {
+            previousListenerPause = AudioListener.pause;
+            if (audioSource != null) audioSource.Stop();
+            AudioListener.pause = true;
+        }
+        else
+        {
+            AudioListener.pause = previousListenerPause;
         }
     }
 
@@ -165,20 +219,61 @@ public sealed class UIInteractionAudio : MonoBehaviour, IPointerClickHandler, IP
         }
     }
 
-    private static void Play(UISound sound)
+    private static bool Play(UISound sound)
     {
+        bool isEndGameSound = sound == UISound.Victory || sound == UISound.Defeat;
+        if (endGameAudioActive && !isEndGameSound)
+            return false;
+
         LoadClips();
-        AudioClip clip = sound == UISound.ButtonOpen ? openButtonClip :
-            sound == UISound.ButtonClose ? closeButtonClip :
-            sound == UISound.Slider ? sliderClip :
-            sound == UISound.Dropdown ? dropdownClip : buttonHoverClip;
+        AudioClip clip = sound switch
+        {
+            UISound.ButtonOpen => openButtonClip,
+            UISound.ButtonClose => closeButtonClip,
+            UISound.Slider => sliderClip,
+            UISound.Dropdown => dropdownClip,
+            UISound.ButtonHover => buttonHoverClip,
+            UISound.Victory => victoryClip,
+            UISound.Defeat => defeatClip,
+            _ => null
+        };
         if (clip == null)
         {
-            return;
+            return false;
+        }
+
+        if (clip.loadState == AudioDataLoadState.Unloaded)
+            clip.LoadAudioData();
+        if (clip.loadState != AudioDataLoadState.Loaded)
+            return false;
+
+        if (isEndGameSound)
+        {
+            EnsureEndGameAudioSource();
+            endGameAudioSource.Stop();
+            endGameAudioSource.PlayOneShot(clip, EndGameSoundGain);
+            return true;
         }
 
         EnsureAudioSource();
         audioSource.PlayOneShot(clip);
+        return true;
+    }
+
+    private static void EnsureEndGameAudioSource()
+    {
+        if (endGameAudioSource != null)
+            return;
+
+        GameObject audioObject = new GameObject("End Game Audio");
+        Object.DontDestroyOnLoad(audioObject);
+        endGameAudioSource = audioObject.AddComponent<AudioSource>();
+        endGameAudioSource.playOnAwake = false;
+        endGameAudioSource.loop = false;
+        endGameAudioSource.spatialBlend = 0f;
+        endGameAudioSource.ignoreListenerPause = true;
+        endGameAudioSource.priority = 0;
+        endGameAudioSource.volume = 1f;
     }
 
     private static void EnsureAudioSource()
@@ -200,7 +295,9 @@ public sealed class UIInteractionAudio : MonoBehaviour, IPointerClickHandler, IP
         ButtonClose,
         Slider,
         Dropdown,
-        ButtonHover
+        ButtonHover,
+        Victory,
+        Defeat
     }
 
     private static void LoadClips()
@@ -216,6 +313,8 @@ public sealed class UIInteractionAudio : MonoBehaviour, IPointerClickHandler, IP
         sliderClip = LoadClip(SliderResource);
         dropdownClip = LoadClip(DropdownResource);
         buttonHoverClip = LoadClip(ButtonHoverResource);
+        victoryClip = LoadClip(VictoryResource);
+        defeatClip = LoadClip(DefeatResource);
     }
 
     private static AudioClip LoadClip(string resourcePath)
@@ -224,6 +323,10 @@ public sealed class UIInteractionAudio : MonoBehaviour, IPointerClickHandler, IP
         if (clip == null)
         {
             Debug.LogError("No se encontró el sonido de UI en Resources/" + resourcePath + ".");
+        }
+        else if (clip.loadState == AudioDataLoadState.Unloaded && !clip.LoadAudioData())
+        {
+            Debug.LogError("No se pudieron cargar los datos de audio de Resources/" + resourcePath + ".");
         }
 
         return clip;
