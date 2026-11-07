@@ -147,7 +147,11 @@ namespace Trucardo.Core
             TableDefinition[] existing = FindAll();
             bool allConfiguredProperly = existing.Length >= 9 && existing.All(t => 
                 t.Seats != null && t.Seats.Count == 2 && t.Seats[0] != null && t.Seats[1] != null &&
-                t.transform.InverseTransformPoint(t.Seats[0].transform.position).x > t.transform.InverseTransformPoint(t.Seats[1].transform.position).x
+                (
+                    (t.TableId != null && t.TableId.Contains("9"))
+                        ? (t.Seats[0].transform.position.x > t.Seats[1].transform.position.x)
+                        : (t.transform.InverseTransformPoint(t.Seats[0].transform.position).x > t.transform.InverseTransformPoint(t.Seats[1].transform.position).x)
+                )
             );
             if (allConfiguredProperly)
                 return;
@@ -236,10 +240,22 @@ namespace Trucardo.Core
                     continue;
                 }
 
-                // Ordenar SIEMPRE por posición local en X respecto a la mesa:
-                // local X > 0 es Banco A (Jugador Local)
-                // local X < 0 es Banco B (Rival / Bot)
-                mySeats = mySeats.OrderByDescending(s => tableTransform.InverseTransformPoint(s.transform.position).x).ToList();
+                if (id == "Mesa_9" || id.Contains("9"))
+                {
+                    // En Mesa 9, el Bartender se sienta en el banco contra la pared (Banco B / Seats[1]),
+                    // y el jugador se sienta en el banco del salón mirando hacia la pared (Banco A / Seats[0]).
+                    // El banco contra la pared tiene menor X en mundo (x ≈ -8.4).
+                    SeatInteractable wall = mySeats.OrderBy(s => s.transform.position.x).First();
+                    SeatInteractable player = mySeats.OrderBy(s => s.transform.position.x).Last();
+                    mySeats = new List<SeatInteractable> { player, wall };
+                }
+                else
+                {
+                    // Ordenar por posición local en X respecto a la mesa:
+                    // local X > 0 es Banco A (Jugador Local)
+                    // local X < 0 es Banco B (Rival / Bot)
+                    mySeats = mySeats.OrderByDescending(s => tableTransform.InverseTransformPoint(s.transform.position).x).ToList();
+                }
 
                 mySeats[0].name = $"{id}_Banco_A";
                 mySeats[1].name = $"{id}_Banco_B";

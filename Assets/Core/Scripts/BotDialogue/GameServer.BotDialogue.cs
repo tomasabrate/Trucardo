@@ -36,7 +36,10 @@ namespace Trucardo.Core
             try
             {
                 dialogueRuntime = BotDialogueRuntime.Ensure(botDialogue);
-                session.DialoguePersonality = defaultBotPersonality;
+                if (session.DialoguePersonality == default && session.DialoguePersonality != defaultBotPersonality)
+                {
+                    session.DialoguePersonality = defaultBotPersonality;
+                }
                 session.Player2Dialogue = dialogueRuntime?.Register(session.Player2Id);
             }
             catch (Exception exception) { DialogueFailed(exception); }
@@ -151,7 +154,8 @@ namespace Trucardo.Core
 
                 var context = new BotDialogueContext(session.DialoguePersonality, botScore, oppScore,
                     envido, truco, confidence, model.CurrentState,
-                    scoreSituation, trickState, role, trickIndex);
+                    scoreSituation, trickState, role, trickIndex,
+                    session.DialoguePersonaDescription);
                 _ = session.Player2Dialogue.ObserveAsync(context, ev);
             }
             catch (Exception exception) { DialogueFailed(exception); }

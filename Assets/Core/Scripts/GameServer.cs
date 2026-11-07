@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,6 +32,9 @@ namespace Trucardo.Core
         public BotController Player2BotController;
         public BotDialogueController Player2Dialogue;
         public BotPersonality DialoguePersonality;
+        public string DialoguePersonaDescription;
+        public string BotName;
+        public bool DefeatRecorded = false;
         public Coroutine PendingBotActionCoroutine;
         public Coroutine PendingStartRoundCoroutine;
         public List<GameObject> TableCards = new List<GameObject>();
@@ -57,8 +61,34 @@ namespace Trucardo.Core
         public System.Collections.Generic.List<string> BotAvailablePowerIds = new System.Collections.Generic.List<string>();
     }
 
+    [System.Serializable]
+    public struct TableBotConfig
+    {
+        public string tableId;
+        public string botName;
+        public string hudName;
+        public string archetype;
+        public BotDifficulty difficulty;
+        public BotPersonality personality;
+        [TextArea(2, 4)]
+        public string personaDescription;
+
+        public TableBotConfig(string tableId, string botName, string hudName, string archetype, BotDifficulty difficulty, BotPersonality personality, string personaDescription)
+        {
+            this.tableId = tableId;
+            this.botName = botName;
+            this.hudName = string.IsNullOrEmpty(hudName) ? botName : hudName;
+            this.archetype = archetype;
+            this.difficulty = difficulty;
+            this.personality = personality;
+            this.personaDescription = personaDescription;
+        }
+    }
+
     public partial class GameServer : NetworkBehaviour
     {
+        public static GameServer Instance { get; private set; }
+
         private const ulong FirstLogicalBotId = ulong.MaxValue - 1;
 
         [Header("Datos Generales")]
@@ -70,6 +100,8 @@ namespace Trucardo.Core
         [SerializeField] private bool useFixedBotSeed = false;
         [SerializeField] private int botSeed = 12345;
         [SerializeField] private bool logBotDecisions = false;
+        [Header("Configuración de Bots por Mesa (Mesas 1 a 8 + Mesa 9 Bartender)")]
+        [SerializeField] private List<TableBotConfig> tableConfigs = new List<TableBotConfig>();
         [Header("Cartas")]
         public GameObject cardPrefab;
         [Header("Bots")]
@@ -82,6 +114,11 @@ namespace Trucardo.Core
 
         private List<TableSession> sessions = new List<TableSession>();
         private ulong nextLogicalBotId = FirstLogicalBotId;
+
+        private void Awake()
+        {
+            Instance = this;
+        }
 
         public override void OnNetworkSpawn()
         {
@@ -264,8 +301,10 @@ namespace Trucardo.Core
                         : botPrefab;
                     botIndex++;
 
+                    TableBotConfig cfg = GetBotConfigForTable(table.TableId);
+
                     GameObject botInst = Instantiate(chosenPrefab, spawnPos, botRot);
-                    botInst.name = $"Bot {table.TableId.Replace("_", " ")}";
+                    botInst.name = $"Bot {table.TableId.Replace("_", " ")} - {cfg.botName} ({cfg.archetype})";
                     
                     CleanBotComponents(botInst);
 
@@ -521,13 +560,113 @@ namespace Trucardo.Core
             session.Player2Seated = true;
             session.Player2Type = ParticipantType.Bot;
             session.GameModel.Player2Id = botId;
-            BotProfile profile = BotProfile.Create(defaultBotDifficulty, defaultBotPersonality);
+
+            TableBotConfig config = GetBotConfigForTable(session.TableId);
+            session.BotName = config.botName;
+            session.DialoguePersonality = config.personality;
+            session.DialoguePersonaDescription = config.personaDescription;
+
+            BotProfile profile = BotProfile.Create(config.difficulty, config.personality);
             int seed = useFixedBotSeed ? botSeed : unchecked((int)(botId ^ (botId >> 32)));
             session.Player2BotController = new BotController(new BotBrain(profile, seed));
             RegisterDialogue(session);
 
-            Debug.Log($"Bot lÃ³gico {botId} registrado como Jugador 2 en la mesa {session.TableId}.");
+            Debug.Log($"Bot lógico {botId} ('{config.botName}' - {config.archetype} [{config.difficulty}/{config.personality}]) registrado como Jugador 2 en la mesa {session.TableId}.");
             return true;
+        }
+
+        public TableBotConfig GetBotConfigForTable(string tableId)
+        {
+            var defaults = GetDefaultTableConfigs();
+            if (string.IsNullOrEmpty(tableId))
+                return defaults[0];
+
+            // 1. Si el usuario personalizó tableConfigs en el Inspector de GameServer
+            if (tableConfigs != null && tableConfigs.Count > 0)
+            {
+                foreach (var cfg in tableConfigs)
+                {
+                    if (string.Equals(cfg.tableId, tableId, StringComparison.OrdinalIgnoreCase))
+                        return cfg;
+                }
+            }
+
+            // 2. Buscar en defaults por coincidencia exacta de ID
+            foreach (var cfg in defaults)
+            {
+                if (string.Equals(cfg.tableId, tableId, StringComparison.OrdinalIgnoreCase))
+                    return cfg;
+            }
+
+            // 3. Fallback extrayendo el número (ej: "Mesa_3", "Mesa 3", "3", etc.)
+            int number = ExtractTableNumber(tableId);
+            if (number >= 1 && number <= defaults.Count)
+            {
+                if (tableConfigs != null && tableConfigs.Count > 0)
+                {
+                    foreach (var cfg in tableConfigs)
+                    {
+                        if (ExtractTableNumber(cfg.tableId) == number)
+                            return cfg;
+                    }
+                }
+                return defaults[number - 1];
+            }
+
+            return new TableBotConfig(tableId, "Gaucho", "Gaucho", "Estándar", defaultBotDifficulty, defaultBotPersonality, "gaucho sereno, socarrón, buen baqueano de la mesa");
+        }
+
+        public static List<TableBotConfig> GetDefaultTableConfigs()
+        {
+            return new List<TableBotConfig>
+            {
+                new TableBotConfig("Mesa_1", "Don Nahuel", "Nahuel", "El Novato",
+                    BotDifficulty.Easy, BotPersonality.Balanced,
+                    "gaucho aprendiz, humilde, comete errores de novato y juega sin apuro"),
+
+                new TableBotConfig("Mesa_2", "Don Facundo", "Facundo", "El Prudente (Seguro)",
+                    BotDifficulty.Easy, BotPersonality.Conservative,
+                    "gaucho desconfiado y muy precavido, no regala un punto, se va al mazo si no tiene cartas altas"),
+
+                new TableBotConfig("Mesa_3", "El Santos", "Santos", "El Arriesgado",
+                    BotDifficulty.Normal, BotPersonality.Risky,
+                    "gaucho audaz, impulsivo, atropellado, le gusta el peligro y canta rápido a la suerte"),
+
+                new TableBotConfig("Mesa_4", "El Chajá", "El Chajá", "El Mentiroso (Chamuyero)",
+                    BotDifficulty.Normal, BotPersonality.Bluffer,
+                    "gaucho trampero, zorro viejo, puro chamuyo; miente constantemente cantando sin cartas para robar puntos"),
+
+                new TableBotConfig("Mesa_5", "Don Ciriaco", "Ciriaco", "El Picante (Agresivo)",
+                    BotDifficulty.Normal, BotPersonality.Aggressive,
+                    "gaucho picante, prepotente y peleador, te busca la lengua, apura con retruco y no perdona"),
+
+                new TableBotConfig("Mesa_6", "El Tape Jacinto", "El Tape", "El Calculador",
+                    BotDifficulty.Hard, BotPersonality.Conservative,
+                    "gaucho estratega y calculador; cuenta cada carta caída, no comete errores y juega sobre seguro"),
+
+                new TableBotConfig("Mesa_7", "Don Braulio", "Braulio", "El Baqueano",
+                    BotDifficulty.Hard, BotPersonality.Balanced,
+                    "gaucho sereno, socarrón, baqueano veterano de mil partidas; maneja los tiempos del truco con maestría"),
+
+                new TableBotConfig("Mesa_8", "El Zorro de la Querencia", "El Zorro", "El Maestro del Engaño",
+                    BotDifficulty.Expert, BotPersonality.Bluffer,
+                    "jugador implacable y maestro del engaño; nivel experto absoluto con mentiras calculadas e indetectables"),
+
+                new TableBotConfig("Mesa_9", "El Patrón (Bartender)", "El Patrón", "Jefe Final (Final Boss)",
+                    BotDifficulty.Expert, BotPersonality.Aggressive,
+                    "el Patrón de la pulpería y dueño del boliche, jefe final del truco; severo, canchero, imbatible y conocedor de cada maña del juego")
+            };
+        }
+
+        private static int ExtractTableNumber(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return -1;
+            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(name, @"\d+");
+            if (match.Success && int.TryParse(match.Value, out int result))
+            {
+                return result;
+            }
+            return -1;
         }
 
         private bool TryGenerateLogicalBotId(out ulong botId)
@@ -978,20 +1117,27 @@ namespace Trucardo.Core
             playerPlayedCount = Mathf.Clamp(playerPlayedCount, 0, 2);
 
             float zSpacing = 0.22f;
-            // Visto desde la perspectiva del jugador (en Banco A mirando a la mesa):
-            // -Z local es la Izquierda del jugador.
-            // +Z local es la Derecha del jugador.
-            // Mano 1 (playerPlayedCount = 0): zOffset = -0.22 (Izquierda)
-            // Mano 2 (playerPlayedCount = 1): zOffset = 0.00 (Centro)
-            // Mano 3 (playerPlayedCount = 2): zOffset = +0.22 (Derecha)
-            // Tanto las cartas del jugador como las del rival se alinean en las mismas columnas,
-            // garantizando que el jugador siempre ve todas las manos jugarse de izquierda a derecha.
-            float zOffset = (playerPlayedCount - 1) * zSpacing;
 
-            // Banco A (lado del jugador) usa xOffset = +0.2f y rotaciÃ³n -90Â° para estar de su lado y mirarlo
-            // Banco B (lado del rival) usa xOffset = -0.2f y rotaciÃ³n +90Â° para estar de su lado y mirarlo
-            float xOffset = isAtSeatA ? 0.2f : -0.2f;
-            float yRot = isAtSeatA ? -90f : 90f;
+            // Determinar de qué lado de la mesa está el Banco A (Seats[0]) en coordenadas locales de la mesa.
+            // En mesas estándar local X > 0 es Banco A. En mesas rotadas como Mesa 9, local X < 0 es Banco A.
+            float seatASign = 1f;
+            if (mesa != null && session.Table != null && session.Table.Seats != null && session.Table.Seats.Count >= 2 && session.Table.Seats[0] != null)
+            {
+                seatASign = Mathf.Sign(mesa.InverseTransformPoint(session.Table.Seats[0].transform.position).x);
+                if (Mathf.Abs(seatASign) < 0.001f) seatASign = 1f;
+            }
+
+            // Visto desde la perspectiva del jugador (en Banco A mirando a la mesa):
+            // Mano 1 (playerPlayedCount = 0): Izquierda del jugador
+            // Mano 2 (playerPlayedCount = 1): Centro
+            // Mano 3 (playerPlayedCount = 2): Derecha del jugador
+            float zOffset = (playerPlayedCount - 1) * zSpacing * seatASign;
+
+            // Banco A (lado del jugador) usa xOffset y rotación orientada a su banco.
+            // Banco B (lado del rival) usa xOffset opuesto y rotación orientada a su banco.
+            float sideMultiplier = isAtSeatA ? seatASign : -seatASign;
+            float xOffset = sideMultiplier * 0.2f;
+            float yRot = sideMultiplier > 0 ? -90f : 90f;
 
             Vector3 targetPos = new Vector3(xOffset, 0f, zOffset);
             Quaternion targetRot = Quaternion.Euler(0, yRot, 0);
@@ -1620,6 +1766,23 @@ namespace Trucardo.Core
             List<ulong> seatedPlayers = new List<ulong>();
             if (session.Player1Seated && session.Player1Type == ParticipantType.Human) seatedPlayers.Add(session.Player1Id);
             if (session.Player2Seated && session.Player2Type == ParticipantType.Human) seatedPlayers.Add(session.Player2Id);
+
+            if (session.GameModel.CurrentState == GameState.PartidaTerminada)
+            {
+                if (session.Player1Type == ParticipantType.Human && session.Player2Type == ParticipantType.Bot)
+                {
+                    if (session.GameModel.ScoreTeam1 >= 30 && !session.DefeatRecorded)
+                    {
+                        session.DefeatRecorded = true;
+                        int tableNum = ExtractTableNumber(session.TableId);
+                        if (tableNum >= 1 && tableNum <= 8)
+                        {
+                            GameProgressionManager.Instance?.SetBotDefeated(tableNum);
+                        }
+                    }
+                }
+            }
+
             if (seatedPlayers.Count == 0) return;
 
             ClientRpcParams clientRpcParams = new ClientRpcParams

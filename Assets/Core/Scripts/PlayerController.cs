@@ -78,6 +78,7 @@ namespace Trucardo.Core
         private HUDController hudController;
         private bool interfaceMode;
         private bool gameOverUIActive;
+        private bool hasRecordedWinThisMatch;
 
         private Camera firstPersonCamera;
         private Camera thirdPersonCamera;
@@ -2147,6 +2148,42 @@ namespace Trucardo.Core
             int myScore = amIPlayer1 ? localP1Score : localP2Score;
             int opponentScore = amIPlayer1 ? localP2Score : localP1Score;
 
+            if (matchFinished && myScore >= 30 && currentTableDefinition != null && !hasRecordedWinThisMatch)
+            {
+                hasRecordedWinThisMatch = true;
+                int tableNum = -1;
+                System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(currentTableDefinition.TableId, @"\d+");
+                if (m.Success && int.TryParse(m.Value, out tableNum))
+                {
+                    if (tableNum >= 1 && tableNum <= 8)
+                    {
+                        GameProgressionManager.Instance?.SetBotDefeated(tableNum);
+                    }
+                }
+            }
+            else if (!matchFinished)
+            {
+                hasRecordedWinThisMatch = false;
+            }
+
+            string rivalName = "Rival";
+            if (currentTableDefinition != null)
+            {
+                var server = FindAnyObjectByType<GameServer>();
+                if (server != null)
+                {
+                    var cfg = server.GetBotConfigForTable(currentTableDefinition.TableId);
+                    if (!string.IsNullOrEmpty(cfg.hudName))
+                    {
+                        rivalName = cfg.hudName;
+                    }
+                    else if (!string.IsNullOrEmpty(cfg.botName))
+                    {
+                        rivalName = cfg.botName;
+                    }
+                }
+            }
+
             hudController.Refresh(
                 turnMessage,
                 myScore,
@@ -2157,7 +2194,8 @@ namespace Trucardo.Core
                 canCallRealEnvido,
                 canCallFaltaEnvido,
                 matchFinished,
-                myScore >= 30);
+                myScore >= 30,
+                rivalName);
         }
 
         private void OnGUI()

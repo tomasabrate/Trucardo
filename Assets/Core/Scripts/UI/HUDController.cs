@@ -20,6 +20,7 @@ namespace Trucardo.Core.UI
         [SerializeField] private Transform opponentMalasTally;
         [SerializeField] private Transform opponentBuenasTally;
         [SerializeField] private TMP_Text opponentTotalText;
+        [SerializeField] private TMP_Text opponentNameText;
         [SerializeField] private GameObject actionBarRoot;
         [SerializeField] private GameObject envidoPanelRoot;
         [SerializeField] private GameObject responsePanelRoot;
@@ -226,13 +227,41 @@ namespace Trucardo.Core.UI
             bool allowRealEnvido,
             bool allowFaltaEnvido,
             bool gameFinished,
-            bool playerWon)
+            bool playerWon,
+            string opponentName = null)
         {
             if (turnText != null)
                 turnText.text = turnMessage;
 
             UpdateScore(playerMalasMarks, playerBuenasMarks, playerTotalText, playerScore);
             UpdateScore(opponentMalasMarks, opponentBuenasMarks, opponentTotalText, opponentScore);
+
+            if (opponentNameText == null && opponentMalasTally != null && opponentMalasTally.parent != null)
+            {
+                var texts = opponentMalasTally.parent.GetComponentsInChildren<TMP_Text>(true);
+                foreach (var t in texts)
+                {
+                    if (t.name == "PlayerName" || t.text.Equals("Rival", StringComparison.OrdinalIgnoreCase))
+                    {
+                        opponentNameText = t;
+                        break;
+                    }
+                }
+            }
+            if (opponentNameText != null)
+            {
+                opponentNameText.text = !string.IsNullOrEmpty(opponentName) ? opponentName : "Rival";
+                opponentNameText.enableAutoSizing = true;
+                opponentNameText.fontSizeMin = 10f;
+                opponentNameText.fontSizeMax = 36f;
+                opponentNameText.textWrappingMode = TextWrappingModes.NoWrap;
+                opponentNameText.overflowMode = TextOverflowModes.Ellipsis;
+                RectTransform rt = opponentNameText.rectTransform;
+                if (rt != null && rt.sizeDelta.x < 130f)
+                {
+                    rt.sizeDelta = new Vector2(135f, Mathf.Max(rt.sizeDelta.y, 14f));
+                }
+            }
 
             if (localTurn != isLocalTurn || responseRequired != needsResponse)
             {

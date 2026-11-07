@@ -73,6 +73,8 @@ MonoBehaviour:
   idleStateName: Idle
   walkStateName: Walk
   bartendingStateName: Bartending
+  seatedStateName: Seated
+  visualYOffset: -0.09
   barCenter: {x: 6.05, y: 0, z: 8.2}
   patrolRangeX: 1.6
   depthRangeZ: 0.2
@@ -95,7 +97,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d40265f47e773ba498c2a9f1aab188ab, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.09
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d40265f47e773ba498c2a9f1aab188ab, type: 3}
       propertyPath: m_LocalPosition.z

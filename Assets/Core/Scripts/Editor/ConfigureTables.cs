@@ -62,7 +62,16 @@ namespace Trucardo.EditorScripts
                 if (mySeats.Count != 2)
                     throw new InvalidOperationException($"{id} no tiene dos bancos con SeatInteractable.");
 
-                mySeats = mySeats.OrderByDescending(s => table.InverseTransformPoint(s.transform.position).x).ToList();
+                if (id == "Mesa_9" || id.Contains("9"))
+                {
+                    SeatInteractable wall = mySeats.OrderBy(s => s.transform.position.x).First();
+                    SeatInteractable player = mySeats.OrderBy(s => s.transform.position.x).Last();
+                    mySeats = new List<SeatInteractable> { player, wall };
+                }
+                else
+                {
+                    mySeats = mySeats.OrderByDescending(s => table.InverseTransformPoint(s.transform.position).x).ToList();
+                }
 
                 mySeats[0].name = $"{id}_Banco_A";
                 mySeats[1].name = $"{id}_Banco_B";

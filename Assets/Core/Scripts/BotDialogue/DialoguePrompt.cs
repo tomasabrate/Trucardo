@@ -22,15 +22,9 @@ namespace Trucardo.Core.BotDialogue
 
         public static string User(BotDialogueContext context, BotDialogueEvent ev, IReadOnlyList<string> recent)
         {
-            string personality;
-            switch (context.Personality)
-            {
-                case BotPersonality.Conservative: personality = "gaucho desconfiado, seco, de pocas palabras, no arriesga al cuete"; break;
-                case BotPersonality.Aggressive: personality = "gaucho picante, prepotente, desafiante, te busca la lengua"; break;
-                case BotPersonality.Bluffer: personality = "gaucho trampero, zorro viejo, puro chamuyo; ocultá siempre tu juego"; break;
-                case BotPersonality.Risky: personality = "gaucho audaz, impulsivo, atropellado, le gusta el peligro"; break;
-                default: personality = "gaucho sereno, socarrón, buen baqueano de la mesa"; break;
-            }
+            string personality = !string.IsNullOrEmpty(context.PersonaDescription)
+                ? context.PersonaDescription
+                : DefaultPersonalityDescription(context.Personality);
 
             string scoreDesc;
             switch (context.ScoreSituation)
@@ -88,6 +82,18 @@ namespace Trucardo.Core.BotDialogue
                 result.Append(recent[i]).Append(" | ");
             result.Append("\nFrase corta gaucha de mesa (3 a 12 palabras), picaresca y natural. Sin prefijos ni comillas.");
             return result.ToString();
+        }
+
+        private static string DefaultPersonalityDescription(BotPersonality p)
+        {
+            switch (p)
+            {
+                case BotPersonality.Conservative: return "gaucho desconfiado, seco, de pocas palabras, no arriesga al cuete";
+                case BotPersonality.Aggressive: return "gaucho picante, prepotente, desafiante, te busca la lengua";
+                case BotPersonality.Bluffer: return "gaucho trampero, zorro viejo, puro chamuyo; ocultá siempre tu juego";
+                case BotPersonality.Risky: return "gaucho audaz, impulsivo, atropellado, le gusta el peligro";
+                default: return "gaucho sereno, socarrón, buen baqueano de la mesa";
+            }
         }
     }
 }

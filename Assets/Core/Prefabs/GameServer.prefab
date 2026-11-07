@@ -95,6 +95,7 @@ MonoBehaviour:
   useFixedBotSeed: 0
   botSeed: 12345
   logBotDecisions: 0
+  tableConfigs: []
   cardPrefab: {fileID: 0}
   botPrefab: {fileID: 708491000381413559, guid: 47fd79558be882f44a860fab6cc77052, type: 3}
   botVariantPrefabs:

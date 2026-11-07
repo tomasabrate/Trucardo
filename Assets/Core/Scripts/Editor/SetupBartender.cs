@@ -187,7 +187,7 @@ public class SetupBartender
         GameObject visuals = (GameObject)PrefabUtility.InstantiatePrefab(fbxAsset);
         visuals.name = "Visuals";
         visuals.transform.SetParent(root.transform, false);
-        visuals.transform.localPosition = Vector3.zero;
+        visuals.transform.localPosition = new Vector3(0f, -0.09f, 0f);
         visuals.transform.localRotation = Quaternion.identity;
         visuals.transform.localScale = Vector3.one;
 

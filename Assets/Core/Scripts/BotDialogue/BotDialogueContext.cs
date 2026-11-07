@@ -27,18 +27,21 @@ namespace Trucardo.Core.BotDialogue
         public TrickState TrickState { get; }
         public PlayerRole Role { get; }
         public int TrickIndex { get; }
+        public string PersonaDescription { get; }
 
         public BotDialogueContext(BotPersonality personality, int botScore, int opponentScore,
             EnvidoStrength envido, TrucoStrength truco, DialogueConfidence confidence, GameState phase,
             ScoreSituation scoreSituation = ScoreSituation.Empatados,
             TrickState trickState = TrickState.PrimeraMano,
             PlayerRole role = PlayerRole.BotEsMano,
-            int trickIndex = 1)
+            int trickIndex = 1,
+            string personaDescription = null)
         {
             Personality = personality; BotScore = botScore; OpponentScore = opponentScore;
             Envido = envido; Truco = truco; Confidence = confidence; Phase = phase;
             ScoreSituation = scoreSituation; TrickState = trickState; Role = role;
             TrickIndex = trickIndex;
+            PersonaDescription = personaDescription;
         }
     }
 
