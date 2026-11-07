@@ -1840,14 +1840,14 @@ namespace Trucardo.Core
             foreach (GameObject obj in allObjects)
             {
                 bool usesLegacyBehavior = TableDefinition.IsSeatName(obj.name);
-                SeatInteractable interactable = obj.GetComponent<SeatInteractable>();
+                SeatInteractable interactable = obj.GetComponent<SeatInteractable>() ?? obj.GetComponentInParent<SeatInteractable>();
                 if (!usesLegacyBehavior && interactable == null) continue;
 
                 if (interactable != null && interactable.IsOccupied)
                     continue;
 
                 bool isOccupied = false;
-                Vector3 seatPos = obj.transform.position;
+                Vector3 seatPos = interactable != null ? interactable.transform.position : obj.transform.position;
                 foreach (PlayerController player in allPlayers)
                 {
                     if (player != this)
@@ -1891,15 +1891,16 @@ namespace Trucardo.Core
                 if (!isMultiplayer && (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer 
                     || FindObjectsByType<BotMarker>(FindObjectsSortMode.None).Length > 0))
                 {
-                    TableDefinition table = TableDefinition.FindForSeat(obj.transform);
+                    Transform targetSeatTransform = interactable != null ? interactable.transform : obj.transform;
+                    TableDefinition table = TableDefinition.FindForSeat(targetSeatTransform);
                     if (table != null && table.Seats != null && table.Seats.Count >= 2 && table.Seats[1] != null 
-                        && (table.Seats[1].gameObject == obj || obj.transform.IsChildOf(table.Seats[1].transform)))
+                        && (table.Seats[1].gameObject == obj || obj.transform.IsChildOf(table.Seats[1].transform) || (interactable != null && table.Seats[1] == interactable)))
                     {
                         continue;
                     }
                 }
 
-                float distance = Vector3.Distance(transform.position, obj.transform.position);
+                float distance = Vector3.Distance(transform.position, seatPos);
                 float interactionRange = usesLegacyBehavior ? 1.5f : 1.0f;
                 if (distance < interactionRange && distance < closestDistance)
                 {
@@ -1911,14 +1912,14 @@ namespace Trucardo.Core
 
             if (closestObject != null)
             {
-                Transform seatTransform = closestObject.transform;
+                Transform seatTransform = closestInteractable != null ? closestInteractable.transform : closestObject.transform;
                 currentTableDefinition = TableDefinition.FindForSeat(seatTransform);
 
                 if (characterController != null) characterController.enabled = false;
 
                 float seatHeight = closestInteractable != null
                     ? closestInteractable.GetTopHeight() - 0.45f
-                    : 0f;
+                    : seatTransform.position.y;
                 transform.position = new Vector3(seatTransform.position.x, seatHeight, seatTransform.position.z);
 
                 currentSeatInteractable = closestInteractable;

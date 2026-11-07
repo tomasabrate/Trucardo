@@ -919,7 +919,7 @@ namespace Trucardo.Core
                 else if (mesa != null)
                 {
                     Vector3 localPlayerPos = mesa.InverseTransformPoint(pc.transform.position);
-                    isAtSeatA = localPlayerPos.x <= 0f;
+                    isAtSeatA = localPlayerPos.x >= 0f;
                 }
             }
             else
