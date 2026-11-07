@@ -50,17 +50,7 @@ namespace Trucardo.Core
         {
             if (seat == null) return null;
 
-            // 1. Si el asiento tiene una TableDefinition en sus ancestros
-            Transform current = seat;
-            while (current != null)
-            {
-                TableDefinition definition = current.GetComponent<TableDefinition>();
-                if (definition != null && (definition.OwnsSeat(seat) || seat.IsChildOf(definition.transform)))
-                    return definition;
-                current = current.parent;
-            }
-
-            // 2. Buscar en todas las mesas activas cuál es la dueña explícita de este asiento
+            // 1. Buscar en todas las mesas activas cuál es la dueña explícita de este asiento
             TableDefinition[] all = FindAll();
             foreach (var table in all)
             {
@@ -68,11 +58,21 @@ namespace Trucardo.Core
                     return table;
             }
 
-            // 3. Buscar en la lista estática registrada
+            // 2. Buscar en la lista estática registrada
             for (int i = 0; i < allTables.Count; i++)
             {
                 if (allTables[i] != null && allTables[i].OwnsSeat(seat))
                     return allTables[i];
+            }
+
+            // 3. Si el asiento tiene una TableDefinition en sus ancestros Y está a distancia válida de juego (<= 2m)
+            Transform current = seat;
+            while (current != null)
+            {
+                TableDefinition definition = current.GetComponent<TableDefinition>();
+                if (definition != null && (definition.OwnsSeat(seat) || (seat.IsChildOf(definition.transform) && HorizontalDistance(definition.transform.position, seat.position) <= 2.0f)))
+                    return definition;
+                current = current.parent;
             }
 
             // 4. Si el asiento es hijo directo o indirecto de la mesa y está a distancia válida de juego (<= 2m)
@@ -128,9 +128,9 @@ namespace Trucardo.Core
             {
                 string id = tableTransform.name; // Respetar el nombre original en jerarquía (e.g., Mesa_9)
                 
-                // Buscar asientos que sean Hijos de esta mesa específica ordenados por posición local
+                // Buscar asientos que sean Hijos de esta mesa específica ordenados por posición local Y a distancia válida (<= 2m)
                 List<SeatInteractable> mySeats = remainingSeats
-                    .Where(s => s.transform.IsChildOf(tableTransform))
+                    .Where(s => s.transform.IsChildOf(tableTransform) && HorizontalDistance(tableTransform.position, s.transform.position) <= 2.0f)
                     .OrderBy(s => s.transform.localPosition.x)
                     .Take(2)
                     .ToList();

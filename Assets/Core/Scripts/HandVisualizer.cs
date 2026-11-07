@@ -39,6 +39,24 @@ namespace Trucardo.Core
         {
             return cardsInHand != null && cardsInHand.Count > 0;
         }
+
+        public void ClearHand()
+        {
+            if (cardsInHand != null)
+            {
+                for (int i = cardsInHand.Count - 1; i >= 0; i--)
+                {
+                    if (cardsInHand[i] != null)
+                    {
+                        Destroy(cardsInHand[i].gameObject);
+                    }
+                }
+                cardsInHand.Clear();
+            }
+            tableCenter = null;
+            elevatedCard = null;
+            revealedCard = null;
+        }
         
         public void RemoveCardFromHand(CardVisual cardPlayed)
         {
@@ -110,6 +128,16 @@ namespace Trucardo.Core
             foreach (Renderer renderer in renderers)
             {
                 if (!renderer.enabled || renderer.bounds.size.y > 1.5f)
+                {
+                    continue;
+                }
+
+                if (renderer.GetComponentInParent<SeatInteractable>() != null)
+                {
+                    continue;
+                }
+                string lower = renderer.gameObject.name.ToLowerInvariant();
+                if (lower.Contains("silla") || lower.Contains("banco") || lower.Contains("banquito") || lower.Contains("seat"))
                 {
                     continue;
                 }

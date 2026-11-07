@@ -1899,8 +1899,7 @@ namespace Trucardo.Core
             };
             RevealAndBreakOpponentCardClientRpc(sender, targetOpponentSlot, destroyedCardIndex, newCardIndex, rpcParamsSender);
 
-            // Sincronizar manos
-            SyncPlayerHand(session, sender);
+            // Sincronizar mano del oponente (quien recibió la nueva carta tras el corte)
             SyncPlayerHand(session, opponentId);
 
             SendPowerToast(session, sender, "FACÃ“N", 

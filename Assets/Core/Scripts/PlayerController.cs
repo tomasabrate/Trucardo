@@ -67,6 +67,7 @@ namespace Trucardo.Core
         private bool isLuzMalaActiveOnMe = false;
         private bool isFaconTargeting = false;
         private PowerVisual activeFaconVisual = null;
+        private Coroutine activeRevealAndBreakRoutine = null;
         private bool isGuitarraTargeting = false;
         private int guitarraStep = 0;
         private int selectedGuitarraMyCardSlot = -1;
@@ -310,18 +311,23 @@ namespace Trucardo.Core
             myCards = cards;
             Debug.Log($"[Local Player] Cartas recibidas ({cards.Length}). Instanciando 3D...");
 
-                        for (int i = 0; i < 3; i++)
+            if (localCardInstances != null)
             {
-                if (localCardInstances[i] != null) Destroy(localCardInstances[i]);
+                for (int i = 0; i < localCardInstances.Length; i++)
+                {
+                    if (localCardInstances[i] != null) Destroy(localCardInstances[i]);
+                }
             }
+            localCardInstances = new GameObject[3];
+
             HideRevealedOpponentCard();
+            if (handVisualizer != null)
+            {
+                handVisualizer.ClearHand();
+            }
             if (opponentHandVisualizer != null)
             {
-                foreach (var card in opponentHandVisualizer.cardsInHand)
-                {
-                    if (card != null) Destroy(card.gameObject);
-                }
-                opponentHandVisualizer.cardsInHand.Clear();
+                opponentHandVisualizer.ClearHand();
             }
 
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
@@ -999,16 +1005,19 @@ namespace Trucardo.Core
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
             if (serverInstance == null || serverInstance.masterDeck == null) return;
 
-            for (int i = 0; i < localCardInstances.Length; i++)
+            if (localCardInstances != null)
             {
-                if (localCardInstances[i] != null)
+                for (int i = 0; i < localCardInstances.Length; i++)
                 {
-                    if (handVisualizer != null)
+                    if (localCardInstances[i] != null)
                     {
-                        CardVisual visual = localCardInstances[i].GetComponent<CardVisual>();
-                        if (visual != null) handVisualizer.RemoveCardFromHand(visual);
+                        if (handVisualizer != null)
+                        {
+                            CardVisual visual = localCardInstances[i].GetComponent<CardVisual>();
+                            if (visual != null) handVisualizer.RemoveCardFromHand(visual);
+                        }
+                        Destroy(localCardInstances[i]);
                     }
-                    Destroy(localCardInstances[i]);
                 }
             }
 
@@ -1486,12 +1495,31 @@ namespace Trucardo.Core
             DismissGuampasChoice();
             DismissGuitarraChoice();
             HideRevealedOpponentCard();
+            if (activeRevealAndBreakRoutine != null)
+            {
+                StopCoroutine(activeRevealAndBreakRoutine);
+                activeRevealAndBreakRoutine = null;
+            }
+
             if (powerHandVisualizer != null) powerHandVisualizer.ClearPowers();
             if (opponentPowerVisualizer != null) opponentPowerVisualizer.ClearPowers();
             foreach (var p in localPowerInstances) if (p != null) Destroy(p);
             foreach (var p in opponentPowerInstances) if (p != null) Destroy(p);
             localPowerInstances.Clear();
             opponentPowerInstances.Clear();
+
+            // Limpieza estricta de cartas propias y del rival al levantarse de la mesa
+            if (handVisualizer != null) handVisualizer.ClearHand();
+            if (opponentHandVisualizer != null) opponentHandVisualizer.ClearHand();
+            if (localCardInstances != null)
+            {
+                for (int i = 0; i < localCardInstances.Length; i++)
+                {
+                    if (localCardInstances[i] != null) Destroy(localCardInstances[i]);
+                }
+            }
+            localCardInstances = new GameObject[3];
+            myCards = new int[0];
 
             gameOverUIActive = false;
             isSeated = false;
@@ -1955,6 +1983,20 @@ namespace Trucardo.Core
                     if (hudController != null)
                         hudController.SetPlayerSeated(false);
 
+                    // Asegurar que ningún visualizador apunte a mesas anteriores
+                    if (handVisualizer != null) handVisualizer.ClearHand();
+                    if (opponentHandVisualizer != null) opponentHandVisualizer.ClearHand();
+                    if (powerHandVisualizer != null)
+                    {
+                        powerHandVisualizer.ClearPowers();
+                        powerHandVisualizer.tableCenter = null;
+                    }
+                    if (opponentPowerVisualizer != null)
+                    {
+                        opponentPowerVisualizer.ClearPowers();
+                        opponentPowerVisualizer.tableCenter = null;
+                    }
+
                     Debug.Log($"Te has sentado en el banco {seatTransform.name} (asiento de descanso, no inicia partida).");
                 }
             }
@@ -2249,11 +2291,16 @@ namespace Trucardo.Core
 
         public void RevealAndBreakOpponentCard(int slotIndex, int destroyedCardIndex, int newCardIndex)
         {
-            StartCoroutine(RevealAndBreakOpponentCardRoutine(slotIndex, destroyedCardIndex, newCardIndex));
+            if (activeRevealAndBreakRoutine != null)
+            {
+                StopCoroutine(activeRevealAndBreakRoutine);
+            }
+            activeRevealAndBreakRoutine = StartCoroutine(RevealAndBreakOpponentCardRoutine(slotIndex, destroyedCardIndex, newCardIndex));
         }
 
         private IEnumerator RevealAndBreakOpponentCardRoutine(int slotIndex, int destroyedCardIndex, int newCardIndex)
         {
+            if (!isSeated) yield break;
             if (opponentHandVisualizer == null || opponentHandVisualizer.cardsInHand == null) yield break;
             if (slotIndex < 0 || slotIndex >= opponentHandVisualizer.cardsInHand.Count) yield break;
 
@@ -2281,14 +2328,16 @@ namespace Trucardo.Core
                 yield return new WaitForSeconds(1.2f);
             }
 
-            if (card != null)
+            if (!isSeated) yield break;
+
+            if (card != null && opponentHandVisualizer != null)
             {
                 opponentHandVisualizer.RemoveCardFromHand(card);
                 Destroy(card.gameObject);
             }
 
             // Si recibió una nueva carta, reponer dorso blanco en la mano del rival
-            if (newCardIndex != -1 && cardPrefab != null)
+            if (newCardIndex != -1 && cardPrefab != null && opponentHandVisualizer != null)
             {
                 GameObject oc = Instantiate(cardPrefab, Vector3.zero, Quaternion.identity);
                 Destroy(oc.GetComponent<Unity.Netcode.NetworkObject>());
@@ -2305,6 +2354,7 @@ namespace Trucardo.Core
             }
 
             if (opponentHandVisualizer != null) opponentHandVisualizer.RefreshLayout();
+            activeRevealAndBreakRoutine = null;
         }
     }
 }

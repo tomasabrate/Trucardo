@@ -69,7 +69,7 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
     2. El jugador apunta con la vista y hace **clic izquierdo sobre la carta del rival** que desea destruir.
     3. La carta del rival seleccionada se gira y se revela de frente en 3D durante 1.2 segundos para que ambos jugadores vean qué carta era (ej. *"¡Era el 7 de Espadas!"*).
     4. La carta destruida se descarta. Inmediatamente el servidor toma una carta aleatoria no jugada del mazo y se la entrega al rival para reponer su mano.
-    5. **Cancelación:** En cualquier momento antes de hacer clic en la carta rival, el jugador puede presionar **Clic derecho o Escape** para cancelar la acción sin consumir el poder.
+    5. **Cancelación y Salida de Mesa:** En cualquier momento antes de hacer clic en la carta rival, el jugador puede presionar **Clic derecho o Escape** para cancelar la acción sin consumir el poder. Si el jugador se levanta de la mesa (`P` / Salir) en modo puntería o durante la animación de corte (1.2s), la acción se cancela de forma atómica; tanto la mano como los contenedores visuales se purgan y los buffers se reajustan a 3 slots para asegurar que al ingresar a una nueva mesa las cartas se repartan e instancien con total normalidad.
   - **Sinergia con Mate:** A simple vista las cartas del rival se ven de espaldas (a ciegas). Si el jugador utilizó previamente el **Mate** y recuerda la posición física de una carta poderosa del rival, puede apuntar y hacer clic en esa carta específica para destruirla.
   - **Lógica para Bots:** Si el bot usa el Facón, busca romper la carta más valiosa que conozca del rival (por Mate previo) o elige una al azar.
 
