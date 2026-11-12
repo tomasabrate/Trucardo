@@ -794,7 +794,7 @@ namespace Trucardo.Core.UI
             banner.SetActive(false);
         }
 
-        private void FormatButton(Button btn, string label, bool active, bool interactable, float minWidth = 265f)
+        private void FormatButton(Button btn, string label, bool active, bool interactable, float targetWidth = 215f)
         {
             if (btn == null) return;
             btn.gameObject.SetActive(active);
@@ -812,9 +812,9 @@ namespace Trucardo.Core.UI
             }
 
             RectTransform rt = btn.GetComponent<RectTransform>();
-            if (rt != null && rt.sizeDelta.x < minWidth)
+            if (rt != null)
             {
-                rt.sizeDelta = new Vector2(minWidth, rt.sizeDelta.y);
+                rt.sizeDelta = new Vector2(targetWidth, rt.sizeDelta.y);
             }
         }
 
@@ -960,18 +960,78 @@ namespace Trucardo.Core.UI
             if (postGamePanelRoot != null) postGamePanelRoot.SetActive(showEndGame && postGameOpen);
             UpdateEndGameAudio();
 
-            // Reposition Quiero and No Quiero so they never touch ActionBar
+            // Reposicionar botones de ActionBar (-260, 0, +260) con margen limpio para evitar solapamientos
+            if (showActionBar)
+            {
+                if (trucoButton != null)
+                {
+                    RectTransform rt = trucoButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(-260f, -440f);
+                }
+                if (envidoButton != null)
+                {
+                    RectTransform rt = envidoButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(0f, -440f);
+                }
+                if (salirDelMazoButton != null)
+                {
+                    RectTransform rt = salirDelMazoButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(260f, -440f);
+                }
+            }
+
+            // Reposicionar botones de EnvidoPanel (-360, -120, +120, +360) simétricos y sin solapamiento
+            if (showEnvidoOptions)
+            {
+                if (cantarEnvidoButton != null)
+                {
+                    RectTransform rt = cantarEnvidoButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(-360f, -440f);
+                }
+                if (realEnvidoButton != null)
+                {
+                    RectTransform rt = realEnvidoButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(-120f, -440f);
+                }
+                if (faltaEnvidoButton != null)
+                {
+                    RectTransform rt = faltaEnvidoButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(120f, -440f);
+                }
+                if (volverButton != null)
+                {
+                    RectTransform rt = volverButton.GetComponent<RectTransform>();
+                    if (rt != null) rt.anchoredPosition = new Vector2(360f, -440f);
+                }
+            }
+
+            // Reposition Quiero and No Quiero so they never touch ActionBar or each other
             if (showResponse)
             {
-                if (quieroButton != null)
+                if (bastonPresidencialActiveOnMe)
                 {
-                    RectTransform rtQ = quieroButton.GetComponent<RectTransform>();
-                    if (rtQ != null) rtQ.anchoredPosition = new Vector2(-125f, -260f);
+                    if (quieroButton != null)
+                    {
+                        RectTransform rtQ = quieroButton.GetComponent<RectTransform>();
+                        if (rtQ != null) rtQ.anchoredPosition = new Vector2(0f, -260f);
+                    }
+                    if (noQuieroButton != null)
+                    {
+                        noQuieroButton.gameObject.SetActive(false);
+                    }
                 }
-                if (noQuieroButton != null)
+                else
                 {
-                    RectTransform rtNQ = noQuieroButton.GetComponent<RectTransform>();
-                    if (rtNQ != null) rtNQ.anchoredPosition = new Vector2(125f, -260f);
+                    if (quieroButton != null)
+                    {
+                        RectTransform rtQ = quieroButton.GetComponent<RectTransform>();
+                        if (rtQ != null) rtQ.anchoredPosition = new Vector2(-145f, -260f);
+                    }
+                    if (noQuieroButton != null)
+                    {
+                        RectTransform rtNQ = noQuieroButton.GetComponent<RectTransform>();
+                        if (rtNQ != null) rtNQ.anchoredPosition = new Vector2(145f, -260f);
+                    }
                 }
             }
 
@@ -983,22 +1043,23 @@ namespace Trucardo.Core.UI
                 _ => "[Q] Cantar Truco"
             };
             bool trucoInteractable = isLocalTurn || (needsResponse && currentPendingCanto == TipoCanto.Truco);
-            FormatButton(trucoButton, trucoLabel, showActionBar, trucoInteractable, 275f);
+            FormatButton(trucoButton, trucoLabel, showActionBar, trucoInteractable, 215f);
 
             bool envidoActive = showActionBar && (!showResponse || currentPendingCanto == TipoCanto.Envido);
             bool envidoInteractable = canCallEnvido || canCallRealEnvido || canCallFaltaEnvido;
-            FormatButton(envidoButton, "[E] Envido", envidoActive, envidoInteractable, 265f);
+            FormatButton(envidoButton, "[E] Envido", envidoActive, envidoInteractable, 215f);
 
-            FormatButton(salirDelMazoButton, "Mazo", showActionBar && !showResponse, false, 240f);
+            FormatButton(salirDelMazoButton, "Mazo", showActionBar && !showResponse, false, 215f);
 
-            FormatButton(cantarEnvidoButton, "[E] Envido", showEnvidoOptions, canCallEnvido, 265f);
-            FormatButton(realEnvidoButton, "[R] Real Envido", showEnvidoOptions, canCallRealEnvido, 265f);
-            FormatButton(faltaEnvidoButton, "[F] Falta Envido", showEnvidoOptions, canCallFaltaEnvido, 265f);
-            if (volverButton != null) volverButton.gameObject.SetActive(showEnvidoOptions);
+            FormatButton(cantarEnvidoButton, "[E] Envido", showEnvidoOptions, canCallEnvido, 190f);
+            FormatButton(realEnvidoButton, "[R] Real Envido", showEnvidoOptions, canCallRealEnvido, 190f);
+            FormatButton(faltaEnvidoButton, "[F] Falta Envido", showEnvidoOptions, canCallFaltaEnvido, 190f);
+            FormatButton(volverButton, "Volver", showEnvidoOptions, true, 190f);
 
             string quieroLabel = bastonPresidencialActiveOnMe ? "[A] ¡QUIERO! (Mandato)" : "[A] ¡Quiero!";
-            FormatButton(quieroButton, quieroLabel, showResponse, true, 265f);
-            FormatButton(noQuieroButton, "[N] No Quiero", showResponse && !bastonPresidencialActiveOnMe, true, 265f);
+            float quieroWidth = bastonPresidencialActiveOnMe ? 260f : 230f;
+            FormatButton(quieroButton, quieroLabel, showResponse, true, quieroWidth);
+            FormatButton(noQuieroButton, "[N] No Quiero", showResponse && !bastonPresidencialActiveOnMe, true, 230f);
             if (bastonPresidencialActiveOnMe && noQuieroButton != null)
             {
                 noQuieroButton.gameObject.SetActive(false);
