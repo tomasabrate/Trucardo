@@ -124,6 +124,8 @@ namespace Trucardo.Core
         public override void OnNetworkSpawn()
         {
             TableDefinition.EnsureSceneConfiguration();
+            SpawnBartender();
+            TableNumberSignController.RefreshAllVisibility();
             if (!IsServer)
             {
                 enabled = false;
@@ -133,8 +135,6 @@ namespace Trucardo.Core
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
 
             bool isSingleplayer = ShouldAutoFillBot();
-
-            SpawnBartender();
 
             if (isSingleplayer && botPrefab != null)
             {
@@ -1209,6 +1209,8 @@ namespace Trucardo.Core
             foreach (Renderer renderer in table.GetComponentsInChildren<Renderer>(true))
             {
                 if (!renderer.enabled || renderer.bounds.size.y > 1.5f)
+                    continue;
+                if (renderer.GetComponentInParent<TableNumberSignController>() != null)
                     continue;
 
                 highestSurface = Mathf.Max(highestSurface, renderer.bounds.max.y);

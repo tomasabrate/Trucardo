@@ -14,6 +14,7 @@ public class BartenderModelPostprocessor : AssetPostprocessor
             if (importer != null)
             {
                 importer.globalScale = 1.0f;
+                importer.isReadable = true;
                 importer.animationType = ModelImporterAnimationType.Human;
                 importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             }
@@ -104,6 +105,8 @@ public class SetupBartender
             mat.SetTexture("_MainTex", tex);
         }
         mat.SetFloat("_Smoothness", 0.1f);
+        mat.SetFloat("_Cull", 0f);
+        mat.SetInt("_Cull", 0);
         EditorUtility.SetDirty(mat);
 
         // 2. Configurar ModelImporter de Bartender.fbx
@@ -114,6 +117,11 @@ public class SetupBartender
             if (Mathf.Abs(importer.globalScale - 1.0f) > 0.01f)
             {
                 importer.globalScale = 1.0f;
+                reimport = true;
+            }
+            if (!importer.isReadable)
+            {
+                importer.isReadable = true;
                 reimport = true;
             }
             if (importer.animationType != ModelImporterAnimationType.Human)
@@ -226,18 +234,38 @@ public class SetupBartender
         Renderer[] renderers = visuals.GetComponentsInChildren<Renderer>(true);
         foreach (var r in renderers)
         {
+            if (r is SkinnedMeshRenderer smr && smr.sharedMesh != null)
+            {
+                Mesh fixedMesh = Trucardo.EditorScripts.BartenderMeshRepair.BuildRepairedMeshAsset(
+                    smr.sharedMesh,
+                    smr.bones,
+                    "Assets/Models/Personajes/Bartender/Bartender_Fixed.asset");
+                if (fixedMesh != null)
+                {
+                    smr.sharedMesh = fixedMesh;
+                }
+            }
             r.sharedMaterial = mat;
         }
 
         GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
         Object.DestroyImmediate(root);
 
-        // 5. Asignar en GameServer si existe en la escena activa
+        // 5. Asignar en GameServer si existe en la escena activa y asegurar PosicionBartender activo
         GameServer server = Object.FindFirstObjectByType<GameServer>();
         if (server != null && savedPrefab != null)
         {
             server.bartenderPrefab = savedPrefab;
             EditorUtility.SetDirty(server);
+        }
+
+        foreach (EnsureBartender eb in Object.FindObjectsByType<EnsureBartender>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (eb != null && !eb.gameObject.activeSelf)
+            {
+                eb.gameObject.SetActive(true);
+                EditorUtility.SetDirty(eb.gameObject);
+            }
         }
 
         Debug.Log($"[SetupBartender] BartenderPrefab y animaciones Humanoid configurados con éxito en {prefabPath}");

@@ -123,6 +123,7 @@ namespace Trucardo.Core
             foreach (Renderer renderer in renderers)
             {
                 if (!renderer.enabled || renderer.bounds.size.y > 1.5f) continue;
+                if (renderer.GetComponentInParent<TableNumberSignController>() != null) continue;
 
                 if (renderer.bounds.max.y > highestSurface)
                 {

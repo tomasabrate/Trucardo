@@ -70,6 +70,11 @@ namespace Trucardo.Core
         private SeatInteractable assignedSeatTable9;
         private TableDefinition table9Def;
 
+        private static bool IsMultiplayerSession()
+        {
+            return NetworkUI.selectedMode == GameMode.Host || NetworkUI.selectedMode == GameMode.Client;
+        }
+
         private void Awake()
         {
             Instance = this;
@@ -81,7 +86,7 @@ namespace Trucardo.Core
                 progObj.AddComponent<GameProgressionManager>();
             }
 
-            if (FindAnyObjectByType<BartenderTestButton>() == null)
+            if (!IsMultiplayerSession() && FindAnyObjectByType<BartenderTestButton>() == null)
             {
                 GameObject testBtnObj = new GameObject("BartenderTestButton");
                 testBtnObj.AddComponent<BartenderTestButton>();
@@ -301,6 +306,11 @@ namespace Trucardo.Core
         /// </summary>
         public void GoToTable9(bool instant = false)
         {
+            if (IsMultiplayerSession())
+            {
+                return;
+            }
+
             if (!instant)
             {
                 if (currentState == State.WalkingToTable)

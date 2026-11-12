@@ -132,7 +132,8 @@ namespace Trucardo.Core
                     continue;
                 }
 
-                if (renderer.GetComponentInParent<SeatInteractable>() != null)
+                if (renderer.GetComponentInParent<SeatInteractable>() != null
+                    || renderer.GetComponentInParent<TableNumberSignController>() != null)
                 {
                     continue;
                 }

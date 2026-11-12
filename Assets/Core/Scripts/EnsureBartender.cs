@@ -12,7 +12,13 @@ namespace Trucardo.Core
 
         private void Awake()
         {
-            if (GameObject.Find("Bartender") != null) return;
+            Ensure();
+        }
+
+        public GameObject Ensure()
+        {
+            GameObject existing = GameObject.Find("Bartender");
+            if (existing != null) return existing;
 
             GameObject prefab = bartenderPrefab;
 #if UNITY_EDITOR
@@ -32,7 +38,9 @@ namespace Trucardo.Core
                 {
                     ctrl.Initialize(transform.position, transform.rotation);
                 }
+                return inst;
             }
+            return null;
         }
     }
 }

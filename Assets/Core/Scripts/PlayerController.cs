@@ -1904,7 +1904,9 @@ namespace Trucardo.Core
 
                 float distance = Vector3.Distance(transform.position, seatPos);
                 float interactionRange = usesLegacyBehavior ? 1.5f : 1.0f;
-                if (distance < interactionRange && distance < closestDistance)
+                bool isBetterCandidate = distance < closestDistance - 0.05f
+                    || (Mathf.Abs(distance - closestDistance) <= 0.05f && interactable != null && closestInteractable == null);
+                if (distance < interactionRange && isBetterCandidate)
                 {
                     closestDistance = distance;
                     closestObject = obj;
@@ -1919,9 +1921,19 @@ namespace Trucardo.Core
 
                 if (characterController != null) characterController.enabled = false;
 
-                float seatHeight = closestInteractable != null
-                    ? closestInteractable.GetTopHeight() - 0.45f
-                    : seatTransform.position.y;
+                float seatHeight;
+                if (closestInteractable != null)
+                {
+                    seatHeight = closestInteractable.GetTopHeight() - 0.45f;
+                }
+                else if (TryGetSeatTopHeight(seatTransform, out float fallbackTopHeight))
+                {
+                    seatHeight = fallbackTopHeight - 0.45f;
+                }
+                else
+                {
+                    seatHeight = seatTransform.position.y;
+                }
                 transform.position = new Vector3(seatTransform.position.x, seatHeight, seatTransform.position.z);
 
                 currentSeatInteractable = closestInteractable;
@@ -2007,6 +2019,24 @@ namespace Trucardo.Core
             {
                 Debug.LogWarning("Estás muy lejos de una silla. Acércate más a una para sentarte.");
             }
+        }
+
+        private static bool TryGetSeatTopHeight(Transform seatTransform, out float topHeight)
+        {
+            topHeight = float.NegativeInfinity;
+            if (seatTransform == null) return false;
+
+            foreach (Renderer r in seatTransform.GetComponentsInChildren<Renderer>())
+            {
+                if (r.enabled) topHeight = Mathf.Max(topHeight, r.bounds.max.y);
+            }
+            if (!float.IsNegativeInfinity(topHeight)) return true;
+
+            foreach (Collider c in seatTransform.GetComponentsInChildren<Collider>())
+            {
+                if (c.enabled) topHeight = Mathf.Max(topHeight, c.bounds.max.y);
+            }
+            return !float.IsNegativeInfinity(topHeight);
         }
 
         private NivelTruco localEstadoTruco = NivelTruco.Ninguno;
