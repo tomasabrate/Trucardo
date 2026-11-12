@@ -33,6 +33,7 @@ namespace Trucardo.Core
 
         public event Action<int, string> OnBotDefeated;
         public event Action OnAllBotsDefeated;
+        public event Action OnProgressionUpdated;
 
         private void Awake()
         {
@@ -78,6 +79,8 @@ namespace Trucardo.Core
                 OnAllBotsDefeated?.Invoke();
                 BartenderController.Instance?.GoToTable9();
             }
+
+            OnProgressionUpdated?.Invoke();
         }
 
         public bool AreAllRegularBotsDefeated()
@@ -113,6 +116,7 @@ namespace Trucardo.Core
 
             Debug.Log("<color=#FF9800><b>[Progression] MODO TEST: Los 8 bots marcados como derrotados.</b></color>");
             OnAllBotsDefeated?.Invoke();
+            OnProgressionUpdated?.Invoke();
             BartenderController.Instance?.GoToTable9();
         }
 
@@ -125,6 +129,7 @@ namespace Trucardo.Core
             }
             PlayerPrefs.Save();
             Debug.Log("[Progression] Progresión reiniciada a cero.");
+            OnProgressionUpdated?.Invoke();
         }
     }
 }

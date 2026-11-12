@@ -101092,6 +101092,63 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.SeatInteractable
   currentOccupant: {fileID: 0}
+--- !u!1001 &3960216028521521507
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.35
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 4.35
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.17364824
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.9848078
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8971877275418576067, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
+      propertyPath: m_Name
+      value: Gaucho_Musico_Bar
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
 --- !u!23 &4481114386996763824
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -101239,6 +101296,203 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1001 &5161929853932594638
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 62104355596564941, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 259104068690937549, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 352254351554513184, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 6. El Tape Jacinto'
+      objectReference: {fileID: 0}
+    - target: {fileID: 1828042715407086461, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: "DUELOS DE LA PULPER\xCDA"
+      objectReference: {fileID: 0}
+    - target: {fileID: 2659676573008850009, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3027619468368287441, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3462989743502308072, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4167935054379056143, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: "El \xFAltimo rival aguarda entre las sombras...\nDerrota a los 8 gauchos para desafiarlo."
+      objectReference: {fileID: 0}
+    - target: {fileID: 4802888736597261982, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 5. Don Ciriaco'
+      objectReference: {fileID: 0}
+    - target: {fileID: 4842556812179734795, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 1. Don Nahuel'
+      objectReference: {fileID: 0}
+    - target: {fileID: 5237335606141058505, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 8. El Zorro de la Querencia'
+      objectReference: {fileID: 0}
+    - target: {fileID: 6417735007405452652, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 3. El Santos'
+      objectReference: {fileID: 0}
+    - target: {fileID: 6664047124136347420, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: "???  -  EL PATR\xD3N (MESA 9)  -  ???"
+      objectReference: {fileID: 0}
+    - target: {fileID: 7544774052124887710, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 7637179782936146412, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: "[ ] 4. El Chaj\xE1"
+      objectReference: {fileID: 0}
+    - target: {fileID: 7663479406342407729, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7736204160506240598, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: 'Rivales derrotados: 0 / 8'
+      objectReference: {fileID: 0}
+    - target: {fileID: 7831247668016048454, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: MESA 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.1347294
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 2.0261
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 7.4711223
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7098459
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.704357
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954391303643150376, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8516098196805444795, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 2. Don Facundo'
+      objectReference: {fileID: 0}
+    - target: {fileID: 8779332785275853959, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_Name
+      value: Tablero_Rivales
+      objectReference: {fileID: 0}
+    - target: {fileID: 9082879238301616565, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      propertyPath: m_text
+      value: '[ ] 7. Don Braulio'
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 929496905866685514, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 6719052145254908538, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 8972805347740412874, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 1408449159067237109, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 591865852961882773, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 2826407086590858744, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 9206385901047912774, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 9017026034110216139, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 2094967331071150898, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 4943821022199247014, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 8917121122759068636, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 56964550978395275, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 5725826688188553866, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 8955487170288107568, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 521933382460226199, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 4079927375630451328, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 6766492839706315707, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 8672149221108832865, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 5285769348278142615, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 2804358046000896528, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+  m_SourcePrefab: {fileID: 100100000, guid: 69c1fe31a929de94abbfacb42bf3affb, type: 3}
 --- !u!1 &5933652847401874477
 GameObject:
   m_ObjectHideFlags: 0
@@ -101355,7 +101609,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Trucardo.Core.SeatInteractable
   currentOccupant: {fileID: 0}
---- !u!1001 &7412259949351635443
+--- !u!1001 &6867622717176611442
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -101416,63 +101670,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9e9d444093240a646b7f35a362f77763, type: 3}
---- !u!1001 &8483649614715678540
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -2.35
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.02
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 4.35
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.17364824
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0.9848078
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5780966878639397503, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8971877275418576067, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
-      propertyPath: m_Name
-      value: Gaucho_Musico_Bar
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 3592df5ebdbfa7847b8510339e728d7a, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -101594,5 +101791,6 @@ SceneRoots:
   - {fileID: 7700102}
   - {fileID: 7700111}
   - {fileID: 7700121}
-  - {fileID: 7412259949351635443}
-  - {fileID: 8483649614715678540}
+  - {fileID: 6867622717176611442}
+  - {fileID: 3960216028521521507}
+  - {fileID: 5161929853932594638}
