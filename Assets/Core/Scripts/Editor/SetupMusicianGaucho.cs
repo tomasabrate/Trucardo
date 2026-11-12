@@ -34,7 +34,6 @@ namespace Trucardo.EditorScripts
                     || existingVisuals == null
                     || existingVisuals.localPosition.y < 0.25f
                     || existingGuitar == null
-                    || Mathf.Abs(existingGuitar.localPosition.x - 0.075f) > 0.005f
                     || GameObject.Find("Gaucho_Musico_Bar_ManoFija") == null
                     || AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Core/Prefabs/GauchoMusicoManoFijaPrefab.prefab") == null;
 
@@ -50,6 +49,8 @@ namespace Trucardo.EditorScripts
                     {
                         RefreshExistingMusicianPose(existingFixed, false, "Assets/Core/Prefabs/GauchoMusicoManoFijaPrefab.prefab");
                     }
+                    AssetDatabase.SaveAssets();
+                    EditorSceneManager.MarkSceneDirty(scene);
                 }
             }
         }

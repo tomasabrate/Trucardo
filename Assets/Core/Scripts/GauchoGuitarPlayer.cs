@@ -42,6 +42,8 @@ namespace Trucardo.Core
         [SerializeField] private Transform rightUpperArm;
         [SerializeField] private Transform rightForeArm;
         [SerializeField] private Transform rightHand;
+        [SerializeField] private Vector3 leftUpperArmBindLocalPos;
+        [SerializeField] private Vector3 rightUpperArmBindLocalPos;
 
         private void OnEnable()
         {
@@ -78,6 +80,11 @@ namespace Trucardo.Core
             if (rightForeArm == null) rightForeArm = FindBoneRecursive(searchRoot, "mixamorig:RightForeArm") ?? FindBoneRecursive(searchRoot, "RightForeArm");
             if (rightHand == null) rightHand = FindBoneRecursive(searchRoot, "mixamorig:RightHand") ?? FindBoneRecursive(searchRoot, "RightHand");
 
+            if (leftUpperArm != null && leftUpperArmBindLocalPos.sqrMagnitude < 0.00001f)
+                leftUpperArmBindLocalPos = leftUpperArm.localPosition;
+            if (rightUpperArm != null && rightUpperArmBindLocalPos.sqrMagnitude < 0.00001f)
+                rightUpperArmBindLocalPos = rightUpperArm.localPosition;
+
             if (guitarTransform == null)
                 guitarTransform = FindBoneRecursive(transform, "Guitarra");
         }
@@ -110,12 +117,12 @@ namespace Trucardo.Core
             //   Local +X (+right)   = Aro superior de la caja
             if (spine1Bone != null && guitarTransform.parent == spine1Bone)
             {
-                guitarTransform.localScale = new Vector3(0.85f, 0.85f, 0.85f);
-                guitarTransform.localPosition = new Vector3(0.075f, -0.035f, 0.250f);
+                // Escala aumentada (1.18x) acorde al tamaño estilizado de las manos y torso del gaucho
+                guitarTransform.localScale = new Vector3(1.18f, 1.18f, 1.18f);
+                guitarTransform.localPosition = new Vector3(0.085f, -0.025f, 0.268f);
 
                 // Dirección del mástil (-Z_guitar): hacia la izquierda (-X), arriba (+Y) y apenas hacia el hombro izquierdo (-Z)
-                // para que el brazo izquierdo alcance cómodamente los trastes superiores sin quedarse corto
-                Vector3 neckDirLocal = new Vector3(-0.91f, 0.41f, -0.04f).normalized;
+                Vector3 neckDirLocal = new Vector3(-0.90f, 0.43f, -0.04f).normalized;
                 // Dirección de la tapa/cuerdas (+Y_guitar): hacia adelante (+Z) y apenas inclinada hacia arriba (+Y)
                 Vector3 frontFaceDirLocal = new Vector3(-0.08f, 0.18f, 0.98f).normalized;
 
@@ -136,17 +143,23 @@ namespace Trucardo.Core
             // Adelantar ambas clavículas (hombros) para que los brazos salgan por delante del poncho y alcancen el mástil y la boca con soltura
             if (rightShoulder != null)
             {
-                Vector3 rightClavicleDir = (charRoot.right * 0.76f + charRoot.forward * 0.58f - charRoot.up * 0.28f).normalized;
+                Vector3 rightClavicleDir = (charRoot.right * 0.74f + charRoot.forward * 0.60f - charRoot.up * 0.30f).normalized;
                 Quaternion rightClavDelta = Quaternion.FromToRotation(rightShoulder.up, rightClavicleDir);
                 rightShoulder.rotation = rightClavDelta * rightShoulder.rotation;
             }
 
             if (leftShoulder != null)
             {
-                Vector3 leftClavicleDir = (-charRoot.right * 0.74f + charRoot.forward * 0.64f - charRoot.up * 0.20f).normalized;
+                Vector3 leftClavicleDir = (-charRoot.right * 0.65f + charRoot.forward * 0.62f - charRoot.up * 0.44f).normalized;
                 Quaternion leftClavDelta = Quaternion.FromToRotation(leftShoulder.up, leftClavicleDir);
                 leftShoulder.rotation = leftClavDelta * leftShoulder.rotation;
             }
+
+            // Restaurar posición local base de ambos brazos antes de resolver IK para no acumular desplazamientos entre frames
+            if (leftUpperArmBindLocalPos.sqrMagnitude > 0.00001f)
+                leftUpperArm.localPosition = leftUpperArmBindLocalPos;
+            if (rightUpperArmBindLocalPos.sqrMagnitude > 0.00001f)
+                rightUpperArm.localPosition = rightUpperArmBindLocalPos;
 
             // Ejes de la guitarra en espacio global
             Vector3 gRight = guitarTransform.right;     // Perpendicular a las cuerdas (de aro inferior a aro superior)
@@ -174,25 +187,21 @@ namespace Trucardo.Core
             }
 
             // 3. Resolver Brazo Derecho (Mano que rasguea por delante de la tapa/cuerdas sin meterse dentro de la guitarra)
-            // En Guitarra.fbx:
-            //   y = +0.148f saca la mano hacia afuera de la tapa armónica (y_tapa = 0.0825) para que no se meta en la caja
-            //   z = +0.055f desplaza la mano un poco más hacia afuera/puente (hacia la derecha visual de la caja)
-            //   x = +0.035f ubica la muñeca sobre el borde superior de las cuerdas
-            Vector3 rightWristBase = guitarTransform.TransformPoint(new Vector3(0.035f, 0.148f, 0.055f));
+            Vector3 rightWristBase = guitarTransform.TransformPoint(new Vector3(0.030f, 0.132f, 0.045f));
             // Al rasguear, la mano cruza perpendicularmente las cuerdas (eje -gRight / +gRight)
             Vector3 rightWristTarget = rightWristBase
                 - gRight * (strumWave * strumAmplitude)
                 + gForward * (strumWave * strumAmplitude * 0.22f);
 
             // Hint del codo derecho: por delante del poncho y separado de la caja para que el antebrazo no atraviese la guitarra
-            Vector3 rightElbowHint = charRoot.TransformPoint(new Vector3(0.35f, 0.62f, 0.34f));
+            Vector3 rightElbowHint = charRoot.TransformPoint(new Vector3(0.38f, 0.62f, 0.36f));
 
             SolveTwoBoneArmIK(rightUpperArm, rightForeArm, rightHand, rightWristTarget, rightElbowHint);
 
             if (rightHand != null && rightForeArm != null)
             {
                 // Orientar la mano derecha paralela a la tapa (+gUp leve) para que los dedos no se claven dentro de la guitarra
-                Vector3 rightFingersDir = (-gRight * 0.82f - gForward * 0.56f + gUp * 0.08f).normalized;
+                Vector3 rightFingersDir = (-gRight * 0.82f - gForward * 0.56f + gUp * 0.10f).normalized;
                 Quaternion aimFingers = Quaternion.FromToRotation(rightHand.up, rightFingersDir);
                 rightHand.rotation = aimFingers * rightHand.rotation;
 
@@ -203,28 +212,20 @@ namespace Trucardo.Core
                 }
             }
 
-            // 4. Resolver Brazo Izquierdo (Mano en los trastes, bajada verticalmente para que la palma/dedos queden a la altura del mástil)
-            // En Guitarra.fbx:
-            //   z = -0.45f ubica la mano en la sección media-alta de los trastes (cerca del clavijero)
-            //   x = -0.082f baja la muñeca verticalmente por debajo del borde inferior del mástil para que los dedos queden sobre el diapasón
-            //   y = +0.112f coloca la muñeca por delante del plano del diapasón para no atravesar la madera
-            float neckZ = -0.45f + fretSlide;
-            Vector3 leftWristTarget = guitarTransform.TransformPoint(new Vector3(-0.082f, 0.112f, neckZ));
+            // 4. Resolver Brazo Izquierdo (Mano en los trastes, con la muñeca debajo del borde inferior del mástil para que la palma cubra el diapasón)
+            float neckZ = -0.38f + fretSlide;
+            Vector3 leftWristTarget = guitarTransform.TransformPoint(new Vector3(-0.052f, 0.098f, neckZ));
 
             // Hint del codo izquierdo: más abajo y adelantado para acompañar la posición más baja de la mano izquierda
-            Vector3 leftElbowHint = charRoot.TransformPoint(new Vector3(-0.28f, 0.48f, 0.30f));
+            Vector3 leftElbowHint = charRoot.TransformPoint(new Vector3(-0.30f, 0.44f, 0.32f));
 
             SolveTwoBoneArmIK(leftUpperArm, leftForeArm, leftHand, leftWristTarget, leftElbowHint);
 
             if (leftHand != null && leftForeArm != null)
             {
-                // En el rig Mixamo del Gaucho:
-                //   leftHand.up (+Y local)      = dirección de la muñeca hacia los dedos
-                //   leftHand.forward (+Z local) = normal de la palma de la mano
-                // Orientamos la palma mirando hacia el diapasón (-gUp) y los dedos subiendo en diagonal sobre los trastes (+gRight, -gForward)
-                // con una leve salida hacia afuera (+gUp) para que la mano quede paralela al traste y por encima de las cuerdas
-                Vector3 leftFingersDir = (gRight * 0.86f - gForward * 0.44f + gUp * 0.25f).normalized;
-                Vector3 leftPalmNormal = (-gUp * 0.90f + gRight * 0.28f - gForward * 0.32f).normalized;
+                // Orientar la palma mirando hacia el diapasón (-gUp) y los dedos cruzando en diagonal sobre los trastes
+                Vector3 leftFingersDir = (gRight * 0.74f - gForward * 0.62f + gUp * 0.22f).normalized;
+                Vector3 leftPalmNormal = (-gUp * 0.92f + gRight * 0.22f - gForward * 0.32f).normalized;
                 leftHand.rotation = Quaternion.LookRotation(leftPalmNormal, leftFingersDir);
 
                 if (animateHands && timeSeconds > 0f)
@@ -256,10 +257,25 @@ namespace Trucardo.Core
             if (dist < 0.001f)
                 return;
 
+            Vector3 dirNorm = toTarget / dist;
+
+            // Si el objetivo está más lejos que el 90% del largo del brazo corto del gaucho,
+            // adelantamos sutilmente el hombro bajo el poncho para que la muñeca llegue exactamente al objetivo con flexión natural
+            float comfortableReach = (l1 + l2) * 0.90f;
+            if (dist > comfortableReach)
+            {
+                float shift = Mathf.Min(dist - comfortableReach, 0.11f);
+                upperArm.position += dirNorm * shift;
+                rootPos = upperArm.position;
+                toTarget = wristTargetPos - rootPos;
+                dist = toTarget.magnitude;
+                if (dist > 0.001f)
+                    dirNorm = toTarget / dist;
+            }
+
             float maxReach = (l1 + l2) * 0.992f;
             float minReach = Mathf.Abs(l1 - l2) * 1.008f;
             float clampedDist = Mathf.Clamp(dist, minReach, maxReach);
-            Vector3 dirNorm = toTarget / dist;
 
             // Ley del coseno para hallar el ángulo del hombro hacia el codo
             float cosA = (l1 * l1 + clampedDist * clampedDist - l2 * l2) / (2f * l1 * clampedDist);
