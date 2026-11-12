@@ -259,6 +259,9 @@ Este documento contiene el diseño de juego, reglas técnicas, descripción in-g
 - **Descripción Larga y Reglas:**
   - **Momento de activación:** Antes de efectuar un canto (Envido, Real Envido, Falta Envido, Truco, Retruco o Vale Cuatro).
   - **Mecánica:** Bloquea la opción de "No Quiero" en el rival (tanto humano como bot). El servidor fuerza la respuesta "¡Quiero!", obligándolo a disputar la apuesta.
+  - **Lógica para Bots e Inmediatez:** Si un bot posee el Bastón Presidencial, solo lo activa si está en condiciones legales de cantar Envido o Truco. Al activarlo, el bot encadena de forma inmediata y obligatoria su decisión al canto correspondiente (Envido si está disponible, o Truco), evitando que el poder se malgaste en una tirada simple de cartas.
+  - **Validación Robusta en Servidor:** El servidor gestiona el efecto por equipo invocador (`ForcedAcceptCasterTeam`) e ID del jugador. Cuando el rival responde (humano o bot), cualquier intento de rechazo es sobreescrito de forma autoritativa a `accepts = true` ("¡QUIERO!") por mandato presidencial.
+  - **Comportamiento en UI (HUD):** En el cliente del jugador rival, el botón `[N] No Quiero` se oculta automáticamente, el atajo por teclado `[N]` es bloqueado con una notificación en pantalla, y el botón de aceptar muestra `[A] ¡QUIERO! (Mandato)`.
 
 ---
 

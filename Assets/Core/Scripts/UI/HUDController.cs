@@ -62,6 +62,30 @@ namespace Trucardo.Core.UI
         private GameObject[] opponentMalasMarks;
         private GameObject[] opponentBuenasMarks;
 
+        private GameObject scoreboardRoot;
+        private Coroutine scoreboardCoroutine;
+        private bool scoreboardTemporarilyVisible;
+
+        private GameObject tabHintRoot;
+        private TMP_Text tabHintText;
+
+        private GameObject manoEnJuegoRoot;
+        private TMP_Text manoEnJuegoText;
+
+        private GameObject cantoAnnouncementRoot;
+        private TMP_Text cantoAnnouncementText;
+
+        private GameObject responseDetailsRoot;
+        private TMP_Text responseDetailsText;
+
+        private NivelTruco currentTrucoLevel = NivelTruco.Ninguno;
+        private bool isWaitingCanto = false;
+        private bool isWaitingLocalCaller = false;
+        private TipoCanto currentPendingCanto = TipoCanto.Ninguno;
+        private EstadoEnvido currentEnvidoState = EstadoEnvido.Ninguno;
+        private int currentPendingEnvidoPoints = 0;
+        private int currentEnvidoAcceptedPoints = 0;
+
         private bool bastonPresidencialActiveOnMe = false;
         private bool pavaCalienteActive = false;
         private float pavaTimeRemaining = 5.0f;
@@ -181,8 +205,19 @@ namespace Trucardo.Core.UI
             postGameOpen = false;
             bastonPresidencialActiveOnMe = false;
             pavaCalienteActive = false;
+            scoreboardTemporarilyVisible = false;
+            if (scoreboardCoroutine != null)
+            {
+                StopCoroutine(scoreboardCoroutine);
+                scoreboardCoroutine = null;
+            }
             if (pavaTimerRoot != null) pavaTimerRoot.SetActive(false);
             if (toastRoot != null) toastRoot.SetActive(false);
+            if (tabHintRoot != null) tabHintRoot.SetActive(false);
+            if (manoEnJuegoRoot != null) manoEnJuegoRoot.SetActive(false);
+            if (cantoAnnouncementRoot != null) cantoAnnouncementRoot.SetActive(false);
+            if (responseDetailsRoot != null) responseDetailsRoot.SetActive(false);
+            if (responseDetailsText != null) responseDetailsText.gameObject.SetActive(false);
             CloseGuampasChoice();
             CloseGuitarraChoice();
             ClearRoundPowers();
@@ -198,8 +233,19 @@ namespace Trucardo.Core.UI
                 envidoPanelOpen = false;
                 bastonPresidencialActiveOnMe = false;
                 pavaCalienteActive = false;
+                scoreboardTemporarilyVisible = false;
+                if (scoreboardCoroutine != null)
+                {
+                    StopCoroutine(scoreboardCoroutine);
+                    scoreboardCoroutine = null;
+                }
                 if (pavaTimerRoot != null) pavaTimerRoot.SetActive(false);
                 if (toastRoot != null) toastRoot.SetActive(false);
+                if (tabHintRoot != null) tabHintRoot.SetActive(false);
+                if (manoEnJuegoRoot != null) manoEnJuegoRoot.SetActive(false);
+                if (cantoAnnouncementRoot != null) cantoAnnouncementRoot.SetActive(false);
+                if (responseDetailsRoot != null) responseDetailsRoot.SetActive(false);
+                if (responseDetailsText != null) responseDetailsText.gameObject.SetActive(false);
                 CloseGuampasChoice();
                 CloseGuitarraChoice();
                 ClearRoundPowers();
@@ -228,7 +274,14 @@ namespace Trucardo.Core.UI
             bool allowFaltaEnvido,
             bool gameFinished,
             bool playerWon,
-            string opponentName = null)
+            string opponentName = null,
+            NivelTruco trucoLevel = NivelTruco.Ninguno,
+            bool waitingCanto = false,
+            bool isLocalCaller = false,
+            TipoCanto pendingCanto = TipoCanto.Ninguno,
+            EstadoEnvido envidoState = EstadoEnvido.Ninguno,
+            int pendingEnvidoPoints = 0,
+            int envidoAcceptedPoints = 0)
         {
             if (turnText != null)
                 turnText.text = turnMessage;
@@ -273,10 +326,44 @@ namespace Trucardo.Core.UI
             canCallEnvido = allowEnvido;
             canCallRealEnvido = allowRealEnvido;
             canCallFaltaEnvido = allowFaltaEnvido;
+            currentTrucoLevel = trucoLevel;
+            isWaitingCanto = waitingCanto;
+            isWaitingLocalCaller = isLocalCaller;
+            currentPendingCanto = pendingCanto;
+            currentEnvidoState = envidoState;
+            currentPendingEnvidoPoints = pendingEnvidoPoints;
+            currentEnvidoAcceptedPoints = envidoAcceptedPoints;
+
             if (gameFinished && !matchFinished)
                 postGameOpen = false;
             matchFinished = gameFinished;
             localPlayerWon = playerWon;
+            UpdateVisibility();
+        }
+
+        public void ShowScoreboardTemporarily(float duration = 5.0f)
+        {
+            if (scoreboardCoroutine != null)
+            {
+                StopCoroutine(scoreboardCoroutine);
+            }
+            if (gameObject.activeInHierarchy)
+            {
+                scoreboardCoroutine = StartCoroutine(ScoreboardTemporaryRoutine(duration));
+            }
+            else
+            {
+                scoreboardTemporarilyVisible = true;
+            }
+        }
+
+        private IEnumerator ScoreboardTemporaryRoutine(float duration)
+        {
+            scoreboardTemporarilyVisible = true;
+            UpdateVisibility();
+            yield return new WaitForSeconds(duration);
+            scoreboardTemporarilyVisible = false;
+            scoreboardCoroutine = null;
             UpdateVisibility();
         }
 
@@ -438,8 +525,307 @@ namespace Trucardo.Core.UI
             }
         }
 
+        private Sprite GetWoodSprite()
+        {
+            if (trucoButton != null && trucoButton.image != null)
+                return trucoButton.image.sprite;
+            return null;
+        }
+
+        private TMP_FontAsset GetFontAsset()
+        {
+            if (trucoButton != null)
+            {
+                TMP_Text btnText = trucoButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null) return btnText.font;
+            }
+            return null;
+        }
+
+        private Material GetFontMaterial()
+        {
+            if (trucoButton != null)
+            {
+                TMP_Text btnText = trucoButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null) return btnText.fontSharedMaterial;
+            }
+            return null;
+        }
+
+        private void EnsureScoreboardRoot()
+        {
+            if (scoreboardRoot != null) return;
+
+            if (playerMalasTally != null)
+            {
+                Transform t = playerMalasTally;
+                Transform canvasT = hudCanvas != null ? hudCanvas.transform : transform;
+                while (t != null && t.parent != null && t.parent != canvasT)
+                {
+                    t = t.parent;
+                }
+                if (t != null && t != canvasT)
+                {
+                    scoreboardRoot = t.gameObject;
+                }
+            }
+
+            if (scoreboardRoot == null && hudCanvas != null)
+            {
+                Transform found = hudCanvas.transform.Find("Scoreboard");
+                if (found != null) scoreboardRoot = found.gameObject;
+            }
+        }
+
+        private void EnsureTabHintUI()
+        {
+            if (tabHintRoot != null) return;
+
+            Transform canvasTransform = hudCanvas != null ? hudCanvas.transform : transform;
+            Transform existing = canvasTransform.Find("TabHintBanner");
+            if (existing != null)
+            {
+                tabHintRoot = existing.gameObject;
+                tabHintText = existing.GetComponentInChildren<TMP_Text>();
+                return;
+            }
+
+            Sprite woodSprite = GetWoodSprite();
+            TMP_FontAsset fontAsset = GetFontAsset();
+            Material fontMat = GetFontMaterial();
+
+            GameObject banner = new GameObject("TabHintBanner", typeof(RectTransform), typeof(Image));
+            banner.transform.SetParent(canvasTransform, false);
+            tabHintRoot = banner;
+
+            RectTransform rt = banner.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot = new Vector2(0f, 0f);
+            rt.anchoredPosition = new Vector2(25f, 25f);
+            rt.sizeDelta = new Vector2(240f, 44f);
+
+            Image img = banner.GetComponent<Image>();
+            img.sprite = woodSprite;
+            img.color = new Color(0.24f, 0.14f, 0.09f, 0.95f);
+            img.type = Image.Type.Simple;
+            img.raycastTarget = false;
+
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObj.transform.SetParent(banner.transform, false);
+            RectTransform textRt = textObj.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(10f, 0f);
+            textRt.offsetMax = new Vector2(-10f, 0f);
+
+            tabHintText = textObj.GetComponent<TextMeshProUGUI>();
+            tabHintText.font = fontAsset;
+            if (fontMat != null) tabHintText.fontSharedMaterial = fontMat;
+            tabHintText.fontSize = 16f;
+            tabHintText.alignment = TextAlignmentOptions.Center;
+            tabHintText.color = new Color(0.96f, 0.92f, 0.85f, 1f);
+            tabHintText.text = "<b>[Tab]</b> Abrir Menú UI";
+            tabHintText.raycastTarget = false;
+
+            banner.SetActive(false);
+        }
+
+        private void EnsureManoEnJuegoUI()
+        {
+            if (manoEnJuegoRoot != null) return;
+
+            Transform canvasTransform = hudCanvas != null ? hudCanvas.transform : transform;
+            Transform existing = canvasTransform.Find("ManoEnJuegoBanner");
+            if (existing != null)
+            {
+                manoEnJuegoRoot = existing.gameObject;
+                manoEnJuegoText = existing.GetComponentInChildren<TMP_Text>();
+                return;
+            }
+
+            Sprite woodSprite = GetWoodSprite();
+            TMP_FontAsset fontAsset = GetFontAsset();
+            Material fontMat = GetFontMaterial();
+
+            GameObject banner = new GameObject("ManoEnJuegoBanner", typeof(RectTransform), typeof(Image));
+            banner.transform.SetParent(canvasTransform, false);
+            manoEnJuegoRoot = banner;
+
+            RectTransform rt = banner.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(25f, -25f);
+            rt.sizeDelta = new Vector2(320f, 44f);
+
+            Image img = banner.GetComponent<Image>();
+            img.sprite = woodSprite;
+            img.color = new Color(0.24f, 0.14f, 0.09f, 0.95f);
+            img.type = Image.Type.Simple;
+            img.raycastTarget = false;
+
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObj.transform.SetParent(banner.transform, false);
+            RectTransform textRt = textObj.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(10f, 0f);
+            textRt.offsetMax = new Vector2(-10f, 0f);
+
+            manoEnJuegoText = textObj.GetComponent<TextMeshProUGUI>();
+            manoEnJuegoText.font = fontAsset;
+            if (fontMat != null) manoEnJuegoText.fontSharedMaterial = fontMat;
+            manoEnJuegoText.fontSize = 17f;
+            manoEnJuegoText.fontStyle = FontStyles.Bold;
+            manoEnJuegoText.alignment = TextAlignmentOptions.Center;
+            manoEnJuegoText.color = new Color(0.96f, 0.92f, 0.85f, 1f);
+            manoEnJuegoText.text = "Mano en Juego: 1 pt (Simple)";
+            manoEnJuegoText.raycastTarget = false;
+
+            banner.SetActive(false);
+        }
+
+        private void EnsureCantoAnnouncementUI()
+        {
+            if (cantoAnnouncementRoot != null) return;
+
+            Transform canvasTransform = hudCanvas != null ? hudCanvas.transform : transform;
+            Transform existing = canvasTransform.Find("CantoAnnouncementBanner");
+            if (existing != null)
+            {
+                cantoAnnouncementRoot = existing.gameObject;
+                cantoAnnouncementText = existing.GetComponentInChildren<TMP_Text>();
+                return;
+            }
+
+            Sprite woodSprite = GetWoodSprite();
+            TMP_FontAsset fontAsset = GetFontAsset();
+            Material fontMat = GetFontMaterial();
+
+            GameObject banner = new GameObject("CantoAnnouncementBanner", typeof(RectTransform), typeof(Image));
+            banner.transform.SetParent(canvasTransform, false);
+            cantoAnnouncementRoot = banner;
+
+            RectTransform rt = banner.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -110f);
+            rt.sizeDelta = new Vector2(520f, 54f);
+
+            Image img = banner.GetComponent<Image>();
+            img.sprite = woodSprite;
+            img.color = new Color(0.22f, 0.13f, 0.08f, 0.98f);
+            img.type = Image.Type.Simple;
+            img.raycastTarget = false;
+
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObj.transform.SetParent(banner.transform, false);
+            RectTransform textRt = textObj.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(16f, 0f);
+            textRt.offsetMax = new Vector2(-16f, 0f);
+
+            cantoAnnouncementText = textObj.GetComponent<TextMeshProUGUI>();
+            cantoAnnouncementText.font = fontAsset;
+            if (fontMat != null) cantoAnnouncementText.fontSharedMaterial = fontMat;
+            cantoAnnouncementText.fontSize = 22f;
+            cantoAnnouncementText.fontStyle = FontStyles.Bold;
+            cantoAnnouncementText.alignment = TextAlignmentOptions.Center;
+            cantoAnnouncementText.color = new Color(1f, 0.88f, 0.35f, 1f);
+            cantoAnnouncementText.text = "";
+            cantoAnnouncementText.raycastTarget = false;
+
+            banner.SetActive(false);
+        }
+
+        private void EnsureResponseDetailsUI()
+        {
+            if (responseDetailsRoot != null || responsePanelRoot == null) return;
+
+            Transform existing = responsePanelRoot.transform.Find("CantoBetDetailsBanner");
+            if (existing != null)
+            {
+                responseDetailsRoot = existing.gameObject;
+                responseDetailsText = existing.GetComponentInChildren<TMP_Text>();
+                return;
+            }
+
+            Sprite woodSprite = GetWoodSprite();
+            TMP_FontAsset fontAsset = GetFontAsset();
+            Material fontMat = GetFontMaterial();
+
+            GameObject banner = new GameObject("CantoBetDetailsBanner", typeof(RectTransform), typeof(Image));
+            banner.transform.SetParent(responsePanelRoot.transform, false);
+            responseDetailsRoot = banner;
+
+            RectTransform rt = banner.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(0f, -145f);
+            rt.sizeDelta = new Vector2(500f, 44f);
+
+            Image img = banner.GetComponent<Image>();
+            img.sprite = woodSprite;
+            img.color = new Color(0.18f, 0.10f, 0.06f, 0.98f);
+            img.type = Image.Type.Simple;
+            img.raycastTarget = false;
+
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObj.transform.SetParent(banner.transform, false);
+            RectTransform textRt = textObj.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(12f, 0f);
+            textRt.offsetMax = new Vector2(-12f, 0f);
+
+            responseDetailsText = textObj.GetComponent<TextMeshProUGUI>();
+            responseDetailsText.font = fontAsset;
+            if (fontMat != null) responseDetailsText.fontSharedMaterial = fontMat;
+            responseDetailsText.fontSize = 20f;
+            responseDetailsText.fontStyle = FontStyles.Bold;
+            responseDetailsText.alignment = TextAlignmentOptions.Center;
+            responseDetailsText.color = new Color(1f, 0.92f, 0.40f, 1f);
+            responseDetailsText.raycastTarget = false;
+
+            banner.SetActive(false);
+        }
+
+        private void FormatButton(Button btn, string label, bool active, bool interactable, float minWidth = 265f)
+        {
+            if (btn == null) return;
+            btn.gameObject.SetActive(active);
+            btn.interactable = interactable;
+
+            TMP_Text txt = btn.GetComponentInChildren<TMP_Text>();
+            if (txt != null)
+            {
+                txt.text = label;
+                txt.enableAutoSizing = true;
+                txt.fontSizeMin = 13f;
+                txt.fontSizeMax = 22f;
+                txt.textWrappingMode = TextWrappingModes.NoWrap;
+                txt.overflowMode = TextOverflowModes.Ellipsis;
+            }
+
+            RectTransform rt = btn.GetComponent<RectTransform>();
+            if (rt != null && rt.sizeDelta.x < minWidth)
+            {
+                rt.sizeDelta = new Vector2(minWidth, rt.sizeDelta.y);
+            }
+        }
+
         private void UpdateVisibility()
         {
+            EnsureScoreboardRoot();
+            EnsureTabHintUI();
+            EnsureManoEnJuegoUI();
+            EnsureCantoAnnouncementUI();
+            EnsureResponseDetailsUI();
+
             if (hudCanvas != null)
                 hudCanvas.enabled = isSeated && !matchFinished;
             if (endGameCanvas != null)
@@ -448,8 +834,123 @@ namespace Trucardo.Core.UI
             bool showInterface = isSeated && interfaceMode;
             bool showEnvidoOptions = showInterface && envidoPanelOpen;
             bool showResponse = showInterface && needsResponse && !envidoPanelOpen;
-            bool showActionBar = showInterface && !matchFinished;
+            // Si el jugador debe responder a Envido, ocultar ActionBar para evitar colisión con Quiero/No Quiero.
+            // Si debe responder a Truco, ActionBar se muestra para permitir cantar Re-Truco o Vale 4.
+            bool showActionBar = showInterface && !matchFinished && (!showResponse || currentPendingCanto == TipoCanto.Truco);
             bool showEndGame = isSeated && matchFinished;
+
+            // Turn indicator (empty frame in top center): ocultar si no hay texto de turno o si la partida no inició
+            if (turnText != null)
+            {
+                Transform turnParent = turnText.transform.parent;
+                bool hasTurnText = !string.IsNullOrEmpty(turnText.text);
+                bool showTurnIndicator = isSeated && !matchFinished && hasTurnText;
+
+                if (turnParent != null && turnParent != (hudCanvas != null ? hudCanvas.transform : transform))
+                {
+                    turnParent.gameObject.SetActive(showTurnIndicator);
+                }
+                else
+                {
+                    turnText.gameObject.SetActive(showTurnIndicator);
+                }
+            }
+
+            // Scoreboard: visible ONLY with Tab OR temporarily at end of round / matchFinished
+            if (scoreboardRoot != null)
+            {
+                bool showScoreboard = isSeated && (interfaceMode || scoreboardTemporarilyVisible || matchFinished);
+                scoreboardRoot.SetActive(showScoreboard);
+            }
+
+            // Tab hint cartel (bottom-left): visible whenever seated and game not finished
+            if (tabHintRoot != null)
+            {
+                tabHintRoot.SetActive(isSeated && !matchFinished);
+                RectTransform rt = tabHintRoot.GetComponent<RectTransform>();
+                if (tabHintText != null)
+                {
+                    if (interfaceMode)
+                    {
+                        if (rt != null) rt.sizeDelta = new Vector2(300f, 105f);
+                        tabHintText.fontSize = 15f;
+                        tabHintText.lineSpacing = 8f;
+                        tabHintText.alignment = TextAlignmentOptions.Left;
+                        tabHintText.text = " <b>[Tab]</b> Cerrar Menú UI\n <b>[1, 2, 3]</b> Jugar Carta\n <b>[P]</b> Levantarse de la mesa";
+                    }
+                    else
+                    {
+                        if (rt != null) rt.sizeDelta = new Vector2(250f, 44f);
+                        tabHintText.fontSize = 16f;
+                        tabHintText.lineSpacing = 0f;
+                        tabHintText.alignment = TextAlignmentOptions.Center;
+                        tabHintText.text = "<b>[Tab]</b> Abrir Menú UI";
+                    }
+                }
+            }
+
+            // Mano en juego cartel (top-left): visible ONLY with Tab
+            if (manoEnJuegoRoot != null)
+            {
+                manoEnJuegoRoot.SetActive(isSeated && !matchFinished && interfaceMode);
+                if (manoEnJuegoText != null)
+                {
+                    int trucoPts = (currentTrucoLevel == NivelTruco.Ninguno) ? 1 : (int)currentTrucoLevel;
+                    string trucoDesc = currentTrucoLevel switch
+                    {
+                        NivelTruco.Truco => "¡Truco!",
+                        NivelTruco.Retruco => "¡Re Truco!",
+                        NivelTruco.Vale4 => "¡Vale Cuatro!",
+                        _ => "Simple"
+                    };
+                    manoEnJuegoText.text = $"Mano en Juego: {trucoPts} pt(s) ({trucoDesc})";
+                }
+            }
+
+            // Canto Announcement Banner (top center cartel): emergent when waiting for response
+            if (cantoAnnouncementRoot != null)
+            {
+                bool showCanto = isSeated && !matchFinished && isWaitingCanto;
+                cantoAnnouncementRoot.SetActive(showCanto);
+                if (showCanto && cantoAnnouncementText != null)
+                {
+                    if (!isWaitingLocalCaller)
+                    {
+                        string pendingName = currentPendingCanto == TipoCanto.Envido
+                            ? EnvidoRules.GetDisplayName(currentEnvidoState)
+                            : (currentPendingCanto == TipoCanto.Truco
+                                ? (currentTrucoLevel switch
+                                {
+                                    NivelTruco.Retruco => "Re Truco",
+                                    NivelTruco.Vale4 => "Vale Cuatro",
+                                    _ => "Truco"
+                                })
+                                : currentPendingCanto.ToString());
+                        cantoAnnouncementText.text = $"¡El rival cantó {pendingName}!";
+                    }
+                    else
+                    {
+                        cantoAnnouncementText.text = "Esperando respuesta del rival...";
+                    }
+                }
+            }
+
+            // Subtitle bet details in ResponsePanel (shown when Tab is open and responding)
+            if (responseDetailsRoot != null)
+            {
+                bool showBetDetails = showResponse && !isWaitingLocalCaller && currentPendingCanto == TipoCanto.Envido;
+                responseDetailsRoot.SetActive(showBetDetails);
+                if (showBetDetails && responseDetailsText != null)
+                {
+                    responseDetailsText.text = $"Apuesta: {currentPendingEnvidoPoints} pts  |  Al No Quiero: {EnvidoRules.GetRejectedPoints(currentEnvidoAcceptedPoints)} pts";
+                }
+            }
+
+            // Reposition Pava if ManoEnJuego is visible so they don't overlap
+            if (pavaTimerRoot != null && pavaTimerRoot.activeSelf)
+            {
+                PositionPavaTimerInTopRight();
+            }
 
             if (actionBarRoot != null) actionBarRoot.SetActive(showActionBar);
             if (envidoPanelRoot != null) envidoPanelRoot.SetActive(showEnvidoOptions);
@@ -458,41 +959,54 @@ namespace Trucardo.Core.UI
             if (defeatPanelRoot != null) defeatPanelRoot.SetActive(showEndGame && !localPlayerWon && !postGameOpen);
             if (postGamePanelRoot != null) postGamePanelRoot.SetActive(showEndGame && postGameOpen);
             UpdateEndGameAudio();
-            if (trucoButton != null)
+
+            // Reposition Quiero and No Quiero so they never touch ActionBar
+            if (showResponse)
             {
-                trucoButton.gameObject.SetActive(true);
-                trucoButton.interactable = isLocalTurn;
-            }
-            if (envidoButton != null)
-            {
-                envidoButton.gameObject.SetActive(true);
-                envidoButton.interactable = true;
-            }
-            if (salirDelMazoButton != null)
-            {
-                salirDelMazoButton.gameObject.SetActive(true);
-                salirDelMazoButton.interactable = false;
-            }
-            if (cantarEnvidoButton != null) cantarEnvidoButton.gameObject.SetActive(showEnvidoOptions);
-            if (realEnvidoButton != null) realEnvidoButton.gameObject.SetActive(showEnvidoOptions);
-            if (faltaEnvidoButton != null) faltaEnvidoButton.gameObject.SetActive(showEnvidoOptions);
-            if (volverButton != null) volverButton.gameObject.SetActive(showEnvidoOptions);
-            if (quieroButton != null)
-            {
-                quieroButton.gameObject.SetActive(showResponse);
-                TMP_Text txt = quieroButton.GetComponentInChildren<TMP_Text>();
-                if (txt != null)
+                if (quieroButton != null)
                 {
-                    txt.text = bastonPresidencialActiveOnMe ? "¡QUIERO! (Mandato)" : "¡Quiero!";
+                    RectTransform rtQ = quieroButton.GetComponent<RectTransform>();
+                    if (rtQ != null) rtQ.anchoredPosition = new Vector2(-125f, -260f);
+                }
+                if (noQuieroButton != null)
+                {
+                    RectTransform rtNQ = noQuieroButton.GetComponent<RectTransform>();
+                    if (rtNQ != null) rtNQ.anchoredPosition = new Vector2(125f, -260f);
                 }
             }
-            if (noQuieroButton != null)
+
+            string trucoLabel = currentTrucoLevel switch
             {
-                noQuieroButton.gameObject.SetActive(showResponse && !bastonPresidencialActiveOnMe);
+                NivelTruco.Ninguno => "[Q] Cantar Truco",
+                NivelTruco.Truco => "[Q] ¡Re Truco!",
+                NivelTruco.Retruco => "[Q] ¡Vale Cuatro!",
+                _ => "[Q] Cantar Truco"
+            };
+            bool trucoInteractable = isLocalTurn || (needsResponse && currentPendingCanto == TipoCanto.Truco);
+            FormatButton(trucoButton, trucoLabel, showActionBar, trucoInteractable, 275f);
+
+            bool envidoActive = showActionBar && (!showResponse || currentPendingCanto == TipoCanto.Envido);
+            bool envidoInteractable = canCallEnvido || canCallRealEnvido || canCallFaltaEnvido;
+            FormatButton(envidoButton, "[E] Envido", envidoActive, envidoInteractable, 265f);
+
+            FormatButton(salirDelMazoButton, "Mazo", showActionBar && !showResponse, false, 240f);
+
+            FormatButton(cantarEnvidoButton, "[E] Envido", showEnvidoOptions, canCallEnvido, 265f);
+            FormatButton(realEnvidoButton, "[R] Real Envido", showEnvidoOptions, canCallRealEnvido, 265f);
+            FormatButton(faltaEnvidoButton, "[F] Falta Envido", showEnvidoOptions, canCallFaltaEnvido, 265f);
+            if (volverButton != null) volverButton.gameObject.SetActive(showEnvidoOptions);
+
+            string quieroLabel = bastonPresidencialActiveOnMe ? "[A] ¡QUIERO! (Mandato)" : "[A] ¡Quiero!";
+            FormatButton(quieroButton, quieroLabel, showResponse, true, 265f);
+            FormatButton(noQuieroButton, "[N] No Quiero", showResponse && !bastonPresidencialActiveOnMe, true, 265f);
+            if (bastonPresidencialActiveOnMe && noQuieroButton != null)
+            {
+                noQuieroButton.gameObject.SetActive(false);
             }
 
             if (roundPowersUI != null)
             {
+                roundPowersUI.SetInterfaceMode(interfaceMode);
                 roundPowersUI.UpdateGameState(isSeated, matchFinished);
             }
         }
@@ -608,6 +1122,10 @@ namespace Trucardo.Core.UI
         public void SetBastonPresidencial(bool activeOnMe)
         {
             bastonPresidencialActiveOnMe = activeOnMe;
+            if (activeOnMe && noQuieroButton != null)
+            {
+                noQuieroButton.gameObject.SetActive(false);
+            }
             UpdateVisibility();
         }
 
@@ -624,7 +1142,7 @@ namespace Trucardo.Core.UI
             }
         }
 
-        public void ShowToast(string title, string message, float duration = 4.0f)
+        public void ShowToast(string title, string message, float duration = 6.5f)
         {
             EnsureToastUI();
             if (toastRoot == null) return;
@@ -796,7 +1314,8 @@ namespace Trucardo.Core.UI
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(20f, -20f);
+            float yPos = (manoEnJuegoRoot != null && manoEnJuegoRoot.activeSelf) ? -75f : -25f;
+            rt.anchoredPosition = new Vector2(25f, yPos);
         }
 
         private void EnsureToastUI()
@@ -942,7 +1461,15 @@ namespace Trucardo.Core.UI
         private void CallRealEnvidoOption() => CallEnvido(EnvidoCall.RealEnvido);
         private void CallFaltaEnvidoOption() => CallEnvido(EnvidoCall.FaltaEnvido);
         private void AcceptCall() => RespondToCall(true);
-        private void DeclineCall() => RespondToCall(false);
+        private void DeclineCall()
+        {
+            if (bastonPresidencialActiveOnMe)
+            {
+                ShowToast("BASTÓN PRESIDENCIAL", "¡No puedes rechazar bajo la orden del Bastón Presidencial!");
+                return;
+            }
+            RespondToCall(false);
+        }
 
         private void EnsureGuampasChoiceUI()
         {

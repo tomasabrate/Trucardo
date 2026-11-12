@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
 using System.Collections;
@@ -1470,6 +1470,7 @@ namespace Trucardo.Core
                 if (Keyboard.current.digit3Key.wasPressedThisFrame) PlayCard(2);
                 if (Keyboard.current.digit4Key.wasPressedThisFrame && myCards.Length > 3) PlayCard(3);
 
+                if (Keyboard.current.eKey.wasPressedThisFrame) CallEnvido(EnvidoCall.Envido);
                 if (Keyboard.current.rKey.wasPressedThisFrame) CallEnvido(EnvidoCall.RealEnvido);
                 if (Keyboard.current.fKey.wasPressedThisFrame) CallEnvido(EnvidoCall.FaltaEnvido);
                 if (Keyboard.current.qKey.wasPressedThisFrame) CallAction("Truco");
@@ -2048,6 +2049,12 @@ namespace Trucardo.Core
                 HideRevealedOpponentCard();
             }
 
+            bool roundJustEnded = (state == GameState.RondaTerminada && localGameState != GameState.RondaTerminada);
+            if (roundJustEnded && hudController != null)
+            {
+                hudController.ShowScoreboardTemporarily(5.0f);
+            }
+
             localGameState = state;
             localTurnId = turnId;
             localCurrentRoundIndex = currentRoundIndex;
@@ -2066,7 +2073,8 @@ namespace Trucardo.Core
         public void SyncPowerStates(bool pavaCaliente, bool forcedAccept, ulong forcedCallerId, bool p1Luz, bool p2Luz)
         {
             isPavaCalienteActive = pavaCaliente;
-            isBastonPresidencialActiveOnMe = forcedAccept && (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId != forcedCallerId);
+            ulong myLocalId = NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 0;
+            isBastonPresidencialActiveOnMe = forcedAccept && (forcedCallerId != myLocalId);
             bool newLuzMala = amIPlayer1 ? p1Luz : p2Luz;
 
             if (hudController != null)
@@ -2080,6 +2088,8 @@ namespace Trucardo.Core
                 isLuzMalaActiveOnMe = newLuzMala;
                 ApplyLuzMalaVisuals(isLuzMalaActiveOnMe);
             }
+
+            RefreshHUD();
         }
 
         private void ApplyLuzMalaVisuals(bool active)
@@ -2184,6 +2194,9 @@ namespace Trucardo.Core
                 }
             }
 
+            bool waitingCanto = localGameState == GameState.EsperandoRespuestaCanto;
+            bool isLocalCaller = (NetworkManager.Singleton != null && localLastCallerId == NetworkManager.Singleton.LocalClientId);
+
             hudController.Refresh(
                 turnMessage,
                 myScore,
@@ -2195,55 +2208,24 @@ namespace Trucardo.Core
                 canCallFaltaEnvido,
                 matchFinished,
                 myScore >= 30,
-                rivalName);
+                rivalName,
+                localEstadoTruco,
+                waitingCanto,
+                isLocalCaller,
+                localCantoPendiente,
+                localEstadoEnvido,
+                localPendingEnvidoPoints,
+                localEnvidoAcceptedPoints);
         }
 
         private void OnGUI()
         {
             if (!IsOwner || !isSeated || currentTableDefinition == null) return;
 
-            // Indicador de nivel de Truco
+            // Crosshair central
             GUI.skin.label.fontSize = 20;
-            GUI.skin.label.alignment = TextAnchor.UpperCenter;
-            int trucoPts = (localEstadoTruco == NivelTruco.Ninguno) ? 1 : (int)localEstadoTruco;
-            GUI.contentColor = new Color(0.8f, 0.8f, 1f);
-            GUI.Label(new Rect(0, 10, Screen.width, 30), $"Mano en Juego: {trucoPts} punto(s) ({(localEstadoTruco == NivelTruco.Ninguno ? "Simple" : localEstadoTruco.ToString())})");
-
-            if (localGameState == GameState.EsperandoRespuestaCanto)
-            {
-                GUI.contentColor = Color.yellow;
-                GUI.skin.label.fontSize = 24; // Mas chico
-                if (localLastCallerId != NetworkManager.Singleton.LocalClientId)
-                {
-                    // Un poco m�s arriba (Screen.height / 4)
-                    string pendingName = localCantoPendiente == TipoCanto.Envido
-                        ? EnvidoRules.GetDisplayName(localEstadoEnvido)
-                        : localCantoPendiente.ToString().ToUpperInvariant();
-                    string options = "[A] Quiero - [N] No Quiero";
-                    if (CanCallEnvidoLocally(EnvidoCall.Envido)) options += " - [E] Envido";
-                    if (CanCallEnvidoLocally(EnvidoCall.RealEnvido)) options += " - [R] Real Envido";
-                    if (CanCallEnvidoLocally(EnvidoCall.FaltaEnvido)) options += " - [F] Falta Envido";
-                    if (localCantoPendiente == TipoCanto.Envido)
-                        options += $"\nApuesta: {localPendingEnvidoPoints} | No Quiero: {EnvidoRules.GetRejectedPoints(localEnvidoAcceptedPoints)}";
-                    GUI.Label(new Rect(0, Screen.height / 4, Screen.width, 120), $"¡El rival cantó {pendingName}!\n{options}");
-                }
-                else
-                {
-                    string pendingName = localCantoPendiente == TipoCanto.Envido
-                        ? EnvidoRules.GetDisplayName(localEstadoEnvido)
-                        : localCantoPendiente.ToString().ToUpperInvariant();
-                    GUI.Label(new Rect(0, 80, Screen.width, 50), $"Esperando que el rival responda tu {pendingName}...");
-                }
-            }
-            
-            GUI.contentColor = Color.white;
-            GUI.skin.label.fontSize = 18;
-            GUI.skin.label.alignment = TextAnchor.LowerLeft;
-            GUI.Label(new Rect(20, Screen.height - 145, 500, 145), "Controles:\n[1, 2, 3] Jugar Carta\n[E] Envido - [R] Real Envido - [F] Falta Envido\n[Q] Truco - [A] Quiero - [N] No Quiero\n[Tab] Alternar cámara / interfaz");
-
-            // Crosshair
-            GUI.skin.label.fontSize = 20; // Mas chico a pedido del jugador
             GUI.skin.label.alignment = TextAnchor.MiddleCenter;
+            GUI.contentColor = Color.white;
             GUI.Label(new Rect(Screen.width / 2f - 25f, Screen.height / 2f - 25f, 50f, 50f), "•");
         }
 

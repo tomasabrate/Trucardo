@@ -23,6 +23,7 @@ namespace Trucardo.Core.UI
         private readonly List<GameObject> timelineCards = new List<GameObject>();
         private bool isSeated;
         private bool matchFinished;
+        private bool interfaceMode;
 
         private Sprite cachedWoodSprite;
         private TMP_FontAsset cachedFontAsset;
@@ -62,6 +63,12 @@ namespace Trucardo.Core.UI
             UpdateVisibility();
         }
 
+        public void SetInterfaceMode(bool active)
+        {
+            interfaceMode = active;
+            UpdateVisibility();
+        }
+
         public void SetLocalPower(PowerData power)
         {
             if (power != null) AddPower(power, true);
@@ -91,7 +98,7 @@ namespace Trucardo.Core.UI
 
         private void UpdateVisibility()
         {
-            bool shouldShow = isSeated && !matchFinished && timelineCards.Count > 0;
+            bool shouldShow = isSeated && !matchFinished && timelineCards.Count > 0 && interfaceMode;
             if (panelRoot != null)
             {
                 panelRoot.SetActive(shouldShow);
@@ -228,7 +235,7 @@ namespace Trucardo.Core.UI
             TMP_Text tagTmp = tagObj.GetComponent<TextMeshProUGUI>();
             tagTmp.font = cachedFontAsset;
             if (cachedFontMaterial != null) tagTmp.fontSharedMaterial = cachedFontMaterial;
-            tagTmp.text = isLocal ? "★ VOS ACTIVASTE" : "☠ RIVAL ACTIVÓ";
+            tagTmp.text = isLocal ? "VOS ACTIVASTE" : "RIVAL ACTIVÓ";
             tagTmp.fontSize = 19f;
             tagTmp.enableAutoSizing = true;
             tagTmp.fontSizeMin = 19f;

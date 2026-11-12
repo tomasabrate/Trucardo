@@ -147,6 +147,8 @@ namespace Trucardo.Core
             TableDefinition[] existing = FindAll();
             bool allConfiguredProperly = existing.Length >= 9 && existing.All(t => 
                 t.Seats != null && t.Seats.Count == 2 && t.Seats[0] != null && t.Seats[1] != null &&
+                HorizontalDistance(t.transform.position, t.Seats[0].transform.position) <= 2.2f &&
+                HorizontalDistance(t.transform.position, t.Seats[1].transform.position) <= 2.2f &&
                 (
                     (t.TableId != null && t.TableId.Contains("9"))
                         ? (t.Seats[0].transform.position.x > t.Seats[1].transform.position.x)
@@ -183,13 +185,29 @@ namespace Trucardo.Core
             {
                 string id = tableTransform.name; // Ej: Mesa_1
 
+                // Limpiar objetos vacíos o lejanos que pudieran haber quedado emparentados por error
+                for (int i = tableTransform.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = tableTransform.GetChild(i);
+                    if (IsSeatName(child.name))
+                    {
+                        bool isDistant = HorizontalDistance(tableTransform.position, child.position) > 2.2f;
+                        bool hasNoRenderers = child.GetComponentsInChildren<Renderer>(true).Length == 0;
+                        if (isDistant && hasNoRenderers)
+                        {
+                            if (Application.isPlaying) Destroy(child.gameObject);
+                            else DestroyImmediate(child.gameObject);
+                        }
+                    }
+                }
+
                 // Cada mesa de juego tiene sus 2 sillas como hijas directas en la escena
                 List<SeatInteractable> mySeats = new List<SeatInteractable>();
 
                 for (int i = 0; i < tableTransform.childCount; i++)
                 {
                     Transform child = tableTransform.GetChild(i);
-                    if (IsSeatName(child.name))
+                    if (IsSeatName(child.name) && HorizontalDistance(tableTransform.position, child.position) <= 2.2f)
                     {
                         // Asegurar el componente SeatInteractable en la raíz de la silla
                         SeatInteractable seat = child.GetComponent<SeatInteractable>();
@@ -244,7 +262,7 @@ namespace Trucardo.Core
                 {
                     // En Mesa 9, el Bartender se sienta en el banco contra la pared (Banco B / Seats[1]),
                     // y el jugador se sienta en el banco del salón mirando hacia la pared (Banco A / Seats[0]).
-                    // El banco contra la pared tiene menor X en mundo (x ≈ -8.4).
+                    // El banco contra la pared tiene menor X en mundo (x ≈ -8.4), y el del salón mayor X (x ≈ -5.9).
                     SeatInteractable wall = mySeats.OrderBy(s => s.transform.position.x).First();
                     SeatInteractable player = mySeats.OrderBy(s => s.transform.position.x).Last();
                     mySeats = new List<SeatInteractable> { player, wall };

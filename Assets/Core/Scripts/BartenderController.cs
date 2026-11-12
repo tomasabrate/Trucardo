@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Trucardo.Core
@@ -337,7 +338,20 @@ namespace Trucardo.Core
             SeatInteractable wallSeat = null;
             SeatInteractable playerSeat = null;
 
-            if (table9Def.Seats != null && table9Def.Seats.Count >= 2 && table9Def.Seats[0] != null && table9Def.Seats[1] != null)
+            var validSeats = table9Def.GetComponentsInChildren<SeatInteractable>(true)
+                .Where(s => Vector3.Distance(table9Def.transform.position, s.transform.position) <= 2.2f && s.GetComponentsInChildren<Renderer>(true).Length > 0)
+                .ToList();
+
+            if (validSeats.Count >= 2)
+            {
+                wallSeat = validSeats.OrderBy(s => s.transform.position.x).First();
+                playerSeat = validSeats.OrderBy(s => s.transform.position.x).Last();
+                table9Def.Configure("Mesa_9", playerSeat, wallSeat);
+                wallSeat.name = "Mesa_9_Banco_B";
+                playerSeat.name = "Mesa_9_Banco_A";
+                assignedSeatTable9 = wallSeat;
+            }
+            else if (table9Def.Seats != null && table9Def.Seats.Count >= 2 && table9Def.Seats[0] != null && table9Def.Seats[1] != null)
             {
                 // El banco contra la pared es el que tiene menor X en mundo (más cercano a x = -9.1)
                 if (table9Def.Seats[0].transform.position.x < table9Def.Seats[1].transform.position.x)
@@ -446,6 +460,9 @@ namespace Trucardo.Core
             }
 
             currentState = State.SeatedAtTable;
+
+            var server = FindAnyObjectByType<GameServer>();
+            server?.OnBartenderSeatedAtTable9();
 
             if (animator != null && animator.isActiveAndEnabled)
             {

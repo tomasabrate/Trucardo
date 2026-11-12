@@ -33,6 +33,7 @@ namespace Trucardo.Core
 
             session.ForcedAcceptNextCanto = true;
             session.ForcedAcceptCallerId = context.PlayerId;
+            session.ForcedAcceptCasterTeam = context.Team;
 
             ulong rivalId = (context.Team == 1) ? session.Player2Id : session.Player1Id;
             server.SendPowerToast(session, context.PlayerId, "BASTÓN PRESIDENCIAL", "¡Orden de Mando! Tu rival estará obligado a aceptar tu próximo canto.");

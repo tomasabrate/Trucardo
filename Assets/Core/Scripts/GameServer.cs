@@ -43,6 +43,7 @@ namespace Trucardo.Core
         // Estados de Poderes en la Mesa
         public bool ForcedAcceptNextCanto = false;
         public ulong ForcedAcceptCallerId = 0;
+        public int ForcedAcceptCasterTeam = 0;
         public bool PavaCalienteActive = false;
         public ulong PavaCalienteCasterId = 0;
         public Coroutine PavaTurnTimeoutCoroutine = null;
@@ -110,7 +111,7 @@ namespace Trucardo.Core
         public GameObject bartenderPrefab;
         public float botYOffset = 0.35f; // Ajuste vertical
         public float botForwardOffset = 0.15f; // Ajuste hacia adelante
-        public Transform bartenderPosition; // Asignar un objeto vacÃ­o en la barra
+        public Transform bartenderPosition; // Asignar un objeto vacío en la barra
 
         private List<TableSession> sessions = new List<TableSession>();
         private ulong nextLogicalBotId = FirstLogicalBotId;
@@ -128,7 +129,7 @@ namespace Trucardo.Core
                 enabled = false;
                 return;
             }
-            Debug.Log("Servidor de Trucardo Iniciado. Soportando mÃºltiples mesas.");
+            Debug.Log("Servidor de Trucardo Iniciado. Soportando múltiples mesas.");
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
 
             bool isSingleplayer = ShouldAutoFillBot();
@@ -451,7 +452,7 @@ namespace Trucardo.Core
             if (!CanStartGameSession(session)
                 || session.GameModel.CurrentState != GameState.PartidaTerminada)
             {
-                Debug.LogWarning($"El jugador {sender} intentÃ³ reiniciar una partida que no terminÃ³ o no estÃ¡ disponible.");
+                Debug.LogWarning($"El jugador {sender} intentó reiniciar una partida que no terminó o no está disponible.");
                 return;
             }
 
@@ -476,7 +477,7 @@ namespace Trucardo.Core
             TableDefinition table = TableDefinition.FindById(tableId);
             if (table == null)
             {
-                Debug.LogWarning($"El jugador {sender} intentÃ³ sentarse en una mesa inexistente: {tableId}.");
+                Debug.LogWarning($"El jugador {sender} intentó sentarse en una mesa inexistente: {tableId}.");
                 return;
             }
 
@@ -520,20 +521,20 @@ namespace Trucardo.Core
         public bool ShouldAutoFillBot()
         {
             // En multijugador (Host o Cliente), NUNCA se usan bots ni se autocompleta la mesa con bots.
-            // La partida Ãºnicamente debe comenzar cuando dos jugadores humanos reales se sienten en la misma mesa.
+            // La partida únicamente debe comenzar cuando dos jugadores humanos reales se sienten en la misma mesa.
             if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Host 
                 || Trucardo.Core.NetworkUI.selectedMode == GameMode.Client)
             {
                 return false;
             }
 
-            // En Modo Individual (Singleplayer), SIEMPRE estÃ¡ activado para jugar con bots.
+            // En Modo Individual (Singleplayer), SIEMPRE está activado para jugar con bots.
             if (Trucardo.Core.NetworkUI.selectedMode == GameMode.Singleplayer)
             {
                 return true;
             }
 
-            // En el editor directo sin pasar por el menÃº (GameMode.None), depende de autoFillPlayer2WithBot (por defecto true)
+            // En el editor directo sin pasar por el menú (GameMode.None), depende de autoFillPlayer2WithBot (por defecto true)
             return autoFillPlayer2WithBot;
         }
 
@@ -542,6 +543,15 @@ namespace Trucardo.Core
             if (!ShouldAutoFillBot()) return;
             if (session.Player1Type != ParticipantType.Human || !session.Player1Seated) return;
             if (session.Player2Id != ulong.MaxValue || session.Player2Seated || session.Player2Type != ParticipantType.None) return;
+
+            // En la Mesa 9 (jefe Bartender), solo autocompletar si el Bartender ya se encuentra sentado físicamente en la mesa.
+            if (session.TableId != null && session.TableId.Contains("9"))
+            {
+                if (BartenderController.Instance == null || BartenderController.Instance.CurrentState != BartenderController.State.SeatedAtTable)
+                {
+                    return;
+                }
+            }
 
             RegisterBotAsPlayer2(session);
         }
@@ -552,7 +562,7 @@ namespace Trucardo.Core
             if (session.Player2Id != ulong.MaxValue || session.Player2Seated || session.Player2Type != ParticipantType.None) return false;
             if (!TryGenerateLogicalBotId(out ulong botId))
             {
-                Debug.LogError($"No se pudo generar un ID lÃ³gico para el bot de la mesa {session.TableId}.");
+                Debug.LogError($"No se pudo generar un ID lógico para el bot de la mesa {session.TableId}.");
                 return false;
             }
 
@@ -734,7 +744,7 @@ namespace Trucardo.Core
 
             if (decision == null) yield break;
 
-            // ActivaciÃ³n opcional de poder por parte del Bot (Ãºnicamente poderes que posee en la mesa)
+            // Activación opcional de poder por parte del Bot (únicamente poderes que posee en la mesa)
             if (!session.BotPowerUsedThisRound && !session.P2Boleado && session.GameModel.CurrentState == GameState.TurnoJugador)
             {
                 if (UnityEngine.Random.value < 0.35f && session.BotAvailablePowerIds != null && session.BotAvailablePowerIds.Count > 0)
@@ -751,6 +761,13 @@ namespace Trucardo.Core
                                 PowerContext context = new PowerContext(botId, 2, null, null, session.GameModel);
                                 if (pData.Effect.CanExecute(context, out _))
                                 {
+                                    // Bastón Presidencial solo es jugable si el bot puede cantar Envido o Truco
+                                    if (pid == "baston_presidencial")
+                                    {
+                                        bool canEnvido = CanPlayer2BotCallEnvido(session, botId, EnvidoCall.Envido);
+                                        bool canTruco = CanPlayer2BotCallTruco(session, botId);
+                                        if (!canEnvido && !canTruco) continue;
+                                    }
                                     playablePowers.Add(pid);
                                 }
                             }
@@ -763,20 +780,36 @@ namespace Trucardo.Core
                             session.BotPowerUsedThisRound = true;
                             ProcessPlayPower(botId, chosenPowerId);
                             SyncClientState(session);
+
+                            // Si el bot usó Bastón Presidencial, enlazarlo inmediatamente con un canto
+                            if (chosenPowerId == "baston_presidencial")
+                            {
+                                if (CanPlayer2BotCallEnvido(session, botId, EnvidoCall.Envido))
+                                {
+                                    decision = BotDecision.CallEnvido(EnvidoCall.Envido);
+                                }
+                                else if (CanPlayer2BotCallTruco(session, botId))
+                                {
+                                    decision = BotDecision.CallTruco();
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Luz Mala: Si el bot estÃ¡ bajo efecto de Luz Mala y va a jugar carta, juega una al azar
+            // Luz Mala: Si el bot está bajo efecto de Luz Mala y va a jugar carta, juega una al azar
             if (session.P2LuzMalaActive && decision.Type == BotDecisionType.PlayCard && session.GameModel.P2Hand.Count > 0)
             {
                 int randomCard = session.GameModel.P2Hand[UnityEngine.Random.Range(0, session.GameModel.P2Hand.Count)];
                 decision = BotDecision.PlayCard(randomCard);
             }
 
-            // BastÃ³n Presidencial: Si debe responder a un canto del rival que usÃ³ el bastÃ³n, fuerza aceptaciÃ³n
-            if (session.ForcedAcceptNextCanto && decision.Type == BotDecisionType.Respond && botId != session.ForcedAcceptCallerId)
+            // Bastón Presidencial: Si debe responder a un canto del rival que usó el bastón, fuerza aceptación
+            bool botIsBastonVictim = session.ForcedAcceptNextCanto &&
+                ((session.ForcedAcceptCasterTeam != 0 && session.ForcedAcceptCasterTeam != 2) ||
+                 (session.ForcedAcceptCallerId != 0 && botId != session.ForcedAcceptCallerId));
+            if (botIsBastonVictim && (decision.Type == BotDecisionType.Respond || decision.Type == BotDecisionType.CallEnvido || decision.Type == BotDecisionType.CallTruco))
             {
                 decision = BotDecision.Respond(true);
             }
@@ -1044,9 +1077,15 @@ namespace Trucardo.Core
                 }
             }
 
-            // Determinar si el jugador que jugÃ³ la carta estÃ¡ en el Banco A (Seats[0]) o Banco B (Seats[1])
+            // Determinar si el jugador que jugó la carta está en el Banco A (Seats[0]) o Banco B (Seats[1])
             bool isAtSeatA = true;
-            if (pc != null)
+            if (session.Player2Type == ParticipantType.Bot)
+            {
+                // En partidas con bot (modo individual o duelo final contra el Bartender),
+                // el jugador humano siempre juega desde Banco A (Seats[0]) y el bot/Bartender desde Banco B (Seats[1]).
+                isAtSeatA = (playerId == session.Player1Id);
+            }
+            else if (pc != null)
             {
                 if (session.Table != null && session.Table.Seats != null && session.Table.Seats.Count >= 2 
                     && session.Table.Seats[0] != null && session.Table.Seats[1] != null)
@@ -1058,7 +1097,10 @@ namespace Trucardo.Core
                 else if (mesa != null)
                 {
                     Vector3 localPlayerPos = mesa.InverseTransformPoint(pc.transform.position);
-                    isAtSeatA = localPlayerPos.x >= 0f;
+                    float sSign = (session.Table != null && session.Table.Seats != null && session.Table.Seats.Count >= 2 && session.Table.Seats[0] != null)
+                        ? Mathf.Sign(mesa.InverseTransformPoint(session.Table.Seats[0].transform.position).x)
+                        : 1f;
+                    isAtSeatA = (localPlayerPos.x * sSign) >= 0f;
                 }
             }
             else
@@ -1252,12 +1294,18 @@ namespace Trucardo.Core
             if (session == null) return;
             if (actorId != session.Player1Id && actorId != session.Player2Id) return;
 
-            if (session.ForcedAcceptNextCanto && actorId != session.ForcedAcceptCallerId)
+            int actorTeam = (actorId == session.Player1Id) ? 1 : 2;
+            bool isBastonVictim = session.ForcedAcceptNextCanto &&
+                ((session.ForcedAcceptCasterTeam != 0 && actorTeam != session.ForcedAcceptCasterTeam) ||
+                 (session.ForcedAcceptCallerId != 0 && actorId != session.ForcedAcceptCallerId));
+
+            if (isBastonVictim)
             {
                 accepts = true;
                 session.ForcedAcceptNextCanto = false;
                 session.ForcedAcceptCallerId = 0;
-                Debug.Log("<color=#FFD700><b>[BastÃ³n Presidencial]</b></color> Â¡El canto ha sido aceptado por orden presidencial!");
+                session.ForcedAcceptCasterTeam = 0;
+                Debug.Log("<color=#FFD700><b>[Bastón Presidencial]</b></color> ¡El canto ha sido aceptado por orden presidencial!");
             }
 
             var dialogueBefore = CaptureDialogue(session);
@@ -1350,14 +1398,36 @@ namespace Trucardo.Core
 
         private bool CanStartGameSession(TableSession session)
         {
-            return session != null
-                && sessions.Contains(session)
-                && session.Player1Seated
+            if (session == null || !sessions.Contains(session)) return false;
+
+            // En la Mesa 9 (jefe Bartender), la partida solo puede comenzar si el Bartender está efectivamente sentado en la mesa.
+            if (session.TableId != null && session.TableId.Contains("9"))
+            {
+                if (BartenderController.Instance == null || BartenderController.Instance.CurrentState != BartenderController.State.SeatedAtTable)
+                {
+                    return false;
+                }
+            }
+
+            return session.Player1Seated
                 && session.Player2Seated
                 && session.Player1Type != ParticipantType.None
                 && session.Player2Type != ParticipantType.None
                 && session.Player1Id != ulong.MaxValue
                 && session.Player2Id != ulong.MaxValue;
+        }
+
+        public void OnBartenderSeatedAtTable9()
+        {
+            var session = sessions.FirstOrDefault(s => s.TableId != null && s.TableId.Contains("9"));
+            if (session != null)
+            {
+                if (session.Player1Seated && session.Player1Type == ParticipantType.Human)
+                {
+                    TryAutoFillPlayer2WithBot(session);
+                    CheckStartGame(session);
+                }
+            }
         }
 
         private void ScheduleStartRound(TableSession session, float delay)
@@ -1422,6 +1492,7 @@ namespace Trucardo.Core
             session.P2LuzMalaActive = false;
             session.ForcedAcceptNextCanto = false;
             session.ForcedAcceptCallerId = 0;
+            session.ForcedAcceptCasterTeam = 0;
             session.P1ActivePowerId = null;
             session.P2ActivePowerId = null;
             session.BotPowerUsedThisRound = false;
@@ -1742,7 +1813,7 @@ namespace Trucardo.Core
                 if (hand != null && hand.Count > 0)
                 {
                     int cardToPlay = hand[0];
-                    SendPowerToast(session, targetPlayerId, "Â¡PAVA CALIENTE!", "Â¡Tiempo agotado (5s)! Se jugÃ³ tu carta automÃ¡ticamente.");
+                    SendPowerToast(session, targetPlayerId, "¡PAVA CALIENTE!", "¡Tiempo agotado (5s)! Se jugó tu carta automáticamente.");
                     ProcessPlayCard(targetPlayerId, cardToPlay);
                 }
             }
@@ -1753,9 +1824,9 @@ namespace Trucardo.Core
                 {
                     bool forced = session.ForcedAcceptNextCanto && targetPlayerId != session.ForcedAcceptCallerId;
                     bool accepts = forced ? true : false;
-                    SendPowerToast(session, targetPlayerId, "Â¡PAVA CALIENTE!", forced 
-                        ? "Â¡Tiempo agotado (5s)! Aceptado por mandato presidencial." 
-                        : "Â¡Tiempo agotado (5s)! Se rechazÃ³ el canto automÃ¡ticamente.");
+                    SendPowerToast(session, targetPlayerId, "¡PAVA CALIENTE!", forced 
+                        ? "¡Tiempo agotado (5s)! Aceptado por mandato presidencial." 
+                        : "¡Tiempo agotado (5s)! Se rechazó el canto automáticamente.");
                     ProcessResponse(targetPlayerId, accepts);
                 }
             }
@@ -1789,6 +1860,14 @@ namespace Trucardo.Core
             {
                 Send = new ClientRpcSendParams { TargetClientIds = seatedPlayers.ToArray() }
             };
+            SyncPowerStatesClientRpc(
+                session.PavaCalienteActive,
+                session.ForcedAcceptNextCanto,
+                session.ForcedAcceptCallerId,
+                session.P1LuzMalaActive,
+                session.P2LuzMalaActive,
+                clientRpcParams);
+
             UpdateClientStateClientRpc(
                 session.GameModel.CurrentState,
                 session.GameModel.CurrentTurnId,
@@ -1805,14 +1884,6 @@ namespace Trucardo.Core
                     session.GameModel.ScoreTeam1,
                     session.GameModel.ScoreTeam2),
                 session.Player1Id,
-                clientRpcParams);
-
-            SyncPowerStatesClientRpc(
-                session.PavaCalienteActive,
-                session.ForcedAcceptNextCanto,
-                session.ForcedAcceptCallerId,
-                session.P1LuzMalaActive,
-                session.P2LuzMalaActive,
                 clientRpcParams);
 
             if (session.Player2Type == ParticipantType.Bot)
@@ -1844,7 +1915,7 @@ namespace Trucardo.Core
             ulong opponentId = (targetClientId == session.Player1Id) ? session.Player2Id : session.Player1Id;
             if (opponentId != ulong.MaxValue && opponentId != targetClientId)
             {
-                SendPowerToast(session, opponentId, "GUAMPAS", "Tu rival activÃ³ Guampas y estÃ¡ decidiendo si cambiar una carta.");
+                SendPowerToast(session, opponentId, "GUAMPAS", "Tu rival activó Guampas y está decidiendo si cambiar una carta.");
             }
         }
 
@@ -1921,18 +1992,18 @@ namespace Trucardo.Core
                 int slot = hand.IndexOf(cardToReplaceIndex);
                 hand[slot] = drawnCard;
                 SyncPlayerHand(session, sender);
-                SendPowerToast(session, sender, "GUAMPAS", $"Â¡Reemplazaste tu {replacedData.Number} de {replacedData.Suit} por el {drawnData.Number} de {drawnData.Suit}!");
+                SendPowerToast(session, sender, "GUAMPAS", $"¡Reemplazaste tu {replacedData.Number} de {replacedData.Suit} por el {drawnData.Number} de {drawnData.Suit}!");
                 if (opponentId != ulong.MaxValue && opponentId != sender)
                 {
-                    SendPowerToast(session, opponentId, "GUAMPAS", "El rival cambiÃ³ una de sus cartas con Guampas.");
+                    SendPowerToast(session, opponentId, "GUAMPAS", "El rival cambió una de sus cartas con Guampas.");
                 }
             }
             else
             {
-                SendPowerToast(session, sender, "GUAMPAS", $"Descartaste el {drawnData.Number} de {drawnData.Suit}. ConservÃ¡s tu mano.");
+                SendPowerToast(session, sender, "GUAMPAS", $"Descartaste el {drawnData.Number} de {drawnData.Suit}. Conservás tu mano.");
                 if (opponentId != ulong.MaxValue && opponentId != sender)
                 {
-                    SendPowerToast(session, opponentId, "GUAMPAS", "El rival decidiÃ³ no cambiar y conservÃ³ su mano.");
+                    SendPowerToast(session, opponentId, "GUAMPAS", "El rival decidió no cambiar y conservó su mano.");
                 }
             }
 
@@ -1971,7 +2042,7 @@ namespace Trucardo.Core
 
             if (opponentId != ulong.MaxValue && opponentId != targetClientId)
             {
-                SendPowerToast(session, opponentId, "GUITARRA", "Tu rival activÃ³ la Guitarra y estÃ¡ eligiendo las cartas a intercambiar...");
+                SendPowerToast(session, opponentId, "GUITARRA", "Tu rival activó la Guitarra y está eligiendo las cartas a intercambiar...");
             }
         }
 
@@ -2055,7 +2126,7 @@ namespace Trucardo.Core
             if (team == 1 && session.P1RevealedOpponentCards != null) session.P1RevealedOpponentCards.Remove(destroyedCardIndex);
             if (team == 2 && session.P2RevealedOpponentCards != null) session.P2RevealedOpponentCards.Remove(destroyedCardIndex);
 
-            // Notificar al atacante para que vea la carta que rompiÃ³ antes de que se descarte
+            // Notificar al atacante para que vea la carta que rompió antes de que se descarte
             ClientRpcParams rpcParamsSender = new ClientRpcParams
             {
                 Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { sender } }
@@ -2065,13 +2136,13 @@ namespace Trucardo.Core
             // Sincronizar mano del oponente (quien recibió la nueva carta tras el corte)
             SyncPlayerHand(session, opponentId);
 
-            SendPowerToast(session, sender, "FACÃ“N", 
-                $"Â¡Le rompiste el {destroyedCard.Number} de {destroyedCard.Suit} al rival! RobÃ³ una nueva carta del mazo.");
+            SendPowerToast(session, sender, "FACÓN", 
+                $"¡Le rompiste el {destroyedCard.Number} de {destroyedCard.Suit} al rival! Robó una nueva carta del mazo.");
 
             if (opponentId != ulong.MaxValue && opponentId != sender)
             {
-                SendPowerToast(session, opponentId, "FACÃ“N", 
-                    $"Â¡El rival usÃ³ el FacÃ³n y destrozÃ³ tu {destroyedCard.Number} de {destroyedCard.Suit}! Robaste una nueva carta del mazo.");
+                SendPowerToast(session, opponentId, "FACÓN", 
+                    $"¡El rival usó el Facón y destrozó tu {destroyedCard.Number} de {destroyedCard.Suit}! Robaste una nueva carta del mazo.");
             }
 
             SyncClientState(session);
@@ -2146,12 +2217,12 @@ namespace Trucardo.Core
             CardData receivedCard = masterDeck.AvailableCards[oppCardIndex];
 
             SendPowerToast(session, sender, "GUITARRA", 
-                $"Â¡Intercambio realizado! Diste tu {givenCard.Number} de {givenCard.Suit} y te quedaste con el {receivedCard.Number} de {receivedCard.Suit} del rival.");
+                $"¡Intercambio realizado! Diste tu {givenCard.Number} de {givenCard.Suit} y te quedaste con el {receivedCard.Number} de {receivedCard.Suit} del rival.");
 
             if (opponentId != ulong.MaxValue && opponentId != sender)
             {
                 SendPowerToast(session, opponentId, "GUITARRA", 
-                    $"Â¡Guitarreada rival! El rival te quitÃ³ una carta y te dio un {givenCard.Number} de {givenCard.Suit}.");
+                    $"¡Guitarreada rival! El rival te quitó una carta y te dio un {givenCard.Number} de {givenCard.Suit}.");
             }
 
             SyncClientState(session);

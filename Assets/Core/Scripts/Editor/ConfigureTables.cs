@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Trucardo.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace Trucardo.EditorScripts
                 throw new InvalidOperationException("No se encontraron mesas dentro de Mesas_y_Sillas.");
 
             List<Trucardo.Core.SeatInteractable> remainingSeats = group.GetComponentsInChildren<Transform>(true)
-                .Where(t => t.gameObject.activeInHierarchy && Trucardo.Core.TableDefinition.IsSeatName(t.name))
+                .Where(t => t.gameObject.activeInHierarchy && Trucardo.Core.TableDefinition.IsSeatName(t.name) && t.GetComponentsInChildren<Renderer>(true).Length > 0)
                 .Select(t => t.GetComponent<Trucardo.Core.SeatInteractable>() ?? Undo.AddComponent<Trucardo.Core.SeatInteractable>(t.gameObject))
                 .ToList();
 
@@ -44,7 +45,7 @@ namespace Trucardo.EditorScripts
                     definition = Undo.AddComponent<Trucardo.Core.TableDefinition>(table.gameObject);
 
                 List<Trucardo.Core.SeatInteractable> mySeats = remainingSeats
-                    .Where(s => s.transform.IsChildOf(table))
+                    .Where(s => s.transform.IsChildOf(table) && HorizontalDistance(s.transform.position, table.position) <= 2.2f)
                     .OrderBy(s => s.transform.localPosition.x)
                     .Take(2)
                     .ToList();
