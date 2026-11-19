@@ -11,7 +11,8 @@ namespace Trucardo.Core
         Poderes = 0,
         Cartas = 1,
         Partida = 2,
-        Tests = 3
+        Rivales = 3,
+        Tests = 4
     }
 
     /// <summary>
@@ -20,7 +21,8 @@ namespace Trucardo.Core
     /// 1. Gestión de Poderes (Spawn, pruebas de UI activa, forzar poderes).
     /// 2. Selección y Edición de Cartas en Mano (selector por palo/número, slots, presets y mano rival).
     /// 3. Control de Partida (puntos, estados, buenas/malas, reinicio).
-    /// 4. Suite de Tests Automatizados (Jerarquía Truco, Envido, Poderes).
+    /// 4. Progresión de Rivales (simular victorias/derrotas contra cada bot y llegada del Bartender a Mesa 9).
+    /// 5. Suite de Tests Automatizados (Jerarquía Truco, Envido, Poderes).
     /// Se abre/cierra con la tecla F1.
     /// </summary>
     public class PowerAdminController : MonoBehaviour
@@ -36,7 +38,7 @@ namespace Trucardo.Core
         // Estado del Panel
         private AdminTab currentTab = AdminTab.Cartas;
         private PowerData overrideNextPower = null;
-        private Rect windowRect = new Rect(20, 30, 520, 640);
+        private Rect windowRect = new Rect(20, 30, 560, 640);
         private Vector2 scrollPosition = Vector2.zero;
 
         // Estado de Selección de Cartas
@@ -173,7 +175,7 @@ namespace Trucardo.Core
 
             // Pestañas Superiores
             GUILayout.BeginHorizontal();
-            string[] tabNames = { "🔮 Poderes", "🃏 Cartas", "📊 Partida", "🧪 Tests" };
+            string[] tabNames = { "🔮 Poderes", "🃏 Cartas", "📊 Partida", "🏆 Rivales", "🧪 Tests" };
             for (int i = 0; i < tabNames.Length; i++)
             {
                 bool isCurrent = ((int)currentTab == i);
@@ -188,7 +190,7 @@ namespace Trucardo.Core
 
             GUILayout.Space(6);
 
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(495), GUILayout.Height(530));
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(535), GUILayout.Height(530));
 
             switch (currentTab)
             {
@@ -200,6 +202,9 @@ namespace Trucardo.Core
                     break;
                 case AdminTab.Partida:
                     DrawMatchTab();
+                    break;
+                case AdminTab.Rivales:
+                    DrawRivalsTab();
                     break;
                 case AdminTab.Tests:
                     DrawTestsTab();
@@ -675,6 +680,117 @@ namespace Trucardo.Core
             }
 
             GUILayout.EndVertical();
+        }
+
+        // =========================================================================
+        // PESTAÑA: RIVALES (PROGRESIÓN Y BARTENDER)
+        // =========================================================================
+        private void DrawRivalsTab()
+        {
+            GUIStyle headerStyle = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, fontSize = 13 };
+            GUIStyle richLabel = new GUIStyle(GUI.skin.label) { richText = true };
+
+            GameProgressionManager progression = GameProgressionManager.Instance;
+            BartenderController bartender = BartenderController.Instance ?? FindAnyObjectByType<BartenderController>();
+
+            int defeatedCount = progression.GetDefeatedCount();
+            bool allDefeated = progression.AreAllRegularBotsDefeated();
+
+            GUILayout.BeginVertical("box");
+            GUILayout.Label("🏆 Progresión de Mesas & Llegada del Bartender", headerStyle);
+
+            string progColor = allDefeated ? "#4CAF50" : "#FFD54F";
+            GUILayout.Label($"<b>Rivales ganados:</b> <color={progColor}>{defeatedCount} / {GameProgressionManager.RegularBotsCount}</color>", richLabel);
+
+            string bartenderStatus = bartender != null
+                ? FormatBartenderState(bartender.CurrentState)
+                : "<color=#FF5252>No encontrado en escena</color>";
+            GUILayout.Label($"<b>Estado del Bartender (Mesa 9):</b> {bartenderStatus}", richLabel);
+            GUILayout.Label("<i>Al completar las 8 victorias, El Patrón sale detrás de la barra y camina hasta la Mesa 9.</i>", richLabel);
+
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(0.35f, 0.85f, 0.45f, 1f);
+            if (GUILayout.Button("▶ Ganar Siguiente Bot (+1)", GUILayout.Height(28)))
+            {
+                int nextPending = FindNextUndefeatedBot(progression);
+                if (nextPending > 0)
+                {
+                    progression.SetBotDefeated(nextPending, true);
+                }
+            }
+            GUI.backgroundColor = new Color(0.95f, 0.72f, 0.25f, 1f);
+            if (GUILayout.Button("✅ Ganar Todos (8/8)", GUILayout.Height(28)))
+            {
+                progression.DefeatAllForTesting();
+            }
+            GUI.backgroundColor = new Color(0.95f, 0.45f, 0.45f, 1f);
+            if (GUILayout.Button("🔄 Reiniciar (0/8)", GUILayout.Height(28)))
+            {
+                progression.ResetProgression();
+            }
+            GUI.backgroundColor = Color.white;
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(8);
+            GUILayout.Label("Simular resultado por mesa (ganó / no ganó):", headerStyle);
+
+            for (int table = 1; table <= GameProgressionManager.RegularBotsCount; table++)
+            {
+                bool isDefeated = progression.IsBotDefeated(table);
+                string botName = GameProgressionManager.GetBotDisplayName(table);
+
+                GUILayout.BeginHorizontal("box");
+                string badge = isDefeated ? "<color=#4CAF50>✔ GANADO</color>" : "<color=#B0BEC5>✖ NO GANADO</color>";
+                GUILayout.Label($"<b>Mesa {table}</b> — {botName}", richLabel, GUILayout.Width(250));
+                GUILayout.Label(badge, richLabel, GUILayout.Width(110));
+
+                GUI.backgroundColor = isDefeated ? new Color(0.85f, 0.55f, 0.35f, 1f) : new Color(0.35f, 0.85f, 0.45f, 1f);
+                string toggleLabel = isDefeated ? "Marcar No Ganado" : "Marcar Ganado";
+                if (GUILayout.Button(toggleLabel, GUILayout.Height(24)))
+                {
+                    progression.SetBotDefeated(table, !isDefeated);
+                }
+                GUI.backgroundColor = Color.white;
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(8);
+            GUILayout.Label("Control Directo del Bartender:", headerStyle);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("🚶 Mover Bartender a Mesa 9", GUILayout.Height(28)))
+            {
+                bartender?.GoToTable9();
+            }
+            if (GUILayout.Button("🏠 Devolver a la Barra", GUILayout.Height(28)))
+            {
+                bartender?.ResetToBar();
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+        }
+
+        private static int FindNextUndefeatedBot(GameProgressionManager progression)
+        {
+            for (int i = 1; i <= GameProgressionManager.RegularBotsCount; i++)
+            {
+                if (!progression.IsBotDefeated(i)) return i;
+            }
+            return -1;
+        }
+
+        private static string FormatBartenderState(BartenderController.State state)
+        {
+            switch (state)
+            {
+                case BartenderController.State.WalkingToTable:
+                    return "<color=#FFD54F>Caminando hacia Mesa 9...</color>";
+                case BartenderController.State.SeatedAtTable:
+                    return "<color=#4CAF50>Sentado en Mesa 9 (Duelo Final listo)</color>";
+                default:
+                    return $"<color=#90CAF9>Detrás de la barra ({state})</color>";
+            }
         }
 
         // =========================================================================

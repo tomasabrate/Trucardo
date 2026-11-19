@@ -292,6 +292,8 @@ namespace Trucardo.Core
                 assignedSeatTable9.CurrentOccupant = null;
             }
 
+            tableWaypoints.Clear();
+            currentWaypointIndex = 0;
             transform.position = barCenter;
             transform.rotation = Quaternion.Euler(defaultFacingEuler);
             currentState = State.Idle;

@@ -107,6 +107,7 @@ public class SetupBartender
         mat.SetFloat("_Smoothness", 0.1f);
         mat.SetFloat("_Cull", 0f);
         mat.SetInt("_Cull", 0);
+        mat.doubleSidedGI = false;
         EditorUtility.SetDirty(mat);
 
         // 2. Configurar ModelImporter de Bartender.fbx
@@ -236,30 +237,44 @@ public class SetupBartender
         {
             if (r is SkinnedMeshRenderer smr && smr.sharedMesh != null)
             {
-                Mesh fixedMesh = Trucardo.EditorScripts.BartenderMeshRepair.BuildRepairedMeshAsset(
-                    smr.sharedMesh,
-                    smr.bones,
-                    "Assets/Models/Personajes/Bartender/Bartender_Fixed.asset");
-                if (fixedMesh != null)
+                if (smr.sharedMesh.bindposes == null || smr.sharedMesh.bindposes.Length != smr.bones.Length)
                 {
-                    smr.sharedMesh = fixedMesh;
+                    Debug.LogWarning($"[SetupBartender] Bindposes ({smr.sharedMesh.bindposes?.Length ?? 0}) != Bones ({smr.bones.Length}) en {r.name}");
                 }
+                smr.localBounds = smr.sharedMesh.bounds;
+
+                Transform hipsBone = null;
+                foreach (Transform bone in smr.bones)
+                {
+                    if (bone != null && bone.name.EndsWith("Hips"))
+                    {
+                        hipsBone = bone;
+                        break;
+                    }
+                }
+                if (hipsBone != null)
+                {
+                    smr.rootBone = hipsBone;
+                }
+                smr.updateWhenOffscreen = false;
+                smr.skinnedMotionVectors = false;
             }
             r.sharedMaterial = mat;
         }
 
         GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
         Object.DestroyImmediate(root);
+        AssetDatabase.SaveAssets();
 
         // 5. Asignar en GameServer si existe en la escena activa y asegurar PosicionBartender activo
-        GameServer server = Object.FindFirstObjectByType<GameServer>();
+        GameServer server = Object.FindAnyObjectByType<GameServer>();
         if (server != null && savedPrefab != null)
         {
             server.bartenderPrefab = savedPrefab;
             EditorUtility.SetDirty(server);
         }
 
-        foreach (EnsureBartender eb in Object.FindObjectsByType<EnsureBartender>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        foreach (EnsureBartender eb in Object.FindObjectsByType<EnsureBartender>(FindObjectsInactive.Include))
         {
             if (eb != null && !eb.gameObject.activeSelf)
             {

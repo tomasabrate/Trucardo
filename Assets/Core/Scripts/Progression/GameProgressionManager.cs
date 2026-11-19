@@ -48,6 +48,27 @@ namespace Trucardo.Core
             }
         }
 
+        public static string GetBotDisplayName(int tableNumber)
+        {
+            if (GameServer.Instance != null)
+            {
+                return GameServer.Instance.GetBotConfigForTable($"Mesa_{tableNumber}").botName;
+            }
+
+            var defaults = GameServer.GetDefaultTableConfigs();
+            if (tableNumber >= 1 && tableNumber <= defaults.Count)
+            {
+                return defaults[tableNumber - 1].botName;
+            }
+
+            return $"Gaucho Mesa {tableNumber}";
+        }
+
+        private static BartenderController FindBartender()
+        {
+            return BartenderController.Instance ?? FindAnyObjectByType<BartenderController>();
+        }
+
         public bool IsBotDefeated(int tableNumber)
         {
             if (tableNumber < 1 || tableNumber > RegularBotsCount) return false;
@@ -62,10 +83,7 @@ namespace Trucardo.Core
             PlayerPrefs.SetInt(PrefKeyPrefix + tableNumber, defeated ? 1 : 0);
             PlayerPrefs.Save();
 
-            string botName = GameServer.Instance != null 
-                ? GameServer.Instance.GetBotConfigForTable($"Mesa_{tableNumber}").botName 
-                : $"Rival Mesa {tableNumber}";
-
+            string botName = GetBotDisplayName(tableNumber);
             Debug.Log($"[Progression] Mesa {tableNumber} ({botName}) {(defeated ? "DERROTADO" : "reiniciado")}. ({GetDefeatedCount()}/{RegularBotsCount} superados)");
 
             if (!wasAlready && defeated)
@@ -73,11 +91,18 @@ namespace Trucardo.Core
                 OnBotDefeated?.Invoke(tableNumber, botName);
             }
 
+            BartenderController bartender = FindBartender();
             if (AreAllRegularBotsDefeated())
             {
                 Debug.Log("<color=#4CAF50><b>[Progression] ¡TODOS LOS GAUCHOS DERROTADOS! El Bartender se dirige a la Mesa 9 para el Duelo Final.</b></color>");
                 OnAllBotsDefeated?.Invoke();
-                BartenderController.Instance?.GoToTable9();
+                bartender?.GoToTable9();
+            }
+            else if (!defeated && bartender != null &&
+                     (bartender.CurrentState == BartenderController.State.WalkingToTable ||
+                      bartender.CurrentState == BartenderController.State.SeatedAtTable))
+            {
+                bartender.ResetToBar();
             }
 
             OnProgressionUpdated?.Invoke();
@@ -117,7 +142,7 @@ namespace Trucardo.Core
             Debug.Log("<color=#FF9800><b>[Progression] MODO TEST: Los 8 bots marcados como derrotados.</b></color>");
             OnAllBotsDefeated?.Invoke();
             OnProgressionUpdated?.Invoke();
-            BartenderController.Instance?.GoToTable9();
+            FindBartender()?.GoToTable9();
         }
 
         [ContextMenu("Reiniciar Progresión a Cero")]
@@ -128,6 +153,15 @@ namespace Trucardo.Core
                 PlayerPrefs.DeleteKey(PrefKeyPrefix + i);
             }
             PlayerPrefs.Save();
+
+            BartenderController bartender = FindBartender();
+            if (bartender != null &&
+                (bartender.CurrentState == BartenderController.State.WalkingToTable ||
+                 bartender.CurrentState == BartenderController.State.SeatedAtTable))
+            {
+                bartender.ResetToBar();
+            }
+
             Debug.Log("[Progression] Progresión reiniciada a cero.");
             OnProgressionUpdated?.Invoke();
         }

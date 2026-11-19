@@ -203,18 +203,7 @@ namespace Trucardo.Core
 
         private static string GetBotDisplayName(int tableNumber)
         {
-            if (GameServer.Instance != null)
-            {
-                return GameServer.Instance.GetBotConfigForTable($"Mesa_{tableNumber}").botName;
-            }
-
-            List<TableBotConfig> defaults = GameServer.GetDefaultTableConfigs();
-            if (tableNumber >= 1 && tableNumber <= defaults.Count)
-            {
-                return defaults[tableNumber - 1].botName;
-            }
-
-            return $"Gaucho Mesa {tableNumber}";
+            return GameProgressionManager.GetBotDisplayName(tableNumber);
         }
 
         [ContextMenu("Actualizar Tablero Ahora")]
