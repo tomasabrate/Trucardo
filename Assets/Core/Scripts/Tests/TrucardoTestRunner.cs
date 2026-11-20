@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Trucardo.Core.Rules;
 using Trucardo.Core.Bots;
+using Trucardo.Core.Commands;
 
 namespace Trucardo.Core.Tests
 {
@@ -86,6 +87,7 @@ namespace Trucardo.Core.Tests
             RunHandResolutionTests(summary);
             RunEnvidoCalculationTests(summary);
             RunEnvidoRulesAndStakesTests(summary);
+            RunTrucoAndEnvidoFlowTests(summary);
             RunPowerCatalogTests(summary);
             RunPowerExecutionTests(summary);
 
@@ -389,6 +391,170 @@ namespace Trucardo.Core.Tests
             // Con líder en 29 (Match point): 30 - 29 = 1 punto
             int falta29 = EnvidoRules.GetFaltaEnvidoPoints(29, 29);
             s.Add("Reglas Envido", "Falta Envido en match point 29-29 otorga mínimo 1 punto", falta29 == 1, $"Puntos: {falta29}");
+        }
+
+        // =========================================================================
+        // 4B. FLUJO DE TRUCO / RETRUCO / VALE 4 Y ENVIDO POR TURNO
+        // =========================================================================
+        private static void RunTrucoAndEnvidoFlowTests(TestRunSummary s)
+        {
+            DeckData deck = LoadDeck();
+            const ulong p1 = 0UL; // Simula Host ClientId == 0
+            const ulong p2 = ulong.MaxValue - 1; // Simula Bot lógico
+
+            GameModel CreateMatchModel()
+            {
+                var m = new GameModel(deck)
+                {
+                    Player1Id = p1,
+                    Player2Id = p2
+                };
+                m.ResetGame();
+                m.CurrentState = GameState.TurnoJugador;
+                m.CurrentTurnId = p1;
+                m.DealCardsToPlayer(1, new List<int> { 0, 1, 2 });
+                m.DealCardsToPlayer(2, new List<int> { 3, 4, 5 });
+                return m;
+            }
+
+            // 1. Progresión completa con Quiero y bloqueo de recanto propio (LastTrucoCallerId)
+            {
+                var m = CreateMatchModel();
+
+                // Antes de cantar, solo el jugador del turno puede cantar Truco
+                s.Add("Flujo Truco", "P1 en su turno puede cantar Truco",
+                    TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco));
+                s.Add("Flujo Truco", "P2 fuera de turno NO puede iniciar Truco",
+                    !TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p2, m.EstadoTruco));
+
+                // P1 canta Truco
+                new CallTrucoCommand(m, p1).Execute();
+                s.Add("Flujo Truco", "Tras cantar Truco: estado pendiente Truco y nivel aceptado Ninguno",
+                    m.CurrentState == GameState.EsperandoRespuestaCanto
+                    && m.CantoPendiente == TipoCanto.Truco
+                    && m.EstadoTruco == NivelTruco.Ninguno
+                    && TrucoRules.GetPendingTrucoLevel(m.EstadoTruco) == NivelTruco.Truco);
+                s.Add("Flujo Truco", "P1 no puede revirar su propio Truco",
+                    !TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco));
+                s.Add("Flujo Truco", "P2 ve cartel 'Truco' y botón '¡Re Truco!'",
+                    TrucoRules.GetDisplayName(TrucoRules.GetPendingTrucoLevel(m.EstadoTruco)) == "Truco"
+                    && TrucoRules.GetButtonLabel(TrucoRules.GetTargetCallLevel(m.EstadoTruco, m.CurrentState, m.CantoPendiente)) == "[Q] ¡Re Truco!"
+                    && TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p2, m.EstadoTruco));
+
+                // P2 acepta Truco
+                new RespondCommand(m, p2, true).Execute();
+                s.Add("Flujo Truco", "P2 acepta -> EstadoTruco == Truco, P1 bloqueado para cantar Retruco",
+                    m.CurrentState == GameState.TurnoJugador
+                    && m.EstadoTruco == NivelTruco.Truco
+                    && !TrucoRules.CanCallFromContext(m.CurrentState, p1, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco));
+
+                // P2 canta Retruco en su turno
+                m.CurrentTurnId = p2;
+                s.Add("Flujo Truco", "P2 en su turno puede cantar Retruco",
+                    TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p2, m.EstadoTruco));
+                new CallTrucoCommand(m, p2).Execute();
+                s.Add("Flujo Truco", "Tras P2 cantar Retruco: pendiente es Retruco, botón para P1 es Vale Cuatro",
+                    m.CurrentState == GameState.EsperandoRespuestaCanto
+                    && TrucoRules.GetPendingTrucoLevel(m.EstadoTruco) == NivelTruco.Retruco
+                    && TrucoRules.GetDisplayName(TrucoRules.GetPendingTrucoLevel(m.EstadoTruco)) == "Re Truco"
+                    && TrucoRules.GetButtonLabel(TrucoRules.GetTargetCallLevel(m.EstadoTruco, m.CurrentState, m.CantoPendiente)) == "[Q] ¡Vale Cuatro!");
+
+                // P1 acepta Retruco
+                new RespondCommand(m, p1, true).Execute();
+                s.Add("Flujo Truco", "P1 acepta Retruco -> EstadoTruco == Retruco y P2 no puede cantar Vale 4",
+                    m.EstadoTruco == NivelTruco.Retruco
+                    && !TrucoRules.CanCallFromContext(m.CurrentState, p2, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p2, m.EstadoTruco));
+
+                // P1 canta Vale 4 en su turno
+                m.CurrentTurnId = p1;
+                s.Add("Flujo Truco", "P1 en su turno puede cantar Vale 4 y su etiqueta es ¡Vale Cuatro!",
+                    TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco)
+                    && TrucoRules.GetButtonLabel(TrucoRules.GetTargetCallLevel(m.EstadoTruco, m.CurrentState, m.CantoPendiente)) == "[Q] ¡Vale Cuatro!");
+                new CallTrucoCommand(m, p1).Execute();
+                s.Add("Flujo Truco", "Tras P1 cantar Vale 4: cartel muestra 'Vale Cuatro' y P2 no puede subir más",
+                    TrucoRules.GetDisplayName(TrucoRules.GetPendingTrucoLevel(m.EstadoTruco)) == "Vale Cuatro"
+                    && !TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p2, m.EstadoTruco));
+
+                // P2 acepta Vale 4 -> bloqueo total
+                new RespondCommand(m, p2, true).Execute();
+                s.Add("Flujo Truco", "Tras aceptar Vale 4 nadie puede volver a cantar Truco",
+                    m.EstadoTruco == NivelTruco.Vale4
+                    && !TrucoRules.CanCallFromContext(m.CurrentState, p1, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco)
+                    && !TrucoRules.CanCallFromContext(m.CurrentState, p2, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p2, m.EstadoTruco));
+            }
+
+            // 2. Caso reportado: P1 canta Retruco, P2 acepta y luego P2 canta Vale 4 (sin mostrar Retruco otra vez)
+            {
+                var m = CreateMatchModel();
+                m.CurrentTurnId = p2;
+                new CallTrucoCommand(m, p2).Execute(); // P2 canta Truco
+                new RespondCommand(m, p1, true).Execute(); // P1 acepta Truco
+                m.CurrentTurnId = p1;
+                new CallTrucoCommand(m, p1).Execute(); // P1 canta Retruco
+                new RespondCommand(m, p2, true).Execute(); // P2 acepta Retruco
+                s.Add("Flujo Truco", "Tras P2 aceptar Retruco de P1, P1 NO puede cantar Vale 4",
+                    !TrucoRules.CanCallFromContext(m.CurrentState, p1, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco));
+
+                m.CurrentTurnId = p2;
+                new CallTrucoCommand(m, p2).Execute(); // P2 canta Vale 4
+                s.Add("Flujo Truco", "Tras P2 cantar Vale 4, el anuncio pendiente es 'Vale Cuatro' (no Re Truco)",
+                    TrucoRules.GetPendingTrucoLevel(m.EstadoTruco) == NivelTruco.Vale4
+                    && TrucoRules.GetDisplayName(TrucoRules.GetPendingTrucoLevel(m.EstadoTruco)) == "Vale Cuatro"
+                    && !TrucoRules.CanCallFromContext(m.CurrentState, m.CurrentTurnId, m.CantoPendiente, m.LastCallerId, m.LastTrucoCallerId, p1, m.EstadoTruco));
+            }
+
+            // 3. Revire directo en EsperandoRespuestaCanto: Truco -> Retruco -> Vale 4 -> No Quiero (3 pts) y Quiero (4 pts)
+            {
+                var mReject = CreateMatchModel();
+                new CallTrucoCommand(mReject, p1).Execute(); // P1 canta Truco
+                new CallTrucoCommand(mReject, p2).Execute(); // P2 revira Retruco directo (acepta Truco)
+                s.Add("Flujo Truco", "Revire directo a Retruco sube EstadoTruco a Truco y pendiente a Retruco",
+                    mReject.EstadoTruco == NivelTruco.Truco
+                    && TrucoRules.GetPendingTrucoLevel(mReject.EstadoTruco) == NivelTruco.Retruco);
+                new CallTrucoCommand(mReject, p1).Execute(); // P1 revira Vale 4 directo (acepta Retruco)
+                s.Add("Flujo Truco", "Revire directo a Vale 4 sube EstadoTruco a Retruco y bloquea más revire",
+                    mReject.EstadoTruco == NivelTruco.Retruco
+                    && TrucoRules.GetPendingTrucoLevel(mReject.EstadoTruco) == NivelTruco.Vale4
+                    && !TrucoRules.CanCallFromContext(mReject.CurrentState, mReject.CurrentTurnId, mReject.CantoPendiente, mReject.LastCallerId, mReject.LastTrucoCallerId, p2, mReject.EstadoTruco));
+                new RespondCommand(mReject, p2, false).Execute(); // P2 dice No Quiero al Vale 4
+                s.Add("Flujo Truco", "No Quiero al Vale 4 tras revire directo otorga 3 puntos a P1",
+                    mReject.CurrentState == GameState.RondaTerminada && mReject.ScoreTeam1 == 3);
+
+                var mAccept = CreateMatchModel();
+                new CallTrucoCommand(mAccept, p1).Execute();
+                new CallTrucoCommand(mAccept, p2).Execute();
+                new CallTrucoCommand(mAccept, p1).Execute();
+                new RespondCommand(mAccept, p2, true).Execute();
+                s.Add("Flujo Truco", "Quiero al Vale 4 tras revire directo deja EstadoTruco == Vale4 (4 pts)",
+                    mAccept.CurrentState == GameState.TurnoJugador && mAccept.EstadoTruco == NivelTruco.Vale4);
+            }
+
+            // 4. Envido: validación de turno, revire alternado e interrupción del Truco inicial
+            {
+                // En TurnoJugador de P1, P2 NO puede cantar Envido fuera de turno
+                s.Add("Flujo Envido", "En TurnoJugador de P1, P1 puede cantar Envido y P2 NO",
+                    EnvidoRules.CanCallFromContext(GameState.TurnoJugador, p1, TipoCanto.Ninguno, ulong.MaxValue, p1, 0, 0, NivelTruco.Ninguno, EstadoEnvido.Ninguno, EnvidoCall.Envido)
+                    && !EnvidoRules.CanCallFromContext(GameState.TurnoJugador, p1, TipoCanto.Ninguno, ulong.MaxValue, p2, 0, 0, NivelTruco.Ninguno, EstadoEnvido.Ninguno, EnvidoCall.Envido));
+
+                // Revire alternado en EsperandoRespuestaCanto
+                var mEnv = CreateMatchModel();
+                new CallEnvidoCommand(mEnv, p1, EnvidoCall.Envido).Execute();
+                s.Add("Flujo Envido", "Tras P1 cantar Envido: P1 no puede revirarse, P2 sí puede",
+                    mEnv.CurrentState == GameState.EsperandoRespuestaCanto
+                    && !EnvidoRules.CanCallFromContext(mEnv.CurrentState, mEnv.CurrentTurnId, mEnv.CantoPendiente, mEnv.LastCallerId, p1, mEnv.CurrentRoundIndex, mEnv.P1PlayedCards.Count, mEnv.EstadoTruco, mEnv.EstadoEnvido, EnvidoCall.Envido)
+                    && EnvidoRules.CanCallFromContext(mEnv.CurrentState, mEnv.CurrentTurnId, mEnv.CantoPendiente, mEnv.LastCallerId, p2, mEnv.CurrentRoundIndex, mEnv.P2PlayedCards.Count, mEnv.EstadoTruco, mEnv.EstadoEnvido, EnvidoCall.Envido));
+
+                new CallEnvidoCommand(mEnv, p2, EnvidoCall.RealEnvido).Execute();
+                s.Add("Flujo Envido", "Tras P2 revirar Real Envido: pasa a EnvidoRealEnvido y P1 puede revirar Falta",
+                    mEnv.EstadoEnvido == EstadoEnvido.EnvidoRealEnvido
+                    && !EnvidoRules.CanCallFromContext(mEnv.CurrentState, mEnv.CurrentTurnId, mEnv.CantoPendiente, mEnv.LastCallerId, p2, mEnv.CurrentRoundIndex, mEnv.P2PlayedCards.Count, mEnv.EstadoTruco, mEnv.EstadoEnvido, EnvidoCall.FaltaEnvido)
+                    && EnvidoRules.CanCallFromContext(mEnv.CurrentState, mEnv.CurrentTurnId, mEnv.CantoPendiente, mEnv.LastCallerId, p1, mEnv.CurrentRoundIndex, mEnv.P1PlayedCards.Count, mEnv.EstadoTruco, mEnv.EstadoEnvido, EnvidoCall.FaltaEnvido));
+
+                // Interrupción de Truco inicial con Envido ("el envido está primero")
+                s.Add("Flujo Envido", "Si P2 canta Truco inicial en ronda 0, P1 con 0 cartas jugadas puede cantar Envido; con 1 carta jugada NO",
+                    EnvidoRules.CanCallFromContext(GameState.EsperandoRespuestaCanto, p2, TipoCanto.Truco, p2, p1, 0, 0, NivelTruco.Ninguno, EstadoEnvido.Ninguno, EnvidoCall.Envido)
+                    && !EnvidoRules.CanCallFromContext(GameState.EsperandoRespuestaCanto, p2, TipoCanto.Truco, p2, p1, 0, 1, NivelTruco.Ninguno, EstadoEnvido.Ninguno, EnvidoCall.Envido));
+            }
         }
 
         // =========================================================================

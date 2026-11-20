@@ -98,8 +98,8 @@ namespace Trucardo.Core
         public TipoCanto CantoAnterior { get; set; } = TipoCanto.Ninguno;
         
         // Quién cantó para saber quién debe responder
-        public ulong LastCallerId { get; set; } 
-        public ulong LastTrucoCallerId { get; set; }
+        public ulong LastCallerId { get; set; } = ulong.MaxValue;
+        public ulong LastTrucoCallerId { get; set; } = ulong.MaxValue;
 
         public GameModel(DeckData deckRef)
         {
@@ -132,8 +132,8 @@ namespace Trucardo.Core
             EstadoTruco = NivelTruco.Ninguno;
             CantoPendiente = TipoCanto.Ninguno;
             CantoAnterior = TipoCanto.Ninguno;
-            LastCallerId = 0;
-            LastTrucoCallerId = 0;
+            LastCallerId = ulong.MaxValue;
+            LastTrucoCallerId = ulong.MaxValue;
             
             for (int i = 0; i < RoundWinners.Length; i++)
             {

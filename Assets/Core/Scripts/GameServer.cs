@@ -742,7 +742,7 @@ namespace Trucardo.Core
             if (logBotDecisions && !string.IsNullOrEmpty(session.Player2BotController.LastEvaluationSummary))
                 Debug.Log(session.Player2BotController.LastEvaluationSummary);
 
-            if (decision == null) yield break;
+            if (decision == null || decision.Type == BotDecisionType.None) yield break;
 
             // Activación opcional de poder por parte del Bot (únicamente poderes que posee en la mesa)
             if (!session.BotPowerUsedThisRound && !session.P2Boleado && session.GameModel.CurrentState == GameState.TurnoJugador)
@@ -946,15 +946,26 @@ namespace Trucardo.Core
                 && CanPlayerCallEnvido(session, expectedBotId, call);
         }
 
+        private bool IsBastonVictimWhileResponding(TableSession session, ulong actorId)
+        {
+            if (session == null || session.GameModel == null || !session.ForcedAcceptNextCanto) return false;
+            if (session.GameModel.CurrentState != GameState.EsperandoRespuestaCanto) return false;
+            int actorTeam = (actorId == session.Player1Id) ? 1 : 2;
+            return (session.ForcedAcceptCasterTeam != 0 && actorTeam != session.ForcedAcceptCasterTeam)
+                || (session.ForcedAcceptCallerId != 0 && actorId != session.ForcedAcceptCallerId);
+        }
+
         private bool CanPlayerCallEnvido(TableSession session, ulong actorId, EnvidoCall call)
         {
             if (session == null || session.GameModel == null) return false;
             if (actorId != session.Player1Id && actorId != session.Player2Id) return false;
+            if (IsBastonVictimWhileResponding(session, actorId)) return false;
             int playedCardCount = actorId == session.Player1Id
                 ? session.GameModel.P1PlayedCards.Count
                 : session.GameModel.P2PlayedCards.Count;
             return EnvidoRules.CanCallFromContext(
                 session.GameModel.CurrentState,
+                session.GameModel.CurrentTurnId,
                 session.GameModel.CantoPendiente,
                 session.GameModel.LastCallerId,
                 actorId,
@@ -965,15 +976,26 @@ namespace Trucardo.Core
                 call);
         }
 
+        private bool CanPlayerCallTruco(TableSession session, ulong actorId)
+        {
+            if (session == null || session.GameModel == null) return false;
+            if (actorId != session.Player1Id && actorId != session.Player2Id) return false;
+            if (IsBastonVictimWhileResponding(session, actorId)) return false;
+            return TrucoRules.CanCallFromContext(
+                session.GameModel.CurrentState,
+                session.GameModel.CurrentTurnId,
+                session.GameModel.CantoPendiente,
+                session.GameModel.LastCallerId,
+                session.GameModel.LastTrucoCallerId,
+                actorId,
+                session.GameModel.EstadoTruco);
+        }
+
         private bool CanPlayer2BotCallTruco(TableSession session, ulong expectedBotId)
         {
             return IsPlayer2BotActive(session, expectedBotId)
                 && session.GameModel.CurrentState == GameState.TurnoJugador
-                && session.GameModel.CurrentTurnId == expectedBotId
-                && session.GameModel.CantoPendiente == TipoCanto.Ninguno
-                && session.GameModel.EstadoTruco != NivelTruco.Vale4
-                && (session.GameModel.EstadoTruco == NivelTruco.Ninguno
-                    || session.GameModel.LastTrucoCallerId != expectedBotId);
+                && CanPlayerCallTruco(session, expectedBotId);
         }
 
         private bool CanPlayer2BotTakeAction(TableSession session, ulong expectedBotId)
@@ -1054,6 +1076,7 @@ namespace Trucardo.Core
             }
             
             SyncClientState(session);
+            CancelPendingBotAction(session);
             TryScheduleBotAction(session);
             CheckStartPavaCalienteTimer(session);
         }
@@ -1257,6 +1280,7 @@ namespace Trucardo.Core
             session.GameModel.actionQueue.ProcessNext();
             AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, ToDialogueCall(call));
             SyncClientState(session);
+            CancelPendingBotAction(session);
             TryScheduleBotAction(session);
             CheckStartPavaCalienteTimer(session);
         }
@@ -1273,12 +1297,14 @@ namespace Trucardo.Core
             var session = GetSessionByPlayer(actorId);
             if (session == null) return;
             if (actorId != session.Player1Id && actorId != session.Player2Id) return;
+            if (!CanPlayerCallTruco(session, actorId)) return;
 
             var dialogueBefore = CaptureDialogue(session);
             session.GameModel.actionQueue.EnqueueCommand(new Trucardo.Core.Commands.CallTrucoCommand(session.GameModel, actorId));
             session.GameModel.actionQueue.ProcessNext();
-            AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, PendingTrucoName(dialogueBefore.Truco));
+            AfterDialogueAction(session, dialogueBefore, actorId, DialogueDecision.Call, PendingTrucoName(session.GameModel.EstadoTruco));
             SyncClientState(session);
+            CancelPendingBotAction(session);
             TryScheduleBotAction(session);
             CheckStartPavaCalienteTimer(session);
         }
@@ -1321,6 +1347,7 @@ namespace Trucardo.Core
                 ScheduleStartRound(session, 3f);
             }
             SyncClientState(session);
+            CancelPendingBotAction(session);
             TryScheduleBotAction(session);
             CheckStartPavaCalienteTimer(session);
         }
@@ -1614,6 +1641,7 @@ namespace Trucardo.Core
             int p2Score,
             TipoCanto canto,
             ulong lastCaller,
+            ulong lastTrucoCaller,
             NivelTruco estadoTruco,
             EstadoEnvido estadoEnvido,
             int envidoAcceptedPoints,
@@ -1632,6 +1660,7 @@ namespace Trucardo.Core
                     p2Score,
                     canto,
                     lastCaller,
+                    lastTrucoCaller,
                     estadoTruco,
                     estadoEnvido,
                     envidoAcceptedPoints,
@@ -1878,6 +1907,7 @@ namespace Trucardo.Core
                 session.GameModel.ScoreTeam2,
                 session.GameModel.CantoPendiente,
                 session.GameModel.LastCallerId,
+                session.GameModel.LastTrucoCallerId,
                 session.GameModel.EstadoTruco,
                 session.GameModel.EstadoEnvido,
                 session.GameModel.EnvidoAcceptedPoints,

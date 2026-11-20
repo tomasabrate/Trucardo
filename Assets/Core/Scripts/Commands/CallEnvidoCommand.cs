@@ -22,6 +22,7 @@ namespace Trucardo.Core.Commands
                 : model.P2PlayedCards.Count;
             if (!EnvidoRules.CanCallFromContext(
                     model.CurrentState,
+                    model.CurrentTurnId,
                     model.CantoPendiente,
                     model.LastCallerId,
                     clientId,

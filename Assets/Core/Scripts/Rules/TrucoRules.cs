@@ -30,5 +30,77 @@ namespace Trucardo.Core.Rules
         {
             return level == NivelTruco.Ninguno ? 2 : System.Math.Min(4, (int)level + 1);
         }
+
+        public static bool CanCallFromContext(
+            GameState gameState,
+            ulong currentTurnId,
+            TipoCanto pendingCall,
+            ulong lastCallerId,
+            ulong lastTrucoCallerId,
+            ulong actorId,
+            NivelTruco trucoLevel)
+        {
+            if (trucoLevel == NivelTruco.Vale4)
+                return false;
+
+            bool raisingPendingTruco = gameState == GameState.EsperandoRespuestaCanto
+                && pendingCall == TipoCanto.Truco
+                && lastCallerId != actorId
+                && (trucoLevel == NivelTruco.Ninguno || trucoLevel == NivelTruco.Truco);
+            if (raisingPendingTruco)
+                return true;
+
+            bool normalWindow = gameState == GameState.TurnoJugador
+                && currentTurnId == actorId
+                && pendingCall == TipoCanto.Ninguno
+                && (trucoLevel == NivelTruco.Ninguno || lastTrucoCallerId != actorId);
+            return normalWindow;
+        }
+
+        public static NivelTruco GetNextLevel(NivelTruco level)
+        {
+            switch (level)
+            {
+                case NivelTruco.Ninguno: return NivelTruco.Truco;
+                case NivelTruco.Truco: return NivelTruco.Retruco;
+                case NivelTruco.Retruco: return NivelTruco.Vale4;
+                default: return NivelTruco.Vale4;
+            }
+        }
+
+        public static NivelTruco GetPendingTrucoLevel(NivelTruco acceptedLevel)
+        {
+            return GetNextLevel(acceptedLevel);
+        }
+
+        public static NivelTruco GetTargetCallLevel(
+            NivelTruco acceptedLevel, GameState gameState, TipoCanto pendingCall)
+        {
+            if (gameState == GameState.EsperandoRespuestaCanto && pendingCall == TipoCanto.Truco)
+                return GetNextLevel(GetPendingTrucoLevel(acceptedLevel));
+            return GetNextLevel(acceptedLevel);
+        }
+
+        public static string GetDisplayName(NivelTruco level)
+        {
+            switch (level)
+            {
+                case NivelTruco.Truco: return "Truco";
+                case NivelTruco.Retruco: return "Re Truco";
+                case NivelTruco.Vale4: return "Vale Cuatro";
+                default: return "Truco";
+            }
+        }
+
+        public static string GetButtonLabel(NivelTruco targetLevel)
+        {
+            switch (targetLevel)
+            {
+                case NivelTruco.Truco: return "[Q] Cantar Truco";
+                case NivelTruco.Retruco: return "[Q] ¡Re Truco!";
+                case NivelTruco.Vale4: return "[Q] ¡Vale Cuatro!";
+                default: return "[Q] ¡Vale Cuatro!";
+            }
+        }
     }
 }

@@ -45,6 +45,7 @@ namespace Trucardo.Core.UI
         private bool canCallEnvido;
         private bool canCallRealEnvido;
         private bool canCallFaltaEnvido;
+        private bool canCallTruco;
         private bool matchFinished;
         private bool localPlayerWon;
         private bool postGameOpen;
@@ -110,6 +111,8 @@ namespace Trucardo.Core.UI
         private GameObject powerPromptRoot;
         private TMP_Text powerPromptTitle;
         private TMP_Text powerPromptInstruction;
+
+        private readonly List<RectTransform> layoutRowBuffer = new List<RectTransform>(4);
 
         public static HUDController Instance => instance;
 
@@ -281,7 +284,8 @@ namespace Trucardo.Core.UI
             TipoCanto pendingCanto = TipoCanto.Ninguno,
             EstadoEnvido envidoState = EstadoEnvido.Ninguno,
             int pendingEnvidoPoints = 0,
-            int envidoAcceptedPoints = 0)
+            int envidoAcceptedPoints = 0,
+            bool allowTruco = false)
         {
             if (turnText != null)
                 turnText.text = turnMessage;
@@ -326,6 +330,7 @@ namespace Trucardo.Core.UI
             canCallEnvido = allowEnvido;
             canCallRealEnvido = allowRealEnvido;
             canCallFaltaEnvido = allowFaltaEnvido;
+            canCallTruco = allowTruco;
             currentTrucoLevel = trucoLevel;
             isWaitingCanto = waitingCanto;
             isWaitingLocalCaller = isLocalCaller;
@@ -831,12 +836,18 @@ namespace Trucardo.Core.UI
             if (endGameCanvas != null)
                 endGameCanvas.enabled = isSeated && matchFinished;
 
+            bool canCallAnyEnvido = canCallEnvido || canCallRealEnvido || canCallFaltaEnvido;
+            if (!canCallAnyEnvido && envidoPanelOpen)
+                envidoPanelOpen = false;
+
             bool showInterface = isSeated && interfaceMode;
-            bool showEnvidoOptions = showInterface && envidoPanelOpen;
-            bool showResponse = showInterface && needsResponse && !envidoPanelOpen;
-            // Si el jugador debe responder a Envido, ocultar ActionBar para evitar colisión con Quiero/No Quiero.
-            // Si debe responder a Truco, ActionBar se muestra para permitir cantar Re-Truco o Vale 4.
-            bool showActionBar = showInterface && !matchFinished && (!showResponse || currentPendingCanto == TipoCanto.Truco);
+            bool showResponse = showInterface && !matchFinished && needsResponse && !envidoPanelOpen;
+            bool respondingToEnvido = showResponse && currentPendingCanto == TipoCanto.Envido;
+            bool showEnvidoRaiseButtonsDirectly = respondingToEnvido && canCallAnyEnvido;
+            bool showEnvidoSubmenu = showInterface && !matchFinished && envidoPanelOpen;
+            bool showEnvidoOptions = showEnvidoSubmenu || showEnvidoRaiseButtonsDirectly;
+            bool showActionBar = showInterface && !matchFinished && !showEnvidoOptions
+                && (!showResponse || currentPendingCanto == TipoCanto.Truco);
             bool showEndGame = isSeated && matchFinished;
 
             // Turn indicator (empty frame in top center): ocultar si no hay texto de turno o si la partida no inició
@@ -919,12 +930,7 @@ namespace Trucardo.Core.UI
                         string pendingName = currentPendingCanto == TipoCanto.Envido
                             ? EnvidoRules.GetDisplayName(currentEnvidoState)
                             : (currentPendingCanto == TipoCanto.Truco
-                                ? (currentTrucoLevel switch
-                                {
-                                    NivelTruco.Retruco => "Re Truco",
-                                    NivelTruco.Vale4 => "Vale Cuatro",
-                                    _ => "Truco"
-                                })
+                                ? TrucoRules.GetDisplayName(TrucoRules.GetPendingTrucoLevel(currentTrucoLevel))
                                 : currentPendingCanto.ToString());
                         cantoAnnouncementText.text = $"¡El rival cantó {pendingName}!";
                     }
@@ -938,11 +944,19 @@ namespace Trucardo.Core.UI
             // Subtitle bet details in ResponsePanel (shown when Tab is open and responding)
             if (responseDetailsRoot != null)
             {
-                bool showBetDetails = showResponse && !isWaitingLocalCaller && currentPendingCanto == TipoCanto.Envido;
+                bool showBetDetails = showResponse && !isWaitingLocalCaller
+                    && (currentPendingCanto == TipoCanto.Envido || currentPendingCanto == TipoCanto.Truco);
                 responseDetailsRoot.SetActive(showBetDetails);
                 if (showBetDetails && responseDetailsText != null)
                 {
-                    responseDetailsText.text = $"Apuesta: {currentPendingEnvidoPoints} pts  |  Al No Quiero: {EnvidoRules.GetRejectedPoints(currentEnvidoAcceptedPoints)} pts";
+                    if (currentPendingCanto == TipoCanto.Envido)
+                    {
+                        responseDetailsText.text = $"Apuesta: {currentPendingEnvidoPoints} pts  |  Al No Quiero: {EnvidoRules.GetRejectedPoints(currentEnvidoAcceptedPoints)} pts";
+                    }
+                    else if (currentPendingCanto == TipoCanto.Truco)
+                    {
+                        responseDetailsText.text = $"Apuesta: {TrucoRules.RaisedTrucoPoints(currentTrucoLevel)} pts  |  Al No Quiero: {TrucoRules.AcceptedTrucoPoints(currentTrucoLevel)} pts";
+                    }
                 }
             }
 
@@ -952,7 +966,15 @@ namespace Trucardo.Core.UI
                 PositionPavaTimerInTopRight();
             }
 
-            if (actionBarRoot != null) actionBarRoot.SetActive(showActionBar);
+            GameState uiState = isWaitingCanto ? GameState.EsperandoRespuestaCanto : GameState.TurnoJugador;
+            NivelTruco targetTrucoLevel = TrucoRules.GetTargetCallLevel(currentTrucoLevel, uiState, currentPendingCanto);
+            string trucoLabel = TrucoRules.GetButtonLabel(targetTrucoLevel);
+            bool trucoVisible = showActionBar && canCallTruco;
+            bool envidoVisible = showActionBar && canCallAnyEnvido;
+            bool mazoVisible = showActionBar && !showResponse && isLocalTurn;
+            bool hasAnyActionBarButton = trucoVisible || envidoVisible || mazoVisible;
+
+            if (actionBarRoot != null) actionBarRoot.SetActive(hasAnyActionBarButton);
             if (envidoPanelRoot != null) envidoPanelRoot.SetActive(showEnvidoOptions);
             if (responsePanelRoot != null) responsePanelRoot.SetActive(showResponse);
             if (victoryPanelRoot != null) victoryPanelRoot.SetActive(showEndGame && localPlayerWon && !postGameOpen);
@@ -960,115 +982,89 @@ namespace Trucardo.Core.UI
             if (postGamePanelRoot != null) postGamePanelRoot.SetActive(showEndGame && postGameOpen);
             UpdateEndGameAudio();
 
-            // Reposicionar botones de ActionBar (-260, 0, +260) con margen limpio para evitar solapamientos
-            if (showActionBar)
+            const float buttonGap = 6f;
+            const float bottomRowY = -440f;
+            const float responseRowY = -260f;
+
+            FormatButton(trucoButton, trucoLabel, trucoVisible, canCallTruco, 200f);
+            FormatButton(envidoButton, "[E] Envido", envidoVisible, canCallAnyEnvido, 200f);
+            FormatButton(salirDelMazoButton, "Mazo", mazoVisible, false, 200f);
+            if (hasAnyActionBarButton)
             {
-                if (trucoButton != null)
-                {
-                    RectTransform rt = trucoButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(-260f, -440f);
-                }
-                if (envidoButton != null)
-                {
-                    RectTransform rt = envidoButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(0f, -440f);
-                }
-                if (salirDelMazoButton != null)
-                {
-                    RectTransform rt = salirDelMazoButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(260f, -440f);
-                }
+                LayoutVisibleButtonsRow(bottomRowY, buttonGap, trucoButton, envidoButton, salirDelMazoButton);
             }
 
-            // Reposicionar botones de EnvidoPanel (-360, -120, +120, +360) simétricos y sin solapamiento
+            bool showEnvidoOpt = showEnvidoOptions && canCallEnvido;
+            bool showRealEnvidoOpt = showEnvidoOptions && canCallRealEnvido;
+            bool showFaltaEnvidoOpt = showEnvidoOptions && canCallFaltaEnvido;
+            bool showVolverOpt = showEnvidoSubmenu;
+            int envidoOptCount = (showEnvidoOpt ? 1 : 0)
+                + (showRealEnvidoOpt ? 1 : 0)
+                + (showFaltaEnvidoOpt ? 1 : 0)
+                + (showVolverOpt ? 1 : 0);
+            float envidoBtnWidth = envidoOptCount >= 4 ? 185f : 200f;
+
+            FormatButton(cantarEnvidoButton, "[E] Envido", showEnvidoOpt, canCallEnvido, envidoBtnWidth);
+            FormatButton(realEnvidoButton, "[R] Real Envido", showRealEnvidoOpt, canCallRealEnvido, envidoBtnWidth);
+            FormatButton(faltaEnvidoButton, "[F] Falta Envido", showFaltaEnvidoOpt, canCallFaltaEnvido, envidoBtnWidth);
+            FormatButton(volverButton, "Volver", showVolverOpt, true, envidoBtnWidth);
             if (showEnvidoOptions)
             {
-                if (cantarEnvidoButton != null)
-                {
-                    RectTransform rt = cantarEnvidoButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(-360f, -440f);
-                }
-                if (realEnvidoButton != null)
-                {
-                    RectTransform rt = realEnvidoButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(-120f, -440f);
-                }
-                if (faltaEnvidoButton != null)
-                {
-                    RectTransform rt = faltaEnvidoButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(120f, -440f);
-                }
-                if (volverButton != null)
-                {
-                    RectTransform rt = volverButton.GetComponent<RectTransform>();
-                    if (rt != null) rt.anchoredPosition = new Vector2(360f, -440f);
-                }
+                LayoutVisibleButtonsRow(bottomRowY, buttonGap, cantarEnvidoButton, realEnvidoButton, faltaEnvidoButton, volverButton);
             }
-
-            // Reposition Quiero and No Quiero so they never touch ActionBar or each other
-            if (showResponse)
-            {
-                if (bastonPresidencialActiveOnMe)
-                {
-                    if (quieroButton != null)
-                    {
-                        RectTransform rtQ = quieroButton.GetComponent<RectTransform>();
-                        if (rtQ != null) rtQ.anchoredPosition = new Vector2(0f, -260f);
-                    }
-                    if (noQuieroButton != null)
-                    {
-                        noQuieroButton.gameObject.SetActive(false);
-                    }
-                }
-                else
-                {
-                    if (quieroButton != null)
-                    {
-                        RectTransform rtQ = quieroButton.GetComponent<RectTransform>();
-                        if (rtQ != null) rtQ.anchoredPosition = new Vector2(-145f, -260f);
-                    }
-                    if (noQuieroButton != null)
-                    {
-                        RectTransform rtNQ = noQuieroButton.GetComponent<RectTransform>();
-                        if (rtNQ != null) rtNQ.anchoredPosition = new Vector2(145f, -260f);
-                    }
-                }
-            }
-
-            string trucoLabel = currentTrucoLevel switch
-            {
-                NivelTruco.Ninguno => "[Q] Cantar Truco",
-                NivelTruco.Truco => "[Q] ¡Re Truco!",
-                NivelTruco.Retruco => "[Q] ¡Vale Cuatro!",
-                _ => "[Q] Cantar Truco"
-            };
-            bool trucoInteractable = isLocalTurn || (needsResponse && currentPendingCanto == TipoCanto.Truco);
-            FormatButton(trucoButton, trucoLabel, showActionBar, trucoInteractable, 215f);
-
-            bool envidoActive = showActionBar && (!showResponse || currentPendingCanto == TipoCanto.Envido);
-            bool envidoInteractable = canCallEnvido || canCallRealEnvido || canCallFaltaEnvido;
-            FormatButton(envidoButton, "[E] Envido", envidoActive, envidoInteractable, 215f);
-
-            FormatButton(salirDelMazoButton, "Mazo", showActionBar && !showResponse, false, 215f);
-
-            FormatButton(cantarEnvidoButton, "[E] Envido", showEnvidoOptions, canCallEnvido, 190f);
-            FormatButton(realEnvidoButton, "[R] Real Envido", showEnvidoOptions, canCallRealEnvido, 190f);
-            FormatButton(faltaEnvidoButton, "[F] Falta Envido", showEnvidoOptions, canCallFaltaEnvido, 190f);
-            FormatButton(volverButton, "Volver", showEnvidoOptions, true, 190f);
 
             string quieroLabel = bastonPresidencialActiveOnMe ? "[A] ¡QUIERO! (Mandato)" : "[A] ¡Quiero!";
-            float quieroWidth = bastonPresidencialActiveOnMe ? 260f : 230f;
+            float quieroWidth = bastonPresidencialActiveOnMe ? 250f : 210f;
             FormatButton(quieroButton, quieroLabel, showResponse, true, quieroWidth);
-            FormatButton(noQuieroButton, "[N] No Quiero", showResponse && !bastonPresidencialActiveOnMe, true, 230f);
+            FormatButton(noQuieroButton, "[N] No Quiero", showResponse && !bastonPresidencialActiveOnMe, true, 210f);
             if (bastonPresidencialActiveOnMe && noQuieroButton != null)
             {
                 noQuieroButton.gameObject.SetActive(false);
+            }
+            if (showResponse)
+            {
+                LayoutVisibleButtonsRow(responseRowY, buttonGap, quieroButton, noQuieroButton);
             }
 
             if (roundPowersUI != null)
             {
                 roundPowersUI.SetInterfaceMode(interfaceMode);
                 roundPowersUI.UpdateGameState(isSeated, matchFinished);
+            }
+        }
+
+        private void LayoutVisibleButtonsRow(float y, float spacing, params Button[] orderedButtons)
+        {
+            layoutRowBuffer.Clear();
+            float totalWidth = 0f;
+
+            for (int i = 0; i < orderedButtons.Length; i++)
+            {
+                Button btn = orderedButtons[i];
+                if (btn == null || !btn.gameObject.activeSelf)
+                    continue;
+
+                RectTransform rt = btn.GetComponent<RectTransform>();
+                if (rt == null)
+                    continue;
+
+                layoutRowBuffer.Add(rt);
+                totalWidth += rt.sizeDelta.x;
+            }
+
+            int count = layoutRowBuffer.Count;
+            if (count == 0)
+                return;
+
+            totalWidth += spacing * (count - 1);
+            float cursorX = -totalWidth * 0.5f;
+
+            for (int i = 0; i < count; i++)
+            {
+                RectTransform rt = layoutRowBuffer[i];
+                float width = rt.sizeDelta.x;
+                rt.anchoredPosition = new Vector2(cursorX + width * 0.5f, y);
+                cursorX += width + spacing;
             }
         }
 
@@ -1126,6 +1122,9 @@ namespace Trucardo.Core.UI
 
         private void OpenEnvidoPanel()
         {
+            if (!canCallEnvido && !canCallRealEnvido && !canCallFaltaEnvido)
+                return;
+
             envidoPanelOpen = true;
             UpdateVisibility();
         }

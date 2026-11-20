@@ -61,7 +61,8 @@ namespace Trucardo.Core
         private EstadoEnvido localEstadoEnvido;
         private int localEnvidoAcceptedPoints;
         private int localPendingEnvidoPoints;
-        private ulong localLastCallerId;
+        private ulong localLastCallerId = ulong.MaxValue;
+        private ulong localLastTrucoCallerId = ulong.MaxValue;
         private bool isBastonPresidencialActiveOnMe = false;
         private bool isPavaCalienteActive = false;
         private bool isLuzMalaActiveOnMe = false;
@@ -1531,6 +1532,8 @@ namespace Trucardo.Core
                     localP1Score = 0;
                     localP2Score = 0;
                     localCantoPendiente = TipoCanto.Ninguno;
+                    localLastCallerId = ulong.MaxValue;
+                    localLastTrucoCallerId = ulong.MaxValue;
                     localEstadoTruco = NivelTruco.Ninguno;
                     localEstadoEnvido = EstadoEnvido.Ninguno;
                     if (hudController != null)
@@ -1564,7 +1567,10 @@ namespace Trucardo.Core
 
             switch (actionType)
             {
-                case "Truco": serverInstance.CallTrucoServerRpc(); break;
+                case "Truco":
+                    if (!CanCallTrucoLocally()) return;
+                    serverInstance.CallTrucoServerRpc();
+                    break;
                 case "Accept": serverInstance.RespondServerRpc(true); break;
                 case "Decline": serverInstance.RespondServerRpc(false); break;
             }
@@ -1626,11 +1632,15 @@ namespace Trucardo.Core
 
         private bool CanCallEnvidoLocally(EnvidoCall call)
         {
+            if (NetworkManager.Singleton == null) return false;
+            if (isBastonPresidencialActiveOnMe && localGameState == GameState.EsperandoRespuestaCanto)
+                return false;
             int playedCardCount = 0;
             for (int i = 0; i < myCards.Length; i++)
                 if (myCards[i] == -1) playedCardCount++;
             return EnvidoRules.CanCallFromContext(
                 localGameState,
+                localTurnId,
                 localCantoPendiente,
                 localLastCallerId,
                 NetworkManager.Singleton.LocalClientId,
@@ -1639,6 +1649,21 @@ namespace Trucardo.Core
                 localEstadoTruco,
                 localEstadoEnvido,
                 call);
+        }
+
+        private bool CanCallTrucoLocally()
+        {
+            if (NetworkManager.Singleton == null) return false;
+            if (isBastonPresidencialActiveOnMe && localGameState == GameState.EsperandoRespuestaCanto)
+                return false;
+            return TrucoRules.CanCallFromContext(
+                localGameState,
+                localTurnId,
+                localCantoPendiente,
+                localLastCallerId,
+                localLastTrucoCallerId,
+                NetworkManager.Singleton.LocalClientId,
+                localEstadoTruco);
         }
 
         private void PlayCard(int handSlot)
@@ -2065,6 +2090,7 @@ namespace Trucardo.Core
             int p2Score,
             TipoCanto canto,
             ulong lastCaller,
+            ulong lastTrucoCaller,
             NivelTruco estadoTruco,
             EstadoEnvido estadoEnvido,
             int envidoAcceptedPoints,
@@ -2092,6 +2118,7 @@ namespace Trucardo.Core
             localP2Score = p2Score;
             localCantoPendiente = canto;
             localLastCallerId = lastCaller;
+            localLastTrucoCallerId = lastTrucoCaller;
             localEstadoTruco = estadoTruco;
             localEstadoEnvido = estadoEnvido;
             localEnvidoAcceptedPoints = envidoAcceptedPoints;
@@ -2185,6 +2212,7 @@ namespace Trucardo.Core
             bool canCallEnvido = hasNetwork && CanCallEnvidoLocally(EnvidoCall.Envido);
             bool canCallRealEnvido = hasNetwork && CanCallEnvidoLocally(EnvidoCall.RealEnvido);
             bool canCallFaltaEnvido = hasNetwork && CanCallEnvidoLocally(EnvidoCall.FaltaEnvido);
+            bool canCallTruco = hasNetwork && CanCallTrucoLocally();
             int myScore = amIPlayer1 ? localP1Score : localP2Score;
             int opponentScore = amIPlayer1 ? localP2Score : localP1Score;
 
@@ -2245,7 +2273,8 @@ namespace Trucardo.Core
                 localCantoPendiente,
                 localEstadoEnvido,
                 localPendingEnvidoPoints,
-                localEnvidoAcceptedPoints);
+                localEnvidoAcceptedPoints,
+                canCallTruco);
         }
 
         private void OnGUI()

@@ -5,6 +5,7 @@ namespace Trucardo.Core.Rules
     {
         public static bool CanCallFromContext(
             GameState gameState,
+            ulong currentTurnId,
             TipoCanto pendingCall,
             ulong lastCallerId,
             ulong actorId,
@@ -24,6 +25,7 @@ namespace Trucardo.Core.Rules
             if (raisingEnvido) return true;
 
             bool normalWindow = gameState == GameState.TurnoJugador
+                && currentTurnId == actorId
                 && pendingCall == TipoCanto.Ninguno;
             bool interruptingInitialTruco = gameState == GameState.EsperandoRespuestaCanto
                 && pendingCall == TipoCanto.Truco
@@ -31,7 +33,7 @@ namespace Trucardo.Core.Rules
             if (envidoState != EstadoEnvido.Ninguno || currentRoundIndex != 0)
                 return false;
 
-            return interruptingInitialTruco || (normalWindow && actorPlayedCardCount == 0);
+            return (interruptingInitialTruco || normalWindow) && actorPlayedCardCount == 0;
         }
 
         public static bool CanCall(EstadoEnvido state, EnvidoCall call)
