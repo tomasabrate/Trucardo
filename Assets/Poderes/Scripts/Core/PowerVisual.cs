@@ -36,6 +36,7 @@ namespace Trucardo.Core
             PlayerController player = interactor.GetComponent<PlayerController>();
             if (player != null)
             {
+                player.SuppressGameplayInputThisFrame();
                 player.OnPowerClicked(this);
             }
         }

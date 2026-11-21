@@ -87,6 +87,7 @@ namespace Trucardo.Core
 
         public bool ModalInputBlocked { get; set; }
         private int suppressedInputFrame = -1;
+        private int contextualEnvidoFrame = -1;
         public bool GameplayInputBlocked => ModalInputBlocked || suppressedInputFrame == Time.frameCount;
         public Camera InteractionCamera => thirdPersonCamera != null && thirdPersonCamera.enabled
             ? thirdPersonCamera : firstPersonCamera;
@@ -100,7 +101,11 @@ namespace Trucardo.Core
             if (isSeated)
             {
                 if (currentTableDefinition == null) StandUp();
-                else CallEnvido(EnvidoCall.Envido);
+                else
+                {
+                    contextualEnvidoFrame = Time.frameCount;
+                    CallEnvido(EnvidoCall.Envido);
+                }
             }
             else TrySitDown();
         }
@@ -311,6 +316,7 @@ namespace Trucardo.Core
             }
 
             myCards = cards;
+            RefreshHUD();
             Debug.Log($"[Local Player] Cartas recibidas ({cards.Length}). Instanciando 3D...");
 
             if (localCardInstances != null)
@@ -1471,7 +1477,8 @@ namespace Trucardo.Core
                 if (Keyboard.current.digit3Key.wasPressedThisFrame) PlayCard(2);
                 if (Keyboard.current.digit4Key.wasPressedThisFrame && myCards.Length > 3) PlayCard(3);
 
-                if (Keyboard.current.eKey.wasPressedThisFrame) CallEnvido(EnvidoCall.Envido);
+                if (Keyboard.current.eKey.wasPressedThisFrame && contextualEnvidoFrame != Time.frameCount)
+                    CallEnvido(EnvidoCall.Envido);
                 if (Keyboard.current.rKey.wasPressedThisFrame) CallEnvido(EnvidoCall.RealEnvido);
                 if (Keyboard.current.fKey.wasPressedThisFrame) CallEnvido(EnvidoCall.FaltaEnvido);
                 if (Keyboard.current.qKey.wasPressedThisFrame) CallAction("Truco");
@@ -1526,6 +1533,7 @@ namespace Trucardo.Core
 
             gameOverUIActive = false;
             isSeated = false;
+            SuppressGameplayInputThisFrame();
                     localGameState = GameState.EsperandoJugadores;
                     localTurnId = ulong.MaxValue;
                     localCurrentRoundIndex = 0;
@@ -1668,7 +1676,7 @@ namespace Trucardo.Core
 
         private void PlayCard(int handSlot)
         {
-            if (myCards[handSlot] == -1) return;
+            if (myCards == null || handSlot < 0 || handSlot >= myCards.Length || myCards[handSlot] == -1) return;
 
             if (localGameState != GameState.TurnoJugador || localTurnId != NetworkManager.Singleton.LocalClientId) 
             {
@@ -1679,8 +1687,10 @@ namespace Trucardo.Core
             if (serverInstance == null) serverInstance = FindAnyObjectByType<GameServer>();
             if (serverInstance != null)
             {
-                serverInstance.PlayCardServerRpc(myCards[handSlot]);
-                myCards[handSlot] = -1; // Marcar como jugada
+                int cardToPlay = myCards[handSlot];
+                myCards[handSlot] = -1; // Marcar como jugada antes del RPC (en Host SyncClientState corre sincrónico)
+                RefreshHUD();
+                serverInstance.PlayCardServerRpc(cardToPlay);
 
                 if (localCardInstances[handSlot] != null)
                 {
@@ -1968,6 +1978,7 @@ namespace Trucardo.Core
                 }
 
                 isSeated = true;
+                SuppressGameplayInputThisFrame();
                 SetInterfaceMode(false);
 
                 if (currentTableDefinition != null)

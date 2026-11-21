@@ -970,7 +970,7 @@ namespace Trucardo.Core.UI
             NivelTruco targetTrucoLevel = TrucoRules.GetTargetCallLevel(currentTrucoLevel, uiState, currentPendingCanto);
             string trucoLabel = TrucoRules.GetButtonLabel(targetTrucoLevel);
             bool trucoVisible = showActionBar && canCallTruco;
-            bool envidoVisible = showActionBar && canCallAnyEnvido;
+            bool envidoVisible = showActionBar && (!showResponse || canCallAnyEnvido);
             bool mazoVisible = showActionBar && !showResponse && isLocalTurn;
             bool hasAnyActionBarButton = trucoVisible || envidoVisible || mazoVisible;
 
